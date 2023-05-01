@@ -1,3 +1,9 @@
+<div align="center">
+
+![Native UI Logo](assets/images/NativeLogo.png)
+
+</div>
+
 # NativeUI 
 
 <!-- Header Badges -->

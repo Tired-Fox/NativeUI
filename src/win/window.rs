@@ -251,6 +251,7 @@ impl Window {
     pub fn open(mut self) -> Self {
         self.init();
         self.alive = true;
+        unsafe { ShowWindow(self.handle, SW_SHOW); }
 
         unsafe {
             let mut message = MSG::default();
@@ -268,6 +269,7 @@ pub fn run(mut windows: Vec<&mut Window>) {
     for win in windows.iter_mut() {
         win.init();
         win.alive = true;
+        unsafe { ShowWindow(win.handle, SW_SHOW) };
     }
 
     unsafe {
