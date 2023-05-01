@@ -1,6 +1,6 @@
 <div align="center">
 
-![Native UI Logo](assets/images/Native.png)
+![Native UI Logo](assets/images/Native2.png)
 
 </div>
 
