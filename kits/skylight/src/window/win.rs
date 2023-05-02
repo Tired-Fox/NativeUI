@@ -1,18 +1,25 @@
 use std::sync::atomic::{AtomicU16, Ordering};
 use windows::{
-    core::*, Win32::Foundation::*, Win32::Graphics::Gdi::*,
-    Win32::System::LibraryLoader::GetModuleHandleW, Win32::UI::WindowsAndMessaging::*,
+    core::{HSTRING, PCWSTR},
+    Win32::Foundation::*,
+    Win32::Graphics::Gdi::*,
+    Win32::System::LibraryLoader::GetModuleHandleW,
+    Win32::UI::WindowsAndMessaging::*,
 };
 
-pub use windows::{s as pcstr, w as pwstr};
 use style::color::hex;
+pub use windows::{s as pcstr, w as pwstr};
 
 static WIN_ID: AtomicU16 = AtomicU16::new(1);
 
-use super::core::image::icon;
+use crate::core::image::icon;
+
+pub enum HookType {
+    QUIT,
+}
 
 #[derive(Default)]
-struct Handlers {
+struct Hooks {
     quit: Option<fn(HWND) -> bool>,
 }
 
@@ -34,29 +41,13 @@ pub struct Window {
     pub alive: bool,
     pub icon: Option<&'static str>,
     instance: HMODULE,
-    handlers: Handlers,
+    hooks: Hooks,
 }
 
 impl Window {
-    fn on_click(&mut self, lparam: LPARAM) -> Result<()> {
-        let x = lparam.0 as u16 as f32;
-        let y = (lparam.0 >> 16) as f32;
-
-        if cfg!(debug_assertions) {
-            println!("x: {}, y: {}", x, y);
-        }
-
-        Ok(())
-    }
-
-    fn on_draw(&mut self) -> Result<()> {
-        unsafe { ValidateRect(self.handle, None).ok() }
-    }
-
-    fn on_create(&mut self) -> Result<()> {
-        // println!("CREATE");
+    fn on_create(&mut self) -> Result<(), &str> {
         unsafe {
-            SetWindowPos(
+            if SetWindowPos(
                 self.handle,
                 None,
                 0,
@@ -65,20 +56,26 @@ impl Window {
                 self.height.into(),
                 SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOZORDER,
             )
-            .ok()
+            .0 == 0
+            {
+                return Err("Failed to set windows initial size");
+            }
+            Ok(())
         }
     }
 
     fn on_message(&mut self, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
         match message {
             WM_ERASEBKGND => unsafe {
+                // Redraw the window background when an erase background event occurs
                 let mut ps = PAINTSTRUCT::default();
                 let hdc = BeginPaint(self.handle, &mut ps);
                 FillRect(hdc, &ps.rcPaint, self.background);
                 EndPaint(self.handle, &ps);
             },
             WM_CLOSE => unsafe {
-                match self.handlers.quit {
+                // If quit hook is set execute the hook
+                match self.hooks.quit {
                     Some(on_quit) => {
                         if on_quit(self.handle) {
                             DestroyWindow(self.handle);
@@ -88,15 +85,9 @@ impl Window {
                         DestroyWindow(self.handle);
                     }
                 }
-                if let Some(on_quit) = self.handlers.quit {
-                    if on_quit(self.handle) {
-                        DestroyWindow(self.handle);
-                    }
-                } else {
-                    DestroyWindow(self.handle);
-                }
             },
             WM_DESTROY => {
+                // Mark the window as no longer alive for message loop
                 self.alive = false;
             }
             _ => unsafe {
@@ -141,13 +132,25 @@ impl Window {
         self
     }
 
-    fn create(&mut self) -> Result<()> {
+    fn create(&mut self) -> Result<(), &'static str> {
+        // Create unique window name from a global window counter
         let id = WIN_ID.swap(WIN_ID.load(Ordering::SeqCst) + 1, Ordering::SeqCst);
         self.class = HSTRING::from(format!("NativeUi.rs-{}", id).as_str());
 
+        if true {
+            return Err("Invalid scope");
+        }
+
         unsafe {
-            let instance = GetModuleHandleW(None)?;
-            debug_assert!(instance.0 != 0);
+            let instance = match GetModuleHandleW(None) {
+                Ok(module) => {
+                    if module.0 == 0 {
+                        return Err("Invalid module handle");
+                    }
+                    module
+                }
+                Err(_) => return Err("Failed to generate module handle"),
+            };
 
             let icon = match self.icon {
                 Some(ico) => icon(ico).0,
@@ -155,7 +158,7 @@ impl Window {
             };
 
             let wc = WNDCLASSW {
-                hCursor: LoadCursorW(None, IDC_ARROW)?,
+                hCursor: LoadCursorW(None, IDC_ARROW).unwrap(),
                 hInstance: instance,
                 lpszClassName: PCWSTR::from_raw(self.class.as_ptr()),
                 style: self.styles.class,
@@ -165,7 +168,9 @@ impl Window {
             };
 
             let atom = RegisterClassW(&wc);
-            debug_assert!(atom != 0);
+            if atom == 0 {
+                return Err("Failed to register window class");
+            }
 
             let handle = CreateWindowExW(
                 WINDOW_EX_STYLE::default(),
@@ -182,8 +187,9 @@ impl Window {
                 Some(self as *mut _ as _),
             );
 
-            debug_assert!(handle.0 != 0);
-            debug_assert!(handle == self.handle);
+            if handle.0 == 0 || handle != self.handle {
+                return Err("Failed to create new window");
+            }
         }
 
         Ok(())
@@ -203,7 +209,7 @@ impl Window {
             handle: HWND(0),
             width: 400,
             height: 300,
-            handlers: Handlers { quit: None },
+            hooks: Hooks { quit: None },
             alive: false,
             instance: HMODULE(0),
             icon: None,
@@ -226,24 +232,30 @@ impl Window {
         self
     }
 
-    pub fn bind(mut self, event_key: EventKey, callback: fn(HWND) -> bool) -> Self {
+    pub fn hook(mut self, event_key: HookType, callback: fn(HWND) -> bool) -> Self {
         match event_key {
-            EventKey::QUIT => self.handlers.quit = Some(callback),
+            HookType::QUIT => self.hooks.quit = Some(callback),
         }
 
         self
     }
 
-    pub fn init(&mut self) {
+    pub fn init(&mut self) -> Result<(), &'static str> {
         if self.class.to_string_lossy().len() == 0 {
-            self.create().ok();
+            self.create()?;
         }
+        Ok(())
     }
 
-    pub fn open(mut self) -> Self {
-        self.init();
+    pub fn show(&self) {
+        unsafe {
+            ShowWindow(self.handle, SW_SHOW);
+        }
+    }
+    pub fn open(mut self) -> Result<(), &'static str> {
+        self.init()?;
         self.alive = true;
-        unsafe { ShowWindow(self.handle, SW_SHOW); }
+        self.show();
 
         unsafe {
             let mut message = MSG::default();
@@ -253,28 +265,6 @@ impl Window {
                 DispatchMessageA(&message);
             }
         }
-        self
+        Ok(())
     }
 }
-
-pub fn run(mut windows: Vec<&mut Window>) {
-    for win in windows.iter_mut() {
-        win.init();
-        win.alive = true;
-        unsafe { ShowWindow(win.handle, SW_SHOW) };
-    }
-
-    unsafe {
-        let mut message = MSG::default();
-
-        while windows.iter().any(|e| e.alive) {
-            GetMessageA(&mut message, None, 0, 0);
-            DispatchMessageA(&message);
-        }
-    }
-}
-
-pub enum EventKey {
-    QUIT,
-}
-

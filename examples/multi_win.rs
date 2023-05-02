@@ -3,29 +3,29 @@ extern crate native_ui;
 use skylight::{
     core::{style::hs, Brush},
     popup::{ButtonLayout, Icon, MessageBox, MessageReturn},
-    HookType, Window,
+    run, EventKey, Window,
 };
 
 fn main() {
-    match Window::new()
+    let mut window = Window::new()
         .size(800, 400)
         .title("Native UI")
         .icon("NativeUi.ico")
         .background(Brush::hatch("#B6996D".into(), hs::DIAGNOL))
-        .hook(HookType::QUIT, |handle| {
+        .hook(EventKey::QUIT, |handle| {
             MessageBox::new(
-                Some(handle),
+                handle,
                 "Quit Application",
                 "Are you sure?",
                 ButtonLayout::YesNo,
                 Icon::Info,
             ) == MessageReturn::Yes
-        })
-        .open()
-    {
-        Err(message) => {
-            MessageBox::new(None, "NativeUI Exception", message, ButtonLayout::Ok, Icon::Error);
-        }
-        _ => (),
-    }
+        });
+
+    let mut window2 = Window::new()
+        .size(400, 300)
+        .title("Rust Window")
+        .background(Brush::solid("#F0F".into()));
+
+    run(vec![&mut window, &mut window2]);
 }

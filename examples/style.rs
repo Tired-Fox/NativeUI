@@ -1,7 +1,7 @@
 extern crate native_ui;
 
 use native_ui::style::{
-    color::hex, Attribute, AttributeCompare, Element, Property, PropertyValue, Pseudo, Select,
+    Attribute, AttributeCompare, Element, Property, PropertyValue, Pseudo, Select,
     Style, Stylesheet,
 };
 
