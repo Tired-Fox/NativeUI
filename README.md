@@ -21,11 +21,35 @@
 
 <!-- End Header -->
 
+## Names
+  - Apple API > Braeburn
+  - Linux API > Humboldt
+  - Windows > Skylight
+
+## Objects
+  - Scroll Bar
+  - Rich Edit
+  - Combo Box
+  - List Box
+  - Edit control
+  - Button
+  - Text
+  - List
+  - Dropdown
+  - Menu
+  - Window
+
 ## Resources
 - [windows-rs](https://github.com/microsoft/windows-rs)
 - [windows-rs docs](https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/System/LibraryLoader/fn.GetModuleHandleA.html)
 - [learn win32](https://learn.microsoft.com/en-us/windows/win32/learnwin32/)
 - windows-rs [samples](https://github.com/microsoft/windows-rs/blob/master/crates/samples/readme.md)
+- [rust-cssparser](https://github.com/servo/rust-cssparser)
+
+## Insperation
+- [Alchemy](https://github.com/ryanmcgrath/alchemy)
+  - [Example](https://github.com/ryanmcgrath/alchemy/blob/trunk/examples/layout/src/main.rs)
+  - [Cocoa](https://github.com/ryanmcgrath/alchemy/tree/trunk/cocoa)
 
 ## References
 - [c_void and casting](https://stackoverflow.com/questions/24191249/working-with-c-void-in-an-ffi)
