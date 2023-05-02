@@ -5,10 +5,11 @@ use windows::{
 };
 
 pub use windows::{s as pcstr, w as pwstr};
+use style::color::hex;
 
 static WIN_ID: AtomicU16 = AtomicU16::new(1);
 
-use super::core::hex;
+use super::core::image::icon;
 
 #[derive(Default)]
 struct Handlers {
@@ -193,11 +194,11 @@ impl Window {
     pub fn new() -> Self {
         Window {
             title: HSTRING::new(),
-            background: unsafe { CreateSolidBrush(COLORREF(hex("ff4747"))) },
+            background: unsafe { CreateSolidBrush(COLORREF(hex("ff4747").into())) },
             class: HSTRING::new(),
             styles: WindowStyles {
-                window: WS_OVERLAPPEDWINDOW | WS_VISIBLE,
-                class: CS_HREDRAW | CS_VREDRAW,
+                window: WS_TILEDWINDOW,
+                class: WNDCLASS_STYLES(0),
             },
             handle: HWND(0),
             width: 400,
@@ -225,12 +226,6 @@ impl Window {
         self
     }
 
-    pub fn style(mut self, window: WINDOW_STYLE, class: WNDCLASS_STYLES) -> Self {
-        self.styles.window = window;
-        self.styles.class = class;
-        self
-    }
-
     pub fn bind(mut self, event_key: EventKey, callback: fn(HWND) -> bool) -> Self {
         match event_key {
             EventKey::QUIT => self.handlers.quit = Some(callback),
@@ -241,10 +236,7 @@ impl Window {
 
     pub fn init(&mut self) {
         if self.class.to_string_lossy().len() == 0 {
-            println!("Generate window");
             self.create().ok();
-        } else {
-            println!("Don't generate window");
         }
     }
 
@@ -286,16 +278,3 @@ pub enum EventKey {
     QUIT,
 }
 
-pub fn icon(path: &str) -> LOADIMAGE_HANDLE {
-    unsafe {
-        LoadImageW(
-            None,
-            PCWSTR(HSTRING::from(path).as_ptr()),
-            IMAGE_ICON,
-            0,
-            0,
-            LR_LOADFROMFILE | LR_SHARED | LR_LOADTRANSPARENT | LR_DEFAULTSIZE,
-        )
-        .unwrap()
-    }
-}
