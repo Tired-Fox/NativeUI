@@ -5,7 +5,7 @@ pub use win::*;
 
 use windows::Win32::UI::WindowsAndMessaging::{MSG, GetMessageA, DispatchMessageA};
 
-pub fn run(mut windows: Vec<&mut Window>) -> Result<(), &'static str> {
+pub fn run(mut windows: Vec<&mut Window>) -> Result<(), String> {
     for win in windows.iter_mut() {
         win.init()?;
         win.alive = true;

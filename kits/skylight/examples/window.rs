@@ -1,4 +1,4 @@
-extern crate native_ui;
+extern crate skylight;
 
 use skylight::{
     core::{style::hs, Brush},
@@ -24,7 +24,13 @@ fn main() {
         .open()
     {
         Err(message) => {
-            MessageBox::new(None, "NativeUI Exception", message, ButtonLayout::Ok, Icon::Error);
+            MessageBox::new(
+                None,
+                "NativeUI Exception",
+                message.as_str(),
+                ButtonLayout::Ok,
+                Icon::Error,
+            );
         }
         _ => (),
     }

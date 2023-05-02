@@ -132,28 +132,24 @@ impl Window {
         self
     }
 
-    fn create(&mut self) -> Result<(), &'static str> {
+    fn create(&mut self) -> Result<(), String> {
         // Create unique window name from a global window counter
         let id = WIN_ID.swap(WIN_ID.load(Ordering::SeqCst) + 1, Ordering::SeqCst);
         self.class = HSTRING::from(format!("NativeUi.rs-{}", id).as_str());
-
-        if true {
-            return Err("Invalid scope");
-        }
 
         unsafe {
             let instance = match GetModuleHandleW(None) {
                 Ok(module) => {
                     if module.0 == 0 {
-                        return Err("Invalid module handle");
+                        return Err("Invalid module handle".to_owned());
                     }
                     module
                 }
-                Err(_) => return Err("Failed to generate module handle"),
+                Err(_) => return Err("Failed to generate module handle".to_owned()),
             };
 
             let icon = match self.icon {
-                Some(ico) => icon(ico).0,
+                Some(ico) => icon(ico)?.0,
                 _ => 0,
             };
 
@@ -169,7 +165,7 @@ impl Window {
 
             let atom = RegisterClassW(&wc);
             if atom == 0 {
-                return Err("Failed to register window class");
+                return Err("Failed to register window class".to_owned());
             }
 
             let handle = CreateWindowExW(
@@ -188,7 +184,7 @@ impl Window {
             );
 
             if handle.0 == 0 || handle != self.handle {
-                return Err("Failed to create new window");
+                return Err("Failed to create new window".to_owned());
             }
         }
 
@@ -240,7 +236,7 @@ impl Window {
         self
     }
 
-    pub fn init(&mut self) -> Result<(), &'static str> {
+    pub fn init(&mut self) -> Result<(), String> {
         if self.class.to_string_lossy().len() == 0 {
             self.create()?;
         }
@@ -252,7 +248,7 @@ impl Window {
             ShowWindow(self.handle, SW_SHOW);
         }
     }
-    pub fn open(mut self) -> Result<(), &'static str> {
+    pub fn open(mut self) -> Result<(), String> {
         self.init()?;
         self.alive = true;
         self.show();

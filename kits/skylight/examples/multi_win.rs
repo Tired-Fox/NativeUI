@@ -1,9 +1,9 @@
-extern crate native_ui;
+extern crate skylight;
 
 use skylight::{
     core::{style::hs, Brush},
     popup::{ButtonLayout, Icon, MessageBox, MessageReturn},
-    run, EventKey, Window,
+    run, HookType, Window,
 };
 
 fn main() {
@@ -12,9 +12,9 @@ fn main() {
         .title("Native UI")
         .icon("NativeUi.ico")
         .background(Brush::hatch("#B6996D".into(), hs::DIAGNOL))
-        .hook(EventKey::QUIT, |handle| {
+        .hook(HookType::QUIT, |handle| {
             MessageBox::new(
-                handle,
+                Some(handle),
                 "Quit Application",
                 "Are you sure?",
                 ButtonLayout::YesNo,

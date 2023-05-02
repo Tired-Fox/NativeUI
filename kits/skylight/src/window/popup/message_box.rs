@@ -5,10 +5,10 @@ use windows::{
 
 use super::types::{ButtonLayout, Icon, MessageReturn};
 
-pub fn new(
+pub fn new<'a>(
     handle: Option<HWND>,
-    title: &'static str,
-    body: &'static str,
+    title: &'a str,
+    body: &'a str,
     button_layout: ButtonLayout,
     icon: Icon,
 ) -> MessageReturn {

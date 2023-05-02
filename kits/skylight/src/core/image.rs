@@ -6,16 +6,20 @@ use windows::{
     },
 };
 
-pub fn icon(path: &str) -> LOADIMAGE_HANDLE {
+use super::errors::last_error_message;
+
+pub fn icon(path: &str) -> Result<LOADIMAGE_HANDLE, String> {
     unsafe {
-        LoadImageW(
+        match LoadImageW(
             None,
             PCWSTR(HSTRING::from(path).as_ptr()),
             IMAGE_ICON,
             0,
             0,
             LR_LOADFROMFILE | LR_SHARED | LR_LOADTRANSPARENT | LR_DEFAULTSIZE,
-        )
-        .unwrap()
+        ) {
+            Ok(handle) => Ok(handle),
+            _ => Err(last_error_message()),
+        }
     }
 }
