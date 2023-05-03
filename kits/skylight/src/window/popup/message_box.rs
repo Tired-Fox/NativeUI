@@ -1,41 +1,33 @@
 use windows::{
-    core::{HSTRING, PCWSTR},
+    core::{IntoParam, HSTRING, PCWSTR},
     Win32::{Foundation::HWND, UI::WindowsAndMessaging::*},
 };
 
 use super::types::{ButtonLayout, Icon, MessageReturn};
 
-pub fn new<'a>(
-    handle: Option<HWND>,
+pub fn new<'a, P0>(
+    handle: P0,
     title: &'a str,
     body: &'a str,
     button_layout: ButtonLayout,
     icon: Icon,
-) -> MessageReturn {
+) -> MessageReturn
+where
+    P0: IntoParam<HWND>,
+{
     let mut style: MESSAGEBOX_STYLE = button_layout.into();
 
     if icon != Icon::None {
         style |= icon.into();
     }
 
-    match handle {
-        Some(hwnd) => unsafe {
-            MessageBoxW(
-                hwnd,
-                PCWSTR::from_raw(HSTRING::from(body).as_ptr()),
-                PCWSTR::from_raw(HSTRING::from(title).as_ptr()),
-                style,
-            )
-            .into()
-        },
-        _ => unsafe {
-            MessageBoxW(
-                None,
-                PCWSTR::from_raw(HSTRING::from(body).as_ptr()),
-                PCWSTR::from_raw(HSTRING::from(title).as_ptr()),
-                style,
-            )
-            .into()
-        },
+    unsafe {
+        MessageBoxW(
+            handle,
+            PCWSTR::from_raw(HSTRING::from(body).as_ptr()),
+            PCWSTR::from_raw(HSTRING::from(title).as_ptr()),
+            style,
+        )
+        .into()
     }
 }

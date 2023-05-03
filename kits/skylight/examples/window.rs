@@ -1,28 +1,32 @@
 extern crate skylight;
 
 use skylight::{
-    core::{style::hs, Brush},
     popup::{ButtonLayout, Icon, MessageBox, MessageReturn},
     HookType, Window,
 };
 
+use style::{Prop, BS};
+
 fn main() {
-    match Window::new()
-        .size(800, 400)
+    let window = Window::new()
         .title("Native UI")
         .icon("NativeUi.ico")
-        .background(Brush::hatch("#B6996D".into(), hs::DIAGNOL))
         .hook(HookType::QUIT, |handle| {
             MessageBox::new(
-                Some(handle),
+                handle,
                 "Quit Application",
                 "Are you sure?",
                 ButtonLayout::YesNo,
                 Icon::Info,
             ) == MessageReturn::Yes
         })
-        .open()
-    {
+        .style(vec![
+            ("width", Prop::PX(1000)),
+            ("height", Prop::PX(800)),
+            ("background", Prop::Background("B6996D".into(), Some(BS::CROSS))),
+        ]);
+
+    match window.open() {
         Err(message) => {
             MessageBox::new(
                 None,
@@ -32,6 +36,6 @@ fn main() {
                 Icon::Error,
             );
         }
-        _ => (),
+        _ => ()
     }
 }

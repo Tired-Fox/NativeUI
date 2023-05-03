@@ -1,4 +1,7 @@
-use std::sync::atomic::{AtomicU16, Ordering};
+use std::{
+    collections::HashMap,
+    sync::atomic::{AtomicU16, Ordering},
+};
 use windows::{
     core::{HSTRING, PCWSTR},
     Win32::Foundation::*,
@@ -7,31 +10,34 @@ use windows::{
     Win32::UI::WindowsAndMessaging::*,
 };
 
-use style::color::hex;
+use style::{
+    color::{hex, Color},
+    BS, Prop,
+};
 pub use windows::{s as pcstr, w as pwstr};
 
 static WIN_ID: AtomicU16 = AtomicU16::new(1);
 
-use crate::core::image::icon;
+use crate::core::{image::icon, style::{HS::ToHatchStyle, WS::TILED_WINDOW}, Brush, Rect};
 
 pub enum HookType {
     QUIT,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct Hooks {
     quit: Option<fn(HWND) -> bool>,
 }
 
+#[derive(Debug)]
 pub struct WindowStyles {
     window: WINDOW_STYLE,
     class: WNDCLASS_STYLES,
 }
 
+#[derive(Debug)]
 pub struct Window {
     pub title: HSTRING,
-    pub width: i16,
-    pub height: i16,
     pub background: HBRUSH,
 
     pub handle: HWND,
@@ -40,30 +46,12 @@ pub struct Window {
 
     pub alive: bool,
     pub icon: Option<&'static str>,
-    instance: HMODULE,
+    pub rect: Rect,
+    pub style: HashMap<String, Prop>,
     hooks: Hooks,
 }
 
 impl Window {
-    fn on_create(&mut self) -> Result<(), &str> {
-        unsafe {
-            if SetWindowPos(
-                self.handle,
-                None,
-                0,
-                0,
-                self.width.into(),
-                self.height.into(),
-                SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOZORDER,
-            )
-            .0 == 0
-            {
-                return Err("Failed to set windows initial size");
-            }
-            Ok(())
-        }
-    }
-
     fn on_message(&mut self, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
         match message {
             WM_ERASEBKGND => unsafe {
@@ -111,7 +99,7 @@ impl Window {
                     (*this).handle = window;
 
                     SetWindowLongPtrW(window, GWLP_USERDATA, this as _);
-                    (*this).on_create().ok();
+                    // (*this).on_create().ok();
                     return LRESULT(0);
                 }
                 _ => {
@@ -125,11 +113,6 @@ impl Window {
                 }
             }
         }
-    }
-
-    pub fn icon(mut self, path: &'static str) -> Self {
-        self.icon = Some(path);
-        self
     }
 
     fn create(&mut self) -> Result<(), String> {
@@ -175,8 +158,8 @@ impl Window {
                 self.styles.window,
                 CW_USEDEFAULT,
                 CW_USEDEFAULT,
-                CW_USEDEFAULT,
-                CW_USEDEFAULT,
+                self.rect.width().into(),
+                self.rect.height().into(),
                 None,
                 None,
                 instance,
@@ -190,31 +173,65 @@ impl Window {
 
         Ok(())
     }
+
+    fn apply_styles(&mut self) -> Result<(), String> {
+        if self.style.contains_key("width") {
+            match self.style.get("width").unwrap() {
+                Prop::PX(pixels) => {
+                    self.rect.right = pixels.to_owned();
+                }
+                Prop::Percent(percent) => {
+                    self.rect.right = (1920f32 * percent).round() as i16;
+                }
+                _ => return Err("Invalid value type for window width".to_owned()),
+            };
+        }
+
+        if self.style.contains_key("height") {
+            match self.style.get("height").unwrap() {
+                Prop::PX(pixels) => {
+                    self.rect.bottom = pixels.to_owned();
+                }
+                Prop::Percent(percent) => {
+                    self.rect.bottom = (1080f32 * percent).round() as i16;
+                }
+                _ => return Err("Invalid value type for window width".to_owned()),
+            };
+        }
+
+        build_background(self)?;
+
+        Ok(())
+    }
 }
 
 impl Window {
     pub fn new() -> Self {
         Window {
             title: HSTRING::new(),
-            background: unsafe { CreateSolidBrush(COLORREF(hex("ff4747").into())) },
+            background: unsafe { CreateSolidBrush(COLORREF(hex("FFF").into())) },
             class: HSTRING::new(),
             styles: WindowStyles {
-                window: WS_TILEDWINDOW,
+                window: TILED_WINDOW,
                 class: WNDCLASS_STYLES(0),
             },
             handle: HWND(0),
-            width: 400,
-            height: 300,
             hooks: Hooks { quit: None },
             alive: false,
-            instance: HMODULE(0),
             icon: None,
+            rect: Rect::new(0, 0, 400, 300),
+            style: HashMap::new(),
         }
     }
 
+    pub fn icon(mut self, path: &'static str) -> Self {
+        self.icon = Some(path);
+        self
+    }
+
     pub fn size(mut self, width: i16, height: i16) -> Self {
-        self.height = height;
-        self.width = width;
+        self.rect.right = width;
+        self.rect.bottom = height;
         self
     }
 
@@ -236,8 +253,16 @@ impl Window {
         self
     }
 
+    pub fn style(mut self, style: Vec<(&str, Prop)>) -> Self {
+        for pair in style.iter() {
+            self.style.insert(pair.0.to_owned(), pair.1.clone());
+        }
+        self
+    }
+
     pub fn init(&mut self) -> Result<(), String> {
         if self.class.to_string_lossy().len() == 0 {
+            self.apply_styles()?;
             self.create()?;
         }
         Ok(())
@@ -263,4 +288,50 @@ impl Window {
         }
         Ok(())
     }
+}
+
+fn build_background(window: &mut Window) -> Result<(), String> {
+    let mut color: Color = "FFF".into();
+    let mut pattern = None;
+    if window.style.contains_key("background") {
+        match window.style.get("background").unwrap() {
+            Prop::Background(c, hatch) => {
+                color = c.to_owned();
+                match hatch {
+                    Some(h) => pattern = Some(h.to_hatch()),
+                    _ => (),
+                }
+            }
+            _ => return Err("Invalid background values".to_owned()),
+        };
+    }
+
+    if window.style.contains_key("background-color") {
+        match window.style.get("background-color").unwrap() {
+            Prop::Color(c) => {
+                color = c.to_owned();
+            }
+            _ => return Err("Invalid background-color color value".to_owned()),
+        };
+    }
+
+    if window.style.contains_key("background-style") {
+        match window.style.get("background-style").unwrap() {
+            Prop::BackgroundStyle(style) => match style {
+                BS::SOLID => {
+                    window.background = Brush::solid(color);
+                }
+                _ => {
+                    window.background = Brush::hatch(color, style.to_hatch());
+                }
+            },
+            _ => return Err("Invalid background-style value".to_owned()),
+        };
+    } else {
+        match pattern {
+            Some(p) => window.background = Brush::hatch(color, p),
+            _ => window.background = Brush::solid(color),
+        }
+    }
+    Ok(())
 }

@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+#[derive(Clone, Debug)]
 pub struct Color {
     pub default: String,
     pub red: u8,

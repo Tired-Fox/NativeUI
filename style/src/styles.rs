@@ -1,7 +1,7 @@
 use super::color::Color;
 use std::fmt::Display;
 
-pub enum Pseudo {
+ pub enum Pseudo {
     Class(String),
     Element(String),
     None,
@@ -132,25 +132,51 @@ impl Display for Select {
     }
 }
 
-pub enum PropertyValue {
-    PX(i32),
-    PERCENT(f32),
-    COLOR(Color),
+#[derive(Clone, Debug)]
+pub enum BorderStyle {
+    Solid,
+    Dotted,
+    Dashed,
+    None
 }
 
-impl Display for PropertyValue {
+/// Background Style. Right now only applies to windows hatch brush
+#[derive(Clone, Debug)]
+pub enum BS {
+    DCROSS,
+    CROSS,
+    VERTICAL,
+    HORIZONTAL,
+    TANGENT,
+    DIAGNOL,
+    SOLID,
+}
+
+#[derive(Clone, Debug)]
+pub enum Prop {
+    PX(i16),
+    Percent(f32),
+    Color(Color),
+    Border(i16, Option<BorderStyle>, Option<Color>),
+    BorderStyle(BorderStyle),
+    BackgroundStyle(BS),
+    Background(Color, Option<BS>)
+}
+
+impl Display for Prop{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PropertyValue::PX(pixels) => write!(f, "{}px", pixels),
-            PropertyValue::PERCENT(percent) => write!(f, "{}%", percent),
-            PropertyValue::COLOR(color) => write!(f, "{}", color.default),
+            Prop::PX(pixels) => write!(f, "{}px", pixels),
+            Prop::Percent(percent) => write!(f, "{}%", percent),
+            Prop::Color(color) => write!(f, "{}", color.default),
+            _ => write!(f, "{}", "Unkown")
         }
     }
 }
 
 pub struct Property {
     pub name: &'static str,
-    pub value: PropertyValue,
+    pub value: Prop,
 }
 
 impl Display for Property {
