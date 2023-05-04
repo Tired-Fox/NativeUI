@@ -22,7 +22,7 @@ impl Control for Button {
 }
 
 impl Renderable for Button {
-    fn update() -> Result<(), String> {
+    fn update(&self) -> Result<(), String> {
         Ok(())
     }
 

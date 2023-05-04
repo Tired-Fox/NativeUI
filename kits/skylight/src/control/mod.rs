@@ -2,6 +2,8 @@ mod button;
 mod helpers;
 mod text;
 
+use std::fmt;
+
 pub use button::Button;
 pub use text::Text;
 use windows::Win32::{
@@ -12,9 +14,9 @@ use windows::Win32::{
     },
 };
 
-use crate::core::{ViewType, ProcResult};
+use crate::core::{ViewType, ProcResult, Renderable};
 
-pub trait Control {
+pub trait Control: fmt::Debug + Renderable {
     fn create(&mut self, parent: ViewType) -> Result<(), String>;
     fn proc(&mut self, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> ProcResult;
 }

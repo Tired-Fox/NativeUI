@@ -5,5 +5,11 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-skylight = { path = "kits/skylight" }
+skylight = { path = "kits/skylight", optional = true }
 style = { path = "style" }
+
+[features]
+all = ["windows", "apple", "linux"]
+windows = ["dep:skylight"]
+apple = []
+linux = []

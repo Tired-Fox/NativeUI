@@ -2,10 +2,12 @@ mod brush;
 pub mod constants;
 pub mod errors;
 pub mod image;
+use std::{rc::Rc, cell::RefCell};
+
 pub use brush::*;
 use windows::Win32::Foundation::{HMODULE, HWND, RECT};
 
-use crate::control::{Button, Text};
+use crate::control::{Button, Text, Control};
 
 pub enum ProcResult {
     Default,
@@ -63,7 +65,7 @@ impl From<Rect> for RECT {
 }
 
 pub trait Renderable {
-    fn update() -> Result<(), String> {
+    fn update(&self) -> Result<(), String> {
         Ok(())
     }
 
@@ -72,17 +74,17 @@ pub trait Renderable {
 
 // Styling and layout
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ChildType {
-    Control(ControlType),
+    Control(Rc<RefCell<dyn Control>>),
 }
 
-#[derive(Debug)]
-pub enum ControlType {
-    Text(Text),
-    Button(Button),
-    None,
-}
+// #[derive(Debug)]
+// pub enum ControlType {
+//     Text(Text),
+//     Button(Button),
+//     None,
+// }
 
 #[derive(Debug)]
 pub enum ViewType {

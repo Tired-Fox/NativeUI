@@ -144,7 +144,7 @@ impl Control for Text {
 }
 
 impl Renderable for Text {
-    fn update() -> Result<(), String> {
+    fn update(&self) -> Result<(), String> {
         Ok(())
     }
 

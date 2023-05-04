@@ -23,7 +23,7 @@ use crate::{
     core::{
         constants::{HS::ToHatchStyle, WS::TILED_WINDOW},
         image::icon,
-        Brush, ChildType, ControlType, ProcResult, Rect, Renderable, ViewType,
+        Brush, ChildType, ProcResult, Rect, Renderable, ViewType,
     },
 };
 
@@ -266,8 +266,10 @@ impl Window {
         self
     }
 
-    pub fn layout(mut self, children: &mut Vec<ChildType>) -> Self {
-        self.children.append(children);
+    pub fn layout(mut self, children: Vec<ChildType>) -> Self {
+        for child in children.iter() {
+            self.children.push(child.clone())
+        }
         self
     }
 
@@ -275,22 +277,17 @@ impl Window {
         if self.class.to_string_lossy().len() == 0 {
             self.apply_styles()?;
             self.create()?;
-            self.show();
 
             for child in self.children.iter_mut() {
                 match child {
-                    ChildType::Control(control) => match control {
-                        ControlType::Text(text) => {
-                            text.create(ViewType::Window(
-                                self.handle.clone(),
-                                self.instance.clone(),
-                            ))?;
-                            text.show()
-                        }
-                        _ => (),
-                    },
+                    ChildType::Control(control) => {
+                        let mut control = control.borrow_mut();
+                        control.create(ViewType::Window(self.handle.clone(), self.instance.clone()))?;
+                    }
                 }
             }
+
+            self.show();
         }
         Ok(())
     }
@@ -372,13 +369,21 @@ fn build_background(window: &mut Window) -> Result<(), String> {
 }
 
 impl Renderable for Window {
-    fn update() -> Result<(), String> {
+    fn update(&self) -> Result<(), String> {
         Ok(())
     }
 
     fn show(&self) {
         unsafe {
             ShowWindow(self.handle, SW_SHOW);
+
+            for child in self.children.iter() {
+                match child {
+                    ChildType::Control(control) => {
+                        control.borrow().show();
+                    }
+                }
+            }
         }
     }
 }

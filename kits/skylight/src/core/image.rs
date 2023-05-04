@@ -6,7 +6,7 @@ use windows::{
     },
 };
 
-use super::errors::last_error_message;
+use super::errors::WinError;
 
 pub fn icon(path: &str) -> Result<LOADIMAGE_HANDLE, String> {
     unsafe {
@@ -19,7 +19,7 @@ pub fn icon(path: &str) -> Result<LOADIMAGE_HANDLE, String> {
             LR_LOADFROMFILE | LR_SHARED | LR_LOADTRANSPARENT | LR_DEFAULTSIZE,
         ) {
             Ok(handle) => Ok(handle),
-            _ => Err(last_error_message()),
+            _ => Err(format!("Failed to load icon '{}': {}", path, WinError::last().message)),
         }
     }
 }
