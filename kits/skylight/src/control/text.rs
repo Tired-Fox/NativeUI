@@ -23,7 +23,10 @@ use crate::{
     },
 };
 
-use super::{helpers::text_size, wndproc, Control};
+use super::{
+    // helpers::text_size,
+    wndproc, Control
+};
 
 #[derive(Debug)]
 pub struct Text {

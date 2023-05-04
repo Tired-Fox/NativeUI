@@ -1,4 +1,4 @@
-use windows::Win32::Foundation::{LRESULT, LPARAM, WPARAM, HWND};
+use windows::Win32::Foundation::{LPARAM, WPARAM, HWND};
 
 use crate::core::{Renderable, ViewType, ProcResult};
 

@@ -2,20 +2,20 @@ extern crate skylight;
 
 use skylight::{
     control::*,
-    // core::{ChildType, ControlType},
-    text,
+    core::{Brush, constants::HS},
+    macros::Controls,
     HookType, Window,
     popup::{MessageBox, MessageReturn, ButtonLayout, Icon}
 };
 
-use style::{Prop, BS};
+// use style::{Prop, BS};
 
 fn main() {
     let mut window = Window::new()
-        // .size(800, 400)
+        .size(800, 400)
         .title("Native UI")
         .icon("NativeUi.ico")
-        // .background(Brush::hatch("B6996D".into(), HS::DCROSS))
+        .background(Brush::hatch("B6996D".into(), HS::DCROSS))
         .hook(HookType::QUIT, |handle| {
             MessageBox::new(
                 handle,
@@ -25,17 +25,17 @@ fn main() {
                 Icon::Info,
             ) == MessageReturn::Yes
         })
-        .style(vec![
-            ("width", Prop::PX(800)),
-            ("height", Prop::PX(400)),
-            (
-                "background",
-                Prop::Background("B6996D".into(), Some(BS::DCROSS)),
-            ),
-        ])
         .layout(&mut vec![
-            text!("Native UI Test Window")
+            Controls::text!("Native UI Test Window")
         ]);
+        // .style(vec![
+        //     ("width", Prop::PX(800)),
+        //     ("height", Prop::PX(400)),
+        //     (
+        //         "background",
+        //         Prop::Background("B6996D".into(), Some(BS::DCROSS)),
+        //     ),
+        // ]);
 
     match window.open() {
         Err(message) => {
