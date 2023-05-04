@@ -27,5 +27,5 @@ fn main() {
         .title("Rust Window")
         .background(Brush::solid("#F0F".into()));
 
-    run(vec![&mut window, &mut window2]);
+    run(vec![window, window2]);
 }

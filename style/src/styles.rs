@@ -154,10 +154,10 @@ pub enum BS {
 
 #[derive(Clone, Debug)]
 pub enum Prop {
-    PX(i16),
+    PX(i32),
     Percent(f32),
     Color(Color),
-    Border(i16, Option<BorderStyle>, Option<Color>),
+    Border(i32, Option<BorderStyle>, Option<Color>),
     BorderStyle(BorderStyle),
     BackgroundStyle(BS),
     Background(Color, Option<BS>)

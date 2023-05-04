@@ -12,13 +12,20 @@ use windows::{
 
 use style::{
     color::{hex, Color},
-    BS, Prop,
+    Prop, BS,
 };
 pub use windows::{s as pcstr, w as pwstr};
 
 static WIN_ID: AtomicU16 = AtomicU16::new(1);
 
-use crate::core::{image::icon, style::{HS::ToHatchStyle, WS::TILED_WINDOW}, Brush, Rect};
+use crate::{
+    control::Control,
+    core::{
+        constants::{HS::ToHatchStyle, WS::TILED_WINDOW},
+        image::icon,
+        Brush, ChildType, ControlType, ProcResult, Rect, Renderable, ViewType,
+    },
+};
 
 pub enum HookType {
     QUIT,
@@ -41,6 +48,7 @@ pub struct Window {
     pub background: HBRUSH,
 
     pub handle: HWND,
+    pub instance: HMODULE,
     pub class: HSTRING,
     pub styles: WindowStyles,
 
@@ -49,10 +57,11 @@ pub struct Window {
     pub rect: Rect,
     pub style: HashMap<String, Prop>,
     hooks: Hooks,
+    children: Vec<ChildType>,
 }
 
 impl Window {
-    fn on_message(&mut self, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    fn on_message(&mut self, message: u32, wparam: WPARAM, lparam: LPARAM) -> ProcResult {
         match message {
             WM_ERASEBKGND => unsafe {
                 // Redraw the window background when an erase background event occurs
@@ -78,11 +87,9 @@ impl Window {
                 // Mark the window as no longer alive for message loop
                 self.alive = false;
             }
-            _ => unsafe {
-                return DefWindowProcW(self.handle, message, wparam, lparam);
-            },
+            _ => return ProcResult::Default
         }
-        LRESULT(0)
+        ProcResult::Success
     }
 
     extern "system" fn wndproc(
@@ -106,7 +113,11 @@ impl Window {
                     let this = GetWindowLongPtrW(window, GWLP_USERDATA) as *mut Self;
 
                     if !this.is_null() {
-                        return (*this).on_message(message, wparam, lparam);
+                        return match (*this).on_message(message, wparam, lparam) {
+                            ProcResult::Success => LRESULT(0),
+                            ProcResult::Fail => LRESULT(1),
+                            ProcResult::Default => DefWindowProcW(window, message, wparam, lparam),
+                        };
                     } else {
                         DefWindowProcW(window, message, wparam, lparam)
                     }
@@ -121,7 +132,7 @@ impl Window {
         self.class = HSTRING::from(format!("NativeUi.rs-{}", id).as_str());
 
         unsafe {
-            let instance = match GetModuleHandleW(None) {
+            self.instance = match GetModuleHandleW(None) {
                 Ok(module) => {
                     if module.0 == 0 {
                         return Err("Invalid module handle".to_owned());
@@ -138,7 +149,7 @@ impl Window {
 
             let wc = WNDCLASSW {
                 hCursor: LoadCursorW(None, IDC_ARROW).unwrap(),
-                hInstance: instance,
+                hInstance: self.instance,
                 lpszClassName: PCWSTR::from_raw(self.class.as_ptr()),
                 style: self.styles.class,
                 lpfnWndProc: Some(Self::wndproc),
@@ -162,7 +173,7 @@ impl Window {
                 self.rect.height().into(),
                 None,
                 None,
-                instance,
+                self.instance,
                 Some(self as *mut _ as _),
             );
 
@@ -181,7 +192,7 @@ impl Window {
                     self.rect.right = pixels.to_owned();
                 }
                 Prop::Percent(percent) => {
-                    self.rect.right = (1920f32 * percent).round() as i16;
+                    self.rect.right = (1920f32 * percent).round() as i32;
                 }
                 _ => return Err("Invalid value type for window width".to_owned()),
             };
@@ -193,7 +204,7 @@ impl Window {
                     self.rect.bottom = pixels.to_owned();
                 }
                 Prop::Percent(percent) => {
-                    self.rect.bottom = (1080f32 * percent).round() as i16;
+                    self.rect.bottom = (1080f32 * percent).round() as i32;
                 }
                 _ => return Err("Invalid value type for window width".to_owned()),
             };
@@ -216,11 +227,13 @@ impl Window {
                 class: WNDCLASS_STYLES(0),
             },
             handle: HWND(0),
+            instance: HMODULE(0),
             hooks: Hooks { quit: None },
             alive: false,
             icon: None,
             rect: Rect::new(0, 0, 400, 300),
             style: HashMap::new(),
+            children: Vec::new(),
         }
     }
 
@@ -229,7 +242,7 @@ impl Window {
         self
     }
 
-    pub fn size(mut self, width: i16, height: i16) -> Self {
+    pub fn size(mut self, width: i32, height: i32) -> Self {
         self.rect.right = width;
         self.rect.bottom = height;
         self
@@ -253,10 +266,8 @@ impl Window {
         self
     }
 
-    pub fn style(mut self, style: Vec<(&str, Prop)>) -> Self {
-        for pair in style.iter() {
-            self.style.insert(pair.0.to_owned(), pair.1.clone());
-        }
+    pub fn layout(mut self, children: &mut Vec<ChildType>) -> Self {
+        self.children.append(children);
         self
     }
 
@@ -264,19 +275,36 @@ impl Window {
         if self.class.to_string_lossy().len() == 0 {
             self.apply_styles()?;
             self.create()?;
+            self.show();
+
+            for child in self.children.iter_mut() {
+                match child {
+                    ChildType::Control(control) => match control {
+                        ControlType::Text(text) => {
+                            text.create(ViewType::Window(
+                                self.handle.clone(),
+                                self.instance.clone(),
+                            ))?;
+                            text.show()
+                        }
+                        _ => (),
+                    },
+                }
+            }
         }
         Ok(())
     }
 
-    pub fn show(&self) {
-        unsafe {
-            ShowWindow(self.handle, SW_SHOW);
+    pub fn style(mut self, properties: Vec<(&str, Prop)>) -> Self {
+        for pair in properties.iter() {
+            self.style.insert(pair.0.to_owned(), pair.1.clone());
         }
+        self
     }
-    pub fn open(mut self) -> Result<(), String> {
-        self.init()?;
+
+    pub fn open(&mut self) -> Result<(), String> {
         self.alive = true;
-        self.show();
+        self.init()?;
 
         unsafe {
             let mut message = MSG::default();
@@ -293,12 +321,17 @@ impl Window {
 fn build_background(window: &mut Window) -> Result<(), String> {
     let mut color: Color = "FFF".into();
     let mut pattern = None;
+    let mut apply_background = false;
+
     if window.style.contains_key("background") {
         match window.style.get("background").unwrap() {
             Prop::Background(c, hatch) => {
                 color = c.to_owned();
                 match hatch {
-                    Some(h) => pattern = Some(h.to_hatch()),
+                    Some(h) => {
+                        pattern = Some(h.to_hatch());
+                        apply_background = true;
+                    }
                     _ => (),
                 }
             }
@@ -310,6 +343,7 @@ fn build_background(window: &mut Window) -> Result<(), String> {
         match window.style.get("background-color").unwrap() {
             Prop::Color(c) => {
                 color = c.to_owned();
+                apply_background = true;
             }
             _ => return Err("Invalid background-color color value".to_owned()),
         };
@@ -330,8 +364,21 @@ fn build_background(window: &mut Window) -> Result<(), String> {
     } else {
         match pattern {
             Some(p) => window.background = Brush::hatch(color, p),
-            _ => window.background = Brush::solid(color),
+            _ if apply_background => window.background = Brush::solid(color),
+            _ => (),
         }
     }
     Ok(())
+}
+
+impl Renderable for Window {
+    fn update() -> Result<(), String> {
+        Ok(())
+    }
+
+    fn show(&self) {
+        unsafe {
+            ShowWindow(self.handle, SW_SHOW);
+        }
+    }
 }

@@ -5,15 +5,24 @@ pub mod CS {
 
     pub const HREDRAW: WNDCLASS_STYLES = CS_HREDRAW;
     pub const VREDRAW: WNDCLASS_STYLES = CS_VREDRAW;
+    pub const DEFAULT: WNDCLASS_STYLES = WNDCLASS_STYLES(0);
 }
 
 pub mod WS {
     //! Window Styles
     //! Direct mapping of window style constants from the windows api
-    use windows::Win32::UI::WindowsAndMessaging::{WINDOW_STYLE, WS_TILEDWINDOW, WS_VISIBLE};
+    use windows::Win32::UI::WindowsAndMessaging::{WINDOW_STYLE, WS_TILEDWINDOW, WS_VISIBLE, WS_CHILD};
 
     pub const TILED_WINDOW: WINDOW_STYLE = WS_TILEDWINDOW;
     pub const VISIBLE: WINDOW_STYLE = WS_VISIBLE;
+    pub const CHILD: WINDOW_STYLE = WS_CHILD;
+
+    pub mod EX {
+        use windows::Win32::UI::WindowsAndMessaging::{WINDOW_EX_STYLE, WS_EX_LAYERED};
+
+        pub const LAYERED: WINDOW_EX_STYLE = WS_EX_LAYERED;
+        pub const DEFAULT: WINDOW_EX_STYLE = WINDOW_EX_STYLE(0);
+    }
 }
 
 pub mod HS {
@@ -45,4 +54,20 @@ pub mod HS {
             }
         }
     }
+}
+
+pub mod WM {
+    use windows::Win32::UI::WindowsAndMessaging::WM_PAINT;
+
+    pub const PAINT: u32 = WM_PAINT;
+    pub const DEFAULT: u32 = 0;
+}
+
+pub mod DT {
+    use windows::Win32::Graphics::Gdi::{DT_CENTER, DRAW_TEXT_FORMAT, DT_VCENTER, DT_SINGLELINE};
+
+    pub const CENTER: DRAW_TEXT_FORMAT = DT_CENTER;
+    pub const DEFAULT: DRAW_TEXT_FORMAT = DRAW_TEXT_FORMAT(0);
+    pub const VCENTER: DRAW_TEXT_FORMAT = DT_VCENTER;
+    pub const SINGLELINE: DRAW_TEXT_FORMAT = DT_SINGLELINE;
 }
