@@ -16,7 +16,7 @@ use windows::{
 };
 
 use crate::{
-    control::helpers::get_window,
+    // control::helpers::get_window,
     core::{
         constants::{DT, WM, WS},
         ProcResult, Rect, Renderable, ViewType,
@@ -24,7 +24,7 @@ use crate::{
 };
 
 use super::{
-    // helpers::text_size,
+    helpers::text_size,
     wndproc, Control
 };
 
@@ -124,8 +124,8 @@ impl Control for Text {
             }
 
             assert!(self.handle.0 != 0);
-            // self.rect = text_size(self.handle, self.text.to_string_lossy());
-            self.rect = get_window(handle.to_owned())?.rect;
+            self.rect = text_size(self.handle, self.text.to_string_lossy());
+            // self.rect = get_window(handle.to_owned())?.rect;
             unsafe {
                 SetWindowPos(
                     self.handle,
@@ -153,4 +153,14 @@ impl Renderable for Text {
             ShowWindow(self.handle, SW_SHOW);
         }
     }
+
+
+    fn rect(&self) -> &Rect {
+        &self.rect
+    }
+
+    fn style(&self) -> &HashMap<String, Prop> {
+        &self.style
+    }
+
 }

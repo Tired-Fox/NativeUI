@@ -386,4 +386,13 @@ impl Renderable for Window {
             }
         }
     }
+
+
+    fn rect(&self) -> &Rect {
+        &self.rect
+    }
+
+    fn style(&self) -> &HashMap<String, Prop> {
+        &self.style
+    }
 }

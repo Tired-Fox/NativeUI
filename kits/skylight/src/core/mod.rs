@@ -2,12 +2,13 @@ mod brush;
 pub mod constants;
 pub mod errors;
 pub mod image;
-use std::{rc::Rc, cell::RefCell};
+use std::{cell::RefCell, rc::Rc, collections::HashMap};
 
 pub use brush::*;
+use style::Prop;
 use windows::Win32::Foundation::{HMODULE, HWND, RECT};
 
-use crate::control::{Button, Text, Control};
+use crate::control::Control;
 
 pub enum ProcResult {
     Default,
@@ -70,6 +71,8 @@ pub trait Renderable {
     }
 
     fn show(&self);
+    fn rect(&self) -> &Rect;
+    fn style(&self) -> &HashMap<String, Prop>;
 }
 
 // Styling and layout
