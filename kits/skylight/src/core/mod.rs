@@ -2,7 +2,7 @@ mod brush;
 pub mod constants;
 pub mod errors;
 pub mod image;
-use std::{cell::RefCell, rc::Rc, collections::HashMap};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 pub use brush::*;
 use style::Prop;
@@ -66,7 +66,11 @@ impl From<Rect> for RECT {
 }
 
 pub trait Renderable {
-    fn update(&self) -> Result<(), String> {
+    fn update(
+        &self,
+        parent: (&Rect, &HashMap<String, Prop>),
+        previous: (&Rect, &HashMap<String, Prop>),
+    ) -> Result<(), String> {
         Ok(())
     }
 

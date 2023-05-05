@@ -1,9 +1,8 @@
 extern crate skylight;
 
 use skylight::{
-    control::*,
     core::{Brush, constants::HS},
-    macros::Controls,
+    macros::controls,
     HookType, Window,
     popup::{MessageBox, MessageReturn, ButtonLayout, Icon}
 };
@@ -25,8 +24,11 @@ fn main() {
                 Icon::Info,
             ) == MessageReturn::Yes
         })
-        .layout(&mut vec![
-            Controls::text!("Native UI Test Window")
+        .layout(vec![
+            controls::text!(
+                "Native UI Sample Window",
+                "color": "B6996D"
+            )
         ]);
         // .style(vec![
         //     ("width", Prop::PX(800)),

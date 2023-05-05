@@ -1,7 +1,7 @@
 use super::color::Color;
 use std::fmt::Display;
 
- pub enum Pseudo {
+pub enum Pseudo {
     Class(String),
     Element(String),
     None,
@@ -137,7 +137,7 @@ pub enum BorderStyle {
     Solid,
     Dotted,
     Dashed,
-    None
+    None,
 }
 
 /// Background Style. Right now only applies to windows hatch brush
@@ -152,6 +152,21 @@ pub enum BS {
     SOLID,
 }
 
+impl From<&str> for BS {
+    fn from(value: &str) -> Self {
+        match value.to_lowercase().as_str() {
+            "dcross" => BS::DCROSS,
+            "cross" => BS::CROSS,
+            "vertical" => BS::VERTICAL,
+            "horizontal" => BS::HORIZONTAL,
+            "tangent" => BS::TANGENT,
+            "diagnol" => BS::DIAGNOL,
+            "solid" => BS::SOLID,
+            _ => BS::SOLID
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum Prop {
     PX(i32),
@@ -160,16 +175,66 @@ pub enum Prop {
     Border(i32, Option<BorderStyle>, Option<Color>),
     BorderStyle(BorderStyle),
     BackgroundStyle(BS),
-    Background(Color, Option<BS>)
+    Background(Color, Option<BS>),
 }
 
-impl Display for Prop{
+impl From<i32> for Prop {
+    fn from(value: i32) -> Self {
+        Prop::PX(value)
+    }
+}
+
+impl From<f32> for Prop {
+    fn from(value: f32) -> Self {
+        Prop::Percent(value)
+    }
+}
+
+impl From<&str> for Prop {
+    fn from(value: &str) -> Self {
+        if value.ends_with("px") {
+            Prop::PX(
+                value
+                    .strip_suffix("px")
+                    .unwrap()
+                    .trim()
+                    .parse::<i32>()
+                    .unwrap(),
+            )
+        } else if value.ends_with("%") {
+            Prop::Percent(
+                value
+                    .strip_suffix("%")
+                    .unwrap()
+                    .trim()
+                    .parse::<f32>()
+                    .unwrap(),
+            )
+        } else if vec![
+            "dcross",
+            "cross",
+            "vertical",
+            "horizontal",
+            "tangent",
+            "diagnol",
+            "solid",
+        ]
+        .contains(&value.to_lowercase().as_str())
+        {
+            Prop::BackgroundStyle(BS::from(value))
+        } else {
+            Prop::Color(value.into())
+        }
+    }
+}
+
+impl Display for Prop {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Prop::PX(pixels) => write!(f, "{}px", pixels),
             Prop::Percent(percent) => write!(f, "{}%", percent),
             Prop::Color(color) => write!(f, "{}", color.default),
-            _ => write!(f, "{}", "Unkown")
+            _ => write!(f, "{}", "Unkown"),
         }
     }
 }

@@ -87,7 +87,7 @@ impl Window {
                 // Mark the window as no longer alive for message loop
                 self.alive = false;
             }
-            _ => return ProcResult::Default
+            _ => return ProcResult::Default,
         }
         ProcResult::Success
     }
@@ -282,7 +282,8 @@ impl Window {
                 match child {
                     ChildType::Control(control) => {
                         let mut control = control.borrow_mut();
-                        control.create(ViewType::Window(self.handle.clone(), self.instance.clone()))?;
+                        control
+                            .create(ViewType::Window(self.handle.clone(), self.instance.clone()))?;
                     }
                 }
             }
@@ -312,6 +313,39 @@ impl Window {
             }
         }
         Ok(())
+    }
+
+    pub fn update(&self) -> Result<(), String> {
+        let mut previous: (&Rect, &HashMap<String, Prop>) = (&Rect::new(0, 0, 0, 0), &HashMap::new());
+
+        for child in self.children {
+            match child {
+                ChildType::Control(control) => {
+                    control.borrow().update((self.rect(), &self.style), previous)?;
+                    previous = (control.borrow().rect(), control.borrow().style());
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn show(&self) {
+        unsafe {
+            ShowWindow(self.handle, SW_SHOW);
+
+            for child in self.children.iter() {
+                match child {
+                    ChildType::Control(control) => {
+                        control.borrow().show();
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn rect(&self) -> &Rect {
+        &self.rect
     }
 }
 
@@ -366,33 +400,4 @@ fn build_background(window: &mut Window) -> Result<(), String> {
         }
     }
     Ok(())
-}
-
-impl Renderable for Window {
-    fn update(&self) -> Result<(), String> {
-        Ok(())
-    }
-
-    fn show(&self) {
-        unsafe {
-            ShowWindow(self.handle, SW_SHOW);
-
-            for child in self.children.iter() {
-                match child {
-                    ChildType::Control(control) => {
-                        control.borrow().show();
-                    }
-                }
-            }
-        }
-    }
-
-
-    fn rect(&self) -> &Rect {
-        &self.rect
-    }
-
-    fn style(&self) -> &HashMap<String, Prop> {
-        &self.style
-    }
 }

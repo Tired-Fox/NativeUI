@@ -1,7 +1,7 @@
 extern crate native_ui;
 use native_ui::skylight::{
     core::{constants::HS, Brush},
-    macros::Controls,
+    macros::controls,
     popup::{ButtonLayout, Icon, MessageBox, MessageReturn},
     HookType, Window,
 };
@@ -12,7 +12,7 @@ fn main() {
         .title("Native UI")
         .icon("NativeUi.ico")
         .background(Brush::hatch("B6996D".into(), HS::DCROSS))
-        .layout(vec![Controls::text!("Native UI Test Window")])
+        .layout(vec![controls::text!("Native UI Test Window")])
     // .style(vec![
     //     ("width", Prop::PX(800)),
     //     ("height", Prop::PX(400)),
