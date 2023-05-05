@@ -11,7 +11,9 @@ pub mod CS {
 pub mod WS {
     //! Window Styles
     //! Direct mapping of window style constants from the windows api
-    use windows::Win32::UI::WindowsAndMessaging::{WINDOW_STYLE, WS_TILEDWINDOW, WS_VISIBLE, WS_CHILD};
+    use windows::Win32::UI::WindowsAndMessaging::{
+        WINDOW_STYLE, WS_CHILD, WS_TILEDWINDOW, WS_VISIBLE,
+    };
 
     pub const TILED_WINDOW: WINDOW_STYLE = WS_TILEDWINDOW;
     pub const VISIBLE: WINDOW_STYLE = WS_VISIBLE;
@@ -26,8 +28,11 @@ pub mod WS {
 }
 
 pub mod HS {
-    use windows::Win32::Graphics::Gdi::{HATCH_BRUSH_STYLE, HS_DIAGCROSS, HS_CROSS, HS_VERTICAL, HS_HORIZONTAL, HS_BDIAGONAL, HS_FDIAGONAL};
     use style::BS;
+    use windows::Win32::Graphics::Gdi::{
+        HATCH_BRUSH_STYLE, HS_BDIAGONAL, HS_CROSS, HS_DIAGCROSS, HS_FDIAGONAL, HS_HORIZONTAL,
+        HS_VERTICAL,
+    };
 
     pub const DCROSS: HATCH_BRUSH_STYLE = HS_DIAGCROSS;
     pub const CROSS: HATCH_BRUSH_STYLE = HS_CROSS;
@@ -36,35 +41,38 @@ pub mod HS {
     pub const TANGENT: HATCH_BRUSH_STYLE = HS_BDIAGONAL;
     pub const DIAGNOL: HATCH_BRUSH_STYLE = HS_FDIAGONAL;
 
-
     pub trait ToHatchStyle {
         fn to_hatch(&self) -> HATCH_BRUSH_STYLE;
     }
 
     impl ToHatchStyle for BS {
         fn to_hatch(&self) -> HATCH_BRUSH_STYLE {
-            match self{
+            match self {
                 Self::DCROSS => DCROSS,
                 Self::CROSS => CROSS,
                 Self::VERTICAL => VERTICAL,
                 Self::HORIZONTAL => HORIZONTAL,
                 Self::TANGENT => TANGENT,
                 Self::DIAGNOL => DIAGNOL,
-                _ => HATCH_BRUSH_STYLE(0)
+                _ => HATCH_BRUSH_STYLE(0),
             }
         }
     }
 }
 
 pub mod WM {
-    use windows::Win32::UI::WindowsAndMessaging::WM_PAINT;
+    use windows::Win32::UI::WindowsAndMessaging::{WM_ERASEBKGND, WM_PAINT, WM_SIZE, WM_DESTROY, WM_CLOSE};
 
     pub const PAINT: u32 = WM_PAINT;
+    pub const SIZE: u32 = WM_SIZE;
+    pub const ERASEBKGND: u32 = WM_ERASEBKGND;
+    pub const CLOSE: u32 = WM_CLOSE;
+    pub const DESTROY: u32 = WM_DESTROY;
     pub const DEFAULT: u32 = 0;
 }
 
 pub mod DT {
-    use windows::Win32::Graphics::Gdi::{DT_CENTER, DRAW_TEXT_FORMAT, DT_VCENTER, DT_SINGLELINE};
+    use windows::Win32::Graphics::Gdi::{DRAW_TEXT_FORMAT, DT_CENTER, DT_SINGLELINE, DT_VCENTER};
 
     pub const CENTER: DRAW_TEXT_FORMAT = DT_CENTER;
     pub const DEFAULT: DRAW_TEXT_FORMAT = DRAW_TEXT_FORMAT(0);

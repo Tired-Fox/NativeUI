@@ -2,13 +2,14 @@ mod brush;
 pub mod constants;
 pub mod errors;
 pub mod image;
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+pub mod layout;
+use std::{cell::{RefCell, Ref}, collections::HashMap, rc::Rc};
 
 pub use brush::*;
 use style::Prop;
-use windows::Win32::Foundation::{HMODULE, HWND, RECT};
+use windows::Win32::{Foundation::{HMODULE, HWND, RECT}, UI::WindowsAndMessaging::{GWLP_USERDATA, GetWindowLongPtrW}};
 
-use crate::control::Control;
+use crate::{control::Control, Window};
 
 pub enum ProcResult {
     Default,
@@ -68,8 +69,8 @@ impl From<Rect> for RECT {
 pub trait Renderable {
     fn update(
         &self,
-        parent: (&Rect, &HashMap<String, Prop>),
-        previous: (&Rect, &HashMap<String, Prop>),
+        parent: (Rect, HashMap<String, Prop>),
+        previous: (Rect, HashMap<String, Prop>),
     ) -> Result<(), String> {
         Ok(())
     }
@@ -79,6 +80,10 @@ pub trait Renderable {
     fn style(&self) -> &HashMap<String, Prop>;
 }
 
+pub trait View: Renderable {
+    fn children(&mut self) -> &mut Vec<ChildType>;
+}
+
 // Styling and layout
 
 #[derive(Debug, Clone)]
@@ -86,15 +91,19 @@ pub enum ChildType {
     Control(Rc<RefCell<dyn Control>>),
 }
 
-// #[derive(Debug)]
-// pub enum ControlType {
-//     Text(Text),
-//     Button(Button),
-//     None,
-// }
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ViewType {
     Window(HWND, HMODULE),
     None,
+}
+
+pub fn get_window<'a>(window: HWND) -> Result<&'a Window, String> {
+    unsafe {
+        let this = GetWindowLongPtrW(window, GWLP_USERDATA) as *mut Window;
+        if !this.is_null() {
+            Ok(&*this)
+        } else {
+            Err("No window assigned to handle".to_owned())
+        }
+    }
 }

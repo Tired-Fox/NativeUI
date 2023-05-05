@@ -50,7 +50,7 @@ impl Text {
         }
     }
 
-    pub fn style(&mut self, properties: Vec<(&str, Prop)>) {
+    pub fn styles(&mut self, properties: Vec<(&str, Prop)>) {
         for pair in properties.iter() {
             self.style.insert(pair.0.to_owned(), pair.1.clone());
         }
@@ -147,9 +147,10 @@ impl Control for Text {
 impl Renderable for Text {
     fn update(
         &self,
-        parent: (&Rect, &HashMap<String, Prop>),
-        previous: (&Rect, &HashMap<String, Prop>),
+        parent: (Rect, HashMap<String, Prop>),
+        previous: (Rect, HashMap<String, Prop>),
     ) -> Result<(), String> {
+        println!("Update Text");
         Ok(())
     }
 

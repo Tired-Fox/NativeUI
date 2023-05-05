@@ -1,9 +1,9 @@
 use windows::Win32::{
     Foundation::{HWND, RECT},
-    Graphics::Gdi::{DrawTextW, GetDC, DT_CALCRECT}, UI::WindowsAndMessaging::{GetWindowLongPtrW, GWLP_USERDATA},
+    Graphics::Gdi::{DrawTextW, GetDC, DT_CALCRECT},
 };
 
-use crate::{core::Rect, Window};
+use crate::core::Rect;
 
 pub fn text_size(parent: HWND, text: String) -> Rect {
     let mut rect = RECT {
@@ -23,15 +23,4 @@ pub fn text_size(parent: HWND, text: String) -> Rect {
         );
     }
     rect.into()
-}
-
-pub fn get_window<'a>(window: HWND) -> Result<&'a Window, String> {
-    unsafe {
-        let this = GetWindowLongPtrW(window, GWLP_USERDATA) as *mut Window;
-        if !this.is_null() {
-            Ok(&*this)
-        } else {
-            Err("No window assigned to handle".to_owned())
-        }
-    }
 }

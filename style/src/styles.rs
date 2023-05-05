@@ -162,54 +162,69 @@ impl From<&str> for BS {
             "tangent" => BS::TANGENT,
             "diagnol" => BS::DIAGNOL,
             "solid" => BS::SOLID,
-            _ => BS::SOLID
+            _ => BS::SOLID,
         }
     }
 }
 
 #[derive(Clone, Debug)]
-pub enum Prop {
+pub enum Size {
     PX(i32),
     Percent(f32),
+}
+
+#[derive(Clone, Debug)]
+pub enum Prop {
+    Size(Size),
     Color(Color),
     Border(i32, Option<BorderStyle>, Option<Color>),
     BorderStyle(BorderStyle),
     BackgroundStyle(BS),
     Background(Color, Option<BS>),
+    Padding(Size, Size, Size, Size),
+}
+
+impl Prop {
+    pub fn get_size(size: Size, total: i32) -> i32 {
+        match size {
+            Size::PX(px) => px,
+            Size::Percent(percent) => (total as f32 * percent) as i32,
+        }
+    }
 }
 
 impl From<i32> for Prop {
     fn from(value: i32) -> Self {
-        Prop::PX(value)
+        Prop::Size(Size::PX(value))
     }
 }
 
 impl From<f32> for Prop {
     fn from(value: f32) -> Self {
-        Prop::Percent(value)
+        Prop::Size(Size::Percent(value))
     }
 }
 
 impl From<&str> for Prop {
     fn from(value: &str) -> Self {
         if value.ends_with("px") {
-            Prop::PX(
+            Prop::Size(Size::PX(
                 value
                     .strip_suffix("px")
                     .unwrap()
                     .trim()
                     .parse::<i32>()
                     .unwrap(),
-            )
+            ))
         } else if value.ends_with("%") {
-            Prop::Percent(
+            Prop::Size(Size::Percent(
                 value
                     .strip_suffix("%")
                     .unwrap()
                     .trim()
                     .parse::<f32>()
                     .unwrap(),
-            )
+            ))
         } else if vec![
             "dcross",
             "cross",
@@ -231,8 +246,12 @@ impl From<&str> for Prop {
 impl Display for Prop {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Prop::PX(pixels) => write!(f, "{}px", pixels),
-            Prop::Percent(percent) => write!(f, "{}%", percent),
+            Prop::Size(size) => {
+                match size {
+                    Size::PX(px) => write!(f, "{}px", px),
+                    Size::Percent(percent) => write!(f, "{}%", percent)
+                }
+            } ,
             Prop::Color(color) => write!(f, "{}", color.default),
             _ => write!(f, "{}", "Unkown"),
         }

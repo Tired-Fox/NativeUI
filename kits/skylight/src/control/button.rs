@@ -29,8 +29,8 @@ impl Control for Button {
 impl Renderable for Button {
     fn update(
         &self,
-        parent: (&Rect, &HashMap<String, Prop>),
-        previous: (&Rect, &HashMap<String, Prop>),
+        parent: (Rect, HashMap<String, Prop>),
+        previous: (Rect, HashMap<String, Prop>),
     ) -> Result<(), String> {
         Ok(())
     }

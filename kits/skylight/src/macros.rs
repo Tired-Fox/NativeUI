@@ -7,7 +7,7 @@ pub mod controls {
         styles: Vec<(&str, Prop)>,
     ) -> Rc<RefCell<dyn Control>> {
         let child = Rc::new(RefCell::new(Text::new(text)));
-        child.borrow_mut().style(styles);
+        child.borrow_mut().styles(styles);
         child
     }
 

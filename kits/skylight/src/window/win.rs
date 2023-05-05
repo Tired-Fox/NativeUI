@@ -1,6 +1,7 @@
 use std::{
+    borrow::Borrow,
     collections::HashMap,
-    sync::atomic::{AtomicU16, Ordering},
+    sync::atomic::{AtomicU16, Ordering}, rc::Rc, cell::{RefCell, Ref},
 };
 use windows::{
     core::{HSTRING, PCWSTR},
@@ -21,9 +22,10 @@ static WIN_ID: AtomicU16 = AtomicU16::new(1);
 use crate::{
     control::Control,
     core::{
-        constants::{HS::ToHatchStyle, WS::TILED_WINDOW},
+        constants::{HS::ToHatchStyle, WM, WS::TILED_WINDOW},
         image::icon,
-        Brush, ChildType, ProcResult, Rect, Renderable, ViewType,
+        layout::update_layout,
+        Brush, ChildType, ProcResult, Rect, Renderable, View, ViewType,
     },
 };
 
@@ -56,21 +58,27 @@ pub struct Window {
     pub icon: Option<&'static str>,
     pub rect: Rect,
     pub style: HashMap<String, Prop>,
+    pub children: Vec<ChildType>,
     hooks: Hooks,
-    children: Vec<ChildType>,
 }
 
 impl Window {
     fn on_message(&mut self, message: u32, wparam: WPARAM, lparam: LPARAM) -> ProcResult {
         match message {
-            WM_ERASEBKGND => unsafe {
+            WM::SIZE => {
+                self.update(
+                    (Rect::new(0, 0, 0, 0), HashMap::new()),
+                    (Rect::new(0, 0, 0, 0), HashMap::new()),
+                );
+            }
+            WM::ERASEBKGND => unsafe {
                 // Redraw the window background when an erase background event occurs
                 let mut ps = PAINTSTRUCT::default();
                 let hdc = BeginPaint(self.handle, &mut ps);
                 FillRect(hdc, &ps.rcPaint, self.background);
                 EndPaint(self.handle, &ps);
             },
-            WM_CLOSE => unsafe {
+            WM::CLOSE => unsafe {
                 // If quit hook is set execute the hook
                 match self.hooks.quit {
                     Some(on_quit) => {
@@ -83,7 +91,7 @@ impl Window {
                     }
                 }
             },
-            WM_DESTROY => {
+            WM::DESTROY => {
                 // Mark the window as no longer alive for message loop
                 self.alive = false;
             }
@@ -293,7 +301,7 @@ impl Window {
         Ok(())
     }
 
-    pub fn style(mut self, properties: Vec<(&str, Prop)>) -> Self {
+    pub fn styles(mut self, properties: Vec<(&str, Prop)>) -> Self {
         for pair in properties.iter() {
             self.style.insert(pair.0.to_owned(), pair.1.clone());
         }
@@ -314,15 +322,22 @@ impl Window {
         }
         Ok(())
     }
+}
 
-    pub fn update(&self) -> Result<(), String> {
-        let mut previous: (&Rect, &HashMap<String, Prop>) = (&Rect::new(0, 0, 0, 0), &HashMap::new());
+impl Renderable for Window {
+    fn update(
+        &self,
+        _parent: (Rect, HashMap<String, Prop>),
+        previous: (Rect, HashMap<String, Prop>),
+    ) -> Result<(), String> {
+        let mut previous = previous;
 
-        for child in self.children {
+        for child in self.children.iter() {
             match child {
                 ChildType::Control(control) => {
-                    control.borrow().update((self.rect(), &self.style), previous)?;
-                    previous = (control.borrow().rect(), control.borrow().style());
+                    let control = control.borrow_mut();
+                    control.update((self.rect().clone(), self.style.clone()), previous)?;
+                    previous = (control.rect().clone(), control.style().clone());
                 }
             }
         }
@@ -330,22 +345,32 @@ impl Window {
         Ok(())
     }
 
-    pub fn show(&self) {
+    fn show(&self) {
         unsafe {
             ShowWindow(self.handle, SW_SHOW);
 
             for child in self.children.iter() {
                 match child {
                     ChildType::Control(control) => {
-                        control.borrow().show();
+                        control.borrow_mut().show();
                     }
                 }
             }
         }
     }
 
-    pub fn rect(&self) -> &Rect {
+    fn rect(&self) -> &Rect {
         &self.rect
+    }
+
+    fn style(&self) -> &HashMap<String, Prop> {
+        &self.style
+    }
+}
+
+impl View for Window {
+    fn children(&mut self) -> &mut Vec<ChildType> {
+        &mut self.children
     }
 }
 

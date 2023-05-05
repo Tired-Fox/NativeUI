@@ -45,6 +45,8 @@
 - [learn win32](https://learn.microsoft.com/en-us/windows/win32/learnwin32/)
 - windows-rs [samples](https://github.com/microsoft/windows-rs/blob/master/crates/samples/readme.md)
 - [rust-cssparser](https://github.com/servo/rust-cssparser)
+  - [Sample Parser](https://github.com/servo/servo/blob/master/components/style/stylesheets/rule_parser.rs)
+  - [Alchemy Parser](https://github.com/ryanmcgrath/alchemy/blob/trunk/styles/src/styles_parser.rs)
 
 ## Insperation
 - [Alchemy](https://github.com/ryanmcgrath/alchemy)
