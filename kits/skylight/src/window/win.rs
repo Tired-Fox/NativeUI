@@ -11,20 +11,18 @@ use windows::{
     Win32::UI::WindowsAndMessaging::*,
 };
 
-use style::{
-    color::{hex, Color},
-    Prop, BS,
+use style::styles::{
+    Prop, BS, Size,
 };
+use style::color::{hex, Color};
 pub use windows::{s as pcstr, w as pwstr};
 
 static WIN_ID: AtomicU16 = AtomicU16::new(1);
 
 use crate::{
-    control::Control,
     core::{
         constants::{HS::ToHatchStyle, WM, WS::TILED_WINDOW},
         image::icon,
-        layout::update_layout,
         Brush, ChildType, ProcResult, Rect, Renderable, View, ViewType,
     },
 };
@@ -196,11 +194,12 @@ impl Window {
     fn apply_styles(&mut self) -> Result<(), String> {
         if self.style.contains_key("width") {
             match self.style.get("width").unwrap() {
-                Prop::PX(pixels) => {
-                    self.rect.right = pixels.to_owned();
-                }
-                Prop::Percent(percent) => {
-                    self.rect.right = (1920f32 * percent).round() as i32;
+                Prop::Size(size) => {
+                    match size {
+                        Size::PX(pixels) => self.rect.right = pixels.to_owned(),
+                        Size::Percent(percent) => self.rect.right = (1920f32 * percent).round() as i32
+                    }
+                    
                 }
                 _ => return Err("Invalid value type for window width".to_owned()),
             };
@@ -208,11 +207,11 @@ impl Window {
 
         if self.style.contains_key("height") {
             match self.style.get("height").unwrap() {
-                Prop::PX(pixels) => {
-                    self.rect.bottom = pixels.to_owned();
-                }
-                Prop::Percent(percent) => {
-                    self.rect.bottom = (1080f32 * percent).round() as i32;
+                Prop::Size(size) => {
+                    match size {
+                        Size::PX(pixels) => self.rect.bottom = pixels.to_owned(),
+                        Size::Percent(percent) => self.rect.bottom = (1080f32 * percent).round() as i32
+                    }
                 }
                 _ => return Err("Invalid value type for window width".to_owned()),
             };

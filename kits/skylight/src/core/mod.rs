@@ -6,7 +6,7 @@ pub mod layout;
 use std::{cell::{RefCell, Ref}, collections::HashMap, rc::Rc};
 
 pub use brush::*;
-use style::Prop;
+use style::styles::Prop;
 use windows::Win32::{Foundation::{HMODULE, HWND, RECT}, UI::WindowsAndMessaging::{GWLP_USERDATA, GetWindowLongPtrW}};
 
 use crate::{control::Control, Window};

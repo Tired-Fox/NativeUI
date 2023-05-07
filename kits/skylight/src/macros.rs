@@ -1,6 +1,7 @@
 pub mod controls {
     use crate::control::{Control, Text};
     use std::{cell::RefCell, rc::Rc};
+    use style::styles::Prop;
 
     pub fn build_text_control(
         text: &str,
@@ -28,12 +29,11 @@ pub mod controls {
             $crate::core::ChildType::Control(
                 $crate::macros::controls::build_text_control(
                     $text,
-                    vec![$(($style, $crate::style::Prop::from($value)),)*]
+                    vec![$(($style, $crate::style::styles::Prop::from($value)),)*]
                 )
             )
         };
     }
 
-    use style::Prop;
     pub use text;
 }

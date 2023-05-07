@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use style::Prop;
+use style::styles::Prop;
 use windows::{
     core::{HSTRING, PCWSTR},
     Win32::{

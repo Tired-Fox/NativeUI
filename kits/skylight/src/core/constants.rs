@@ -28,7 +28,7 @@ pub mod WS {
 }
 
 pub mod HS {
-    use style::BS;
+    use style::styles::BS;
     use windows::Win32::Graphics::Gdi::{
         HATCH_BRUSH_STYLE, HS_BDIAGONAL, HS_CROSS, HS_DIAGCROSS, HS_FDIAGONAL, HS_HORIZONTAL,
         HS_VERTICAL,

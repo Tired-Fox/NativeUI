@@ -1,10 +1,14 @@
 [package]
-name = "style"
+name = "macros"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+quote = "0.6.10"
 proc-macro-hack = "0.5"
-cssparser = "0.31.0"
+style = { path = "../style" }
+
+[lib]
+proc-macro = true

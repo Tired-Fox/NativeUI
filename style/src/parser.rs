@@ -8,7 +8,7 @@ use super::rules::*;
 #[derive(Debug)]
 pub struct Rule {
     pub key: String,
-    pub styles: Vec<Properties>,
+    pub styles: Vec<Style>,
 }
 
 #[derive(Debug)]
@@ -80,7 +80,7 @@ pub struct StyleParser {}
 /// Types, etc.
 impl<'i> AtRuleParser<'i> for StyleParser {
     type Prelude= ();
-    type AtRule = Properties;
+    type AtRule = Style;
     type Error = BasicParseError<'i>;
 }
 
@@ -94,12 +94,12 @@ fn ident<'a>(token: &'a Token) -> &'a str {
 
 impl<'i> QualifiedRuleParser<'i> for StyleParser {
     type Prelude = ();
-    type QualifiedRule = Properties;
+    type QualifiedRule = Style;
     type Error = BasicParseError<'i>;
 }
 
 impl<'i> DeclarationParser<'i> for StyleParser {
-    type Declaration = Properties;
+    type Declaration = Style;
     type Error = BasicParseError<'i>;
 
     /// Parses a value (e.g, `background-color: #307ace;`) into a `Styles` value.
@@ -110,11 +110,13 @@ impl<'i> DeclarationParser<'i> for StyleParser {
     ) -> Result<Self::Declaration, ParseError<'i, Self::Error>> {
         let style = match &*name {
             "font-style" => { let s = input.current_source_location(); let t = input.next()?; match ident(&t) {
-                "normal" => Properties::FontStyle(FontStyle::Normal),
-                "italic" => Properties::FontStyle(FontStyle::Italic),
-                "oblique" => Properties::FontStyle(FontStyle::Oblique),
+                "normal" => Style::FontStyle(FontStyle::Normal),
+                "italic" => Style::FontStyle(FontStyle::Italic),
+                "oblique" => Style::FontStyle(FontStyle::Oblique),
                 _ => { return Err(s.new_unexpected_token_error(t.clone())); }
             }},
+            "height" => Style::Height(parse_floaty_value(input)?),
+            "width" => Style::Width(parse_floaty_value(input)?),
             t => {
                 let location = input.current_source_location();
                 return Err(location.new_unexpected_token_error(Token::Ident(t.to_string().into())));
@@ -122,5 +124,19 @@ impl<'i> DeclarationParser<'i> for StyleParser {
         };
 
         Ok(style)
+    }
+}
+
+/// A utility method for handling some float values.
+/// Mostly used to reduce code verbosity in the massive switch table for `Styles` parsing.
+fn parse_floaty_value<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Unit, BasicParseError<'i>> {
+    let location = input.current_source_location();
+    let token = input.next()?;
+
+    match token {
+        Token::Number { value, .. } => Ok(Unit::PX(*value)),
+        Token::Dimension {value, unit, ..} => Ok(Unit::from_unit(unit, value)),
+        Token::Percentage { unit_value, ..} => Ok(Unit::Percent(*unit_value)),
+        _ => Err(location.new_basic_unexpected_token_error(token.clone()))
     }
 }

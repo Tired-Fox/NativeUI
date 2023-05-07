@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use style::Prop;
+use style::styles::Prop;
 use windows::Win32::Foundation::{LPARAM, WPARAM, HWND};
 
 use crate::core::{Renderable, ViewType, ProcResult, Rect};
