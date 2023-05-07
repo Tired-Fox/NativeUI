@@ -6,6 +6,7 @@ extern crate native_ui;
 //     HookType, Window,
 // };
 use native_ui::styles;
+use style::Stylesheet;
 
 fn main() {
     // let mut window = Window::new()
@@ -23,12 +24,17 @@ fn main() {
     // //     ),
     // // ]);
     //     .open();
-    let stylesheet = styles! {
+    let stylesheet: Stylesheet = styles! {
         div {
             width: 10px;
             height: 50%;
         }
+
+        view {
+            font-style: italic;
+        }
     };
 
     println!("{:?}", stylesheet);
+    stylesheet.get_style(vec!["div", "view"]);
 }

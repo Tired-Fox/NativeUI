@@ -2,11 +2,17 @@ use std::borrow::Borrow;
 
 use cssparser::CowRcStr;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Unit {
     PX(f32),
     Percent(f32),
     Uknown
+}
+
+impl Default for Unit {
+    fn default() -> Self {
+        Unit::PX(10f32)
+    }
 }
 
 impl Unit {
@@ -19,8 +25,9 @@ impl Unit {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, Default)]
 pub enum FontStyle {
+    #[default]
     Normal,
     Italic,
     Oblique
