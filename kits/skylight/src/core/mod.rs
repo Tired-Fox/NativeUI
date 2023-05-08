@@ -3,11 +3,14 @@ pub mod constants;
 pub mod errors;
 pub mod image;
 pub mod layout;
-use std::{cell::{RefCell, Ref}, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 pub use brush::*;
-use style::styles::Prop;
-use windows::Win32::{Foundation::{HMODULE, HWND, RECT}, UI::WindowsAndMessaging::{GWLP_USERDATA, GetWindowLongPtrW}};
+use style::{Appearance, Dimensions, Stylesheet};
+use windows::Win32::{
+    Foundation::{HMODULE, HWND, RECT},
+    UI::WindowsAndMessaging::{GetWindowLongPtrW, GWLP_USERDATA},
+};
 
 use crate::{control::Control, Window};
 
@@ -69,15 +72,16 @@ impl From<Rect> for RECT {
 pub trait Renderable {
     fn update(
         &self,
-        parent: (Rect, HashMap<String, Prop>),
-        previous: (Rect, HashMap<String, Prop>),
+        parent: (Rect, (Dimensions, Appearance)),
+        previous: (Rect, (Dimensions, Appearance)),
+
     ) -> Result<(), String> {
         Ok(())
     }
 
     fn show(&self);
     fn rect(&self) -> &Rect;
-    fn style(&self) -> &HashMap<String, Prop>;
+    fn style(&self) -> &(Dimensions, Appearance);
 }
 
 pub trait View: Renderable {

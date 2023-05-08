@@ -5,15 +5,14 @@ use cssparser::{Parser, ParserInput, RuleListParser};
 pub mod color;
 mod parser;
 mod rules;
-pub mod styles;
 
 pub use parser::{Rule, RuleParser, StyleParser};
 pub use rules::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Dimensions {
-    width: Unit,
-    height: Unit,
+    pub width: Unit,
+    pub height: Unit,
 }
 
 impl Default for Dimensions {
@@ -25,9 +24,9 @@ impl Default for Dimensions {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Appearance {
-    font_style: FontStyle,
+    pub font_style: FontStyle,
 }
 
 impl Default for Appearance {
@@ -38,7 +37,7 @@ impl Default for Appearance {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Stylesheet(HashMap<String, Vec<Style>>);
 
 impl Stylesheet {
@@ -75,13 +74,13 @@ impl Stylesheet {
         Stylesheet::parse(s.as_str())
     }
 
-    pub fn get_style(&self, rules: Vec<&'static str>) -> (Dimensions, Appearance) {
+    pub fn get_styles(&self, rules: Vec<String>) -> (Dimensions, Appearance) {
         let mut dimensions = Dimensions::default();
         let mut appearance = Appearance::default();
 
         for rule in rules.iter() {
-            if self.0.contains_key(*rule) {
-                for style in self.0.get(*rule).unwrap().iter() {
+            if self.0.contains_key(rule) {
+                for style in self.0.get(rule).unwrap().iter() {
                     match style {
                         Style::Width(width) => dimensions.width = width.clone(),
                         Style::Height(height) => dimensions.height = height.clone(),
@@ -91,7 +90,6 @@ impl Stylesheet {
             }
         }
 
-        println!("{:?}\n{:?}", dimensions, appearance);
         (dimensions, appearance)
     }
 }

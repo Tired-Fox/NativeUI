@@ -1,6 +1,5 @@
-use std::collections::HashMap;
 
-use style::styles::Prop;
+use style::{Stylesheet, Dimensions, Appearance};
 use windows::Win32::Foundation::{LPARAM, WPARAM, HWND};
 
 use crate::core::{Renderable, ViewType, ProcResult, Rect};
@@ -12,11 +11,13 @@ use super::Control;
 pub struct Button {
     parent: ViewType,
     pub rect: Rect,
-    pub style: HashMap<String, Prop>,
+    pub style: (Dimensions, Appearance),
 }
 
 impl Control for Button {
-    fn create(&mut self, parent: crate::core::ViewType) -> Result<(), String> {
+    fn create(&mut self, parent: ViewType, stylesheet: &Stylesheet) -> Result<(), String> {
+        self.style = stylesheet.get_styles(vec!["button".to_owned()]);
+
         self.parent = parent;
         Ok(())
     }
@@ -24,13 +25,17 @@ impl Control for Button {
     fn proc(&mut self, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> ProcResult {
         ProcResult::Default
     }
+
+    fn classes(&mut self, classes: Vec<&'static str>) {
+        
+    }
 }
 
 impl Renderable for Button {
     fn update(
         &self,
-        parent: (Rect, HashMap<String, Prop>),
-        previous: (Rect, HashMap<String, Prop>),
+        parent: (Rect, (Dimensions, Appearance)),
+        previous: (Rect, (Dimensions, Appearance)),
     ) -> Result<(), String> {
         Ok(())
     }
@@ -43,7 +48,7 @@ impl Renderable for Button {
         &self.rect
     }
 
-    fn style(&self) -> &HashMap<String, Prop> { 
+    fn style(&self) -> &(Dimensions, Appearance) { 
         &self.style
     }
 }

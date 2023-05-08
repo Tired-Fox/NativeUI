@@ -28,7 +28,6 @@ pub mod WS {
 }
 
 pub mod HS {
-    use style::styles::BS;
     use windows::Win32::Graphics::Gdi::{
         HATCH_BRUSH_STYLE, HS_BDIAGONAL, HS_CROSS, HS_DIAGCROSS, HS_FDIAGONAL, HS_HORIZONTAL,
         HS_VERTICAL,
@@ -43,20 +42,6 @@ pub mod HS {
 
     pub trait ToHatchStyle {
         fn to_hatch(&self) -> HATCH_BRUSH_STYLE;
-    }
-
-    impl ToHatchStyle for BS {
-        fn to_hatch(&self) -> HATCH_BRUSH_STYLE {
-            match self {
-                Self::DCROSS => DCROSS,
-                Self::CROSS => CROSS,
-                Self::VERTICAL => VERTICAL,
-                Self::HORIZONTAL => HORIZONTAL,
-                Self::TANGENT => TANGENT,
-                Self::DIAGNOL => DIAGNOL,
-                _ => HATCH_BRUSH_STYLE(0),
-            }
-        }
     }
 }
 

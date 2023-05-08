@@ -5,6 +5,7 @@ mod text;
 use std::fmt;
 
 pub use button::Button;
+use style::Stylesheet;
 pub use text::Text;
 use windows::Win32::{
     Foundation::{HWND, LPARAM, LRESULT, WPARAM},
@@ -17,7 +18,8 @@ use windows::Win32::{
 use crate::core::{ViewType, ProcResult, Renderable};
 
 pub trait Control: fmt::Debug + Renderable {
-    fn create(&mut self, parent: ViewType) -> Result<(), String>;
+    fn classes(&mut self, classes: Vec<&'static str>);
+    fn create(&mut self, parent: ViewType, stylesheet: &Stylesheet) -> Result<(), String>;
     fn proc(&mut self, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> ProcResult;
 }
 

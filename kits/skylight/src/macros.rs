@@ -1,14 +1,10 @@
 pub mod controls {
     use crate::control::{Control, Text};
     use std::{cell::RefCell, rc::Rc};
-    use style::styles::Prop;
 
-    pub fn build_text_control(
-        text: &str,
-        styles: Vec<(&str, Prop)>,
-    ) -> Rc<RefCell<dyn Control>> {
+    pub fn build_text_control(text: &str, classes: Vec<&'static str>) -> Rc<RefCell<dyn Control>> {
         let child = Rc::new(RefCell::new(Text::new(text)));
-        child.borrow_mut().styles(styles);
+        child.borrow_mut().classes(classes);
         child
     }
 
@@ -25,11 +21,11 @@ pub mod controls {
                 $crate::macros::controls::build_text_control($text, Vec::new())
             )
         };
-        ($text: literal $(, $style: literal : $value: literal)*) => {
+        ($text: literal $(, $class: literal)*) => {
             $crate::core::ChildType::Control(
                 $crate::macros::controls::build_text_control(
                     $text,
-                    vec![$(($style, $crate::style::styles::Prop::from($value)),)*]
+                    vec![$($class,)*]
                 )
             )
         };

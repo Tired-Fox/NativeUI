@@ -1,6 +1,4 @@
-use std::collections::HashMap;
-
-use style::styles::Prop;
+use style::{Appearance, Dimensions, Stylesheet, Unit};
 use windows::{
     core::{HSTRING, PCWSTR},
     Win32::{
@@ -15,18 +13,12 @@ use windows::{
     },
 };
 
-use crate::{
-    // control::helpers::get_window,
-    core::{
-        constants::{DT, WM, WS},
-        ProcResult, Rect, Renderable, ViewType,
-    },
+use crate::core::{
+    constants::{DT, WM, WS},
+    ProcResult, Rect, Renderable, ViewType,
 };
 
-use super::{
-    helpers::text_size,
-    wndproc, Control
-};
+use super::{helpers::text_size, wndproc, Control};
 
 #[derive(Debug)]
 pub struct Text {
@@ -34,7 +26,8 @@ pub struct Text {
     pub handle: HWND,
     pub text: HSTRING,
     pub rect: Rect,
-    pub style: HashMap<String, Prop>,
+    pub style: (Dimensions, Appearance),
+    pub classes: Vec<String>,
     pub initialized: bool,
 }
 
@@ -44,22 +37,30 @@ impl Text {
             parent: ViewType::None,
             handle: HWND(0),
             text: HSTRING::from(text),
-            rect: Rect::new(0, 0, 200, 25),
-            style: HashMap::new(),
+            rect: Rect::new(0, 0, 0, 0),
+            style: (Dimensions::default(), Appearance::default()),
+            classes: Vec::new(),
             initialized: false,
         }
     }
 
-    pub fn styles(&mut self, properties: Vec<(&str, Prop)>) {
-        for pair in properties.iter() {
-            self.style.insert(pair.0.to_owned(), pair.1.clone());
-        }
-
-        println!("{:?}", self.style);
-    }
 }
 
 impl Control for Text {
+    fn classes(&mut self, classes: Vec<&'static str>) {
+        println!("{:?}", classes);
+        self.classes = classes
+            .iter()
+            .map(|c| {
+                if !c.starts_with(".") {
+                    String::from(".") + c
+                } else {
+                    String::from(*c)
+                }
+            })
+            .collect::<Vec<String>>();
+    }
+
     fn proc(&mut self, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> ProcResult {
         match msg {
             WM::PAINT => unsafe {
@@ -88,7 +89,12 @@ impl Control for Text {
         }
     }
 
-    fn create(&mut self, parent: ViewType) -> Result<(), String> {
+    fn create(&mut self, parent: ViewType, stylesheet: &Stylesheet) -> Result<(), String> {
+        let mut selectors: Vec<String> = vec!["text".to_owned()];
+        selectors.extend(self.classes.clone());
+
+        self.style = stylesheet.get_styles(selectors);
+
         if !self.initialized {
             self.parent = parent;
 
@@ -125,8 +131,18 @@ impl Control for Text {
             }
 
             assert!(self.handle.0 != 0);
-            self.rect = text_size(self.handle, self.text.to_string_lossy());
-            // self.rect = get_window(handle.to_owned())?.rect;
+            let text_rect = text_size(self.handle, self.text.to_string_lossy());
+            match self.style.0.width {
+                Unit::PX(width) => self.rect.right = width as i32,
+                Unit::Percent(width) => self.rect.right = text_rect.right,
+                Unit::Default => self.rect.right = text_rect.right,
+            }
+            match self.style.0.width {
+                Unit::PX(height) => self.rect.bottom = height as i32,
+                Unit::Percent(_) => self.rect.bottom = text_rect.bottom,
+                Unit::Default => self.rect.bottom = text_rect.bottom,
+            }
+
             unsafe {
                 SetWindowPos(
                     self.handle,
@@ -147,8 +163,8 @@ impl Control for Text {
 impl Renderable for Text {
     fn update(
         &self,
-        parent: (Rect, HashMap<String, Prop>),
-        previous: (Rect, HashMap<String, Prop>),
+        parent: (Rect, (Dimensions, Appearance)),
+        previous: (Rect, (Dimensions, Appearance)),
     ) -> Result<(), String> {
         println!("Update Text");
         Ok(())
@@ -160,13 +176,11 @@ impl Renderable for Text {
         }
     }
 
-
     fn rect(&self) -> &Rect {
         &self.rect
     }
 
-    fn style(&self) -> &HashMap<String, Prop> {
+    fn style(&self) -> &(Dimensions, Appearance) {
         &self.style
     }
-
 }

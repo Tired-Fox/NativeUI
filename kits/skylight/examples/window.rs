@@ -27,7 +27,10 @@ fn main() {
         .layout(vec![
             controls::text!(
                 "Native UI Sample Window",
-                "color": "B6996D"
+                "text {
+  width: 800px;
+  height: 100px
+}"
             )
         ]);
         // .style(vec![

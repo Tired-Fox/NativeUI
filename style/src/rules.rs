@@ -6,12 +6,12 @@ use cssparser::CowRcStr;
 pub enum Unit {
     PX(f32),
     Percent(f32),
-    Uknown
+    Default 
 }
 
 impl Default for Unit {
     fn default() -> Self {
-        Unit::PX(10f32)
+        Unit::Default
     }
 }
 
@@ -19,7 +19,7 @@ impl Unit {
     pub fn from_unit(unit: &CowRcStr, value: &f32) -> Self {
         match unit.borrow() {
             "px" => Unit::PX(value.clone()),
-            _ => Unit::Uknown,
+            _ => Unit::Default,
             
         }
     }
