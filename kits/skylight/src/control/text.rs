@@ -48,7 +48,6 @@ impl Text {
 
 impl Control for Text {
     fn classes(&mut self, classes: Vec<&'static str>) {
-        println!("{:?}", classes);
         self.classes = classes
             .iter()
             .map(|c| {
