@@ -3,6 +3,8 @@ use cssparser::{
     Parser, QualifiedRuleParser, Token, ParserState
 };
 
+use crate::Color;
+
 use super::rules::*;
 
 #[derive(Debug)]
@@ -115,6 +117,9 @@ impl<'i> DeclarationParser<'i> for StyleParser {
                 "oblique" => Style::FontStyle(FontStyle::Oblique),
                 _ => { return Err(s.new_unexpected_token_error(t.clone())); }
             }},
+
+            "background-color" => Style::BackgroundColor(Color::parse(input)?),
+
             "height" => Style::Height(parse_floaty_value(input)?),
             "width" => Style::Width(parse_floaty_value(input)?),
             t => {

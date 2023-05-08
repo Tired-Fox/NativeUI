@@ -14,6 +14,7 @@ pub use windows::{s as pcstr, w as pwstr};
 static WIN_ID: AtomicU16 = AtomicU16::new(1);
 
 use crate::core::{
+    Brush,
     constants::{CS, WM, WS},
     image::icon,
     ChildType, ProcResult, Rect, Renderable, View, ViewType,
@@ -200,7 +201,7 @@ impl Window {
             Unit::Default => self.rect.right = 300i32,
         }
 
-        // build_background(self)?;
+        self.background = Brush::solid(self.style.1.background_color);
 
         Ok(())
     }
@@ -285,6 +286,7 @@ impl Window {
     }
 
     pub fn stylesheet(mut self, stylesheet: Stylesheet) -> Self {
+        println!("{:?}", stylesheet);
         self.stylesheet = stylesheet;
         self.style = self.stylesheet.get_styles(vec!["root".to_owned(), "window".to_owned()]);
         self

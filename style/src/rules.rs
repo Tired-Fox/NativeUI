@@ -1,5 +1,7 @@
 use std::borrow::Borrow;
 
+use super::Color;
+
 use cssparser::CowRcStr;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -35,6 +37,7 @@ pub enum FontStyle {
 
 #[derive(Debug)]
 pub enum Style {
+    BackgroundColor(Color),
     FontStyle(FontStyle),
 
     Height(Unit),

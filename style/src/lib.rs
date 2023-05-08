@@ -3,6 +3,7 @@ use std::{collections::HashMap, fs::File, io::Read, path::Path};
 use cssparser::{Parser, ParserInput, RuleListParser};
 
 pub mod color;
+use color::Color;
 mod parser;
 mod rules;
 
@@ -27,12 +28,16 @@ impl Default for Dimensions {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Appearance {
     pub font_style: FontStyle,
+
+    pub background_color: Color,
 }
 
 impl Default for Appearance {
     fn default() -> Self {
         Appearance {
             font_style: FontStyle::default(),
+
+            background_color: Color::new(255, 255, 255, 1.),
         }
     }
 }
@@ -84,7 +89,10 @@ impl Stylesheet {
                     match style {
                         Style::Width(width) => dimensions.width = width.clone(),
                         Style::Height(height) => dimensions.height = height.clone(),
+
                         Style::FontStyle(font_style) => appearance.font_style = font_style.clone(),
+
+                        Style::BackgroundColor(color) => appearance.background_color = color.to_owned(),
                     };
                 }
             }

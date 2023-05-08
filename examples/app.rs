@@ -9,15 +9,15 @@ use native_ui::styles;
 
 fn main() {
     let mut window = Window::new()
-        .size(800, 400)
         .title("Native UI")
         .icon("NativeUi.ico")
         .background(Brush::hatch("B6996D".into(), HS::DCROSS))
         .layout(vec![controls::text!("Native UI Test Window", ".h1")])
         .stylesheet(styles! {
             root {
-                width: 50%;
-                height: 25%;
+                width: 75%;
+                height: 75%;
+                background-color: #ff6b6b;
             }
 
             .h1 {
