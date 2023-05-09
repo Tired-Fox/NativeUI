@@ -1,5 +1,7 @@
 use std::borrow::Borrow;
 
+use crate::size::Size;
+
 use super::Color;
 
 use cssparser::CowRcStr;
@@ -8,7 +10,7 @@ use cssparser::CowRcStr;
 pub enum Unit {
     PX(f32),
     Percent(f32),
-    Default 
+    Default,
 }
 
 impl Default for Unit {
@@ -22,7 +24,22 @@ impl Unit {
         match unit.borrow() {
             "px" => Unit::PX(value.clone()),
             _ => Unit::Default,
-            
+        }
+    }
+
+    pub fn as_i32(&self, total: i32, default: i32) -> i32 {
+        match self {
+            Self::PX(px) => px.clone() as i32,
+            Self::Percent(percent) => (total as f32 * percent) as i32,
+            Self::Default => default,
+        }
+    }
+
+    pub fn as_f32(&self, total: f32, default: f32) -> f32 {
+        match self {
+            Self::PX(px) => px.clone(),
+            Self::Percent(percent) => total * percent,
+            Self::Default => default,
         }
     }
 }
@@ -32,7 +49,7 @@ pub enum FontStyle {
     #[default]
     Normal,
     Italic,
-    Oblique
+    Oblique,
 }
 
 #[derive(Debug)]
@@ -41,5 +58,29 @@ pub enum Style {
     FontStyle(FontStyle),
 
     Height(Unit),
-    Width(Unit)
+    Width(Unit),
+
+    Inset(Size),
+    InsetBlock(Unit),
+    InsetInline(Unit),
+    Left(Unit),
+    Top(Unit),
+    Right(Unit),
+    Bottom(Unit),
+
+    Padding(Size),
+    PaddingBlock(Unit),
+    PaddingInline(Unit),
+    PaddingLeft(Unit),
+    PaddingTop(Unit),
+    PaddingRight(Unit),
+    PaddingBottom(Unit),
+
+    Margin(Size),
+    MarginBlock(Unit),
+    MarginInline(Unit),
+    MarginLeft(Unit),
+    MarginTop(Unit),
+    MarginRight(Unit),
+    MarginBottom(Unit),
 }

@@ -6,6 +6,7 @@ use native_ui::skylight::{
     HookType, Window,
 };
 use native_ui::styles;
+use style::Stylesheet;
 
 fn main() {
     let mut window = Window::new()
@@ -13,29 +14,20 @@ fn main() {
         .icon("NativeUi.ico")
         .background(Brush::hatch("B6996D".into(), HS::DCROSS))
         .layout(vec![controls::text!("Native UI Test Window", ".h1")])
-        .stylesheet(styles! {
-            root {
-                width: 75%;
-                height: 75%;
-                background-color: #ff6b6b;
-            }
+        // .stylesheet(styles! {
+        //     root {
+        //         width: 75%;
+        //         height: 75%;
+        //         padding-right: 10px;
+        //         background-color: #ff6b6b;
+        //         left: 10px;
+        //     }
 
-            .h1 {
-                font-style: italic;
-            }
-        })
+        //     .h1 {
+        //         font-style: italic;
+        //         padding: 10px 10px 5px 50%;
+        //     }
+        // })
+        .stylesheet(Stylesheet::file("styles.css"))
         .open();
-    // let stylesheet: Stylesheet = styles! {
-    //     div {
-    //         width: 10px;
-    //         height: 50%;
-    //     }
-
-    //     view {
-    //         font-style: italic;
-    //     }
-    // };
-
-    // println!("{:?}", stylesheet);
-    // stylesheet.get_style(vec!["div", "view"]);
 }

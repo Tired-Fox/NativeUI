@@ -71,7 +71,7 @@ impl From<Rect> for RECT {
 
 pub trait Renderable {
     fn update(
-        &self,
+        &mut self,
         parent: (Rect, (Dimensions, Appearance)),
         previous: (Rect, (Dimensions, Appearance)),
 
@@ -82,6 +82,7 @@ pub trait Renderable {
     fn show(&self);
     fn rect(&self) -> &Rect;
     fn style(&self) -> &(Dimensions, Appearance);
+    fn handle(&self) -> &HWND;
 }
 
 pub trait View: Renderable {

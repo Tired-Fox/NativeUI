@@ -190,16 +190,8 @@ impl Window {
     }
 
     fn apply_styles(&mut self) -> Result<(), String> {
-        match self.style.0.width {
-            Unit::PX(width) => self.rect.right = width as i32,
-            Unit::Percent(width) => self.rect.right = (width * 1900f32) as i32,
-            Unit::Default => self.rect.right = 400i32,
-        }
-        match self.style.0.height {
-            Unit::PX(height) => self.rect.bottom = height as i32,
-            Unit::Percent(height) => self.rect.bottom = (height * 1000f32) as i32,
-            Unit::Default => self.rect.right = 300i32,
-        }
+        self.rect.right = self.style.0.width.as_i32(1900, 400);
+        self.rect.bottom = self.style.0.height.as_i32(1000, 300);
 
         self.background = Brush::solid(self.style.1.background_color);
 
@@ -286,7 +278,6 @@ impl Window {
     }
 
     pub fn stylesheet(mut self, stylesheet: Stylesheet) -> Self {
-        println!("{:?}", stylesheet);
         self.stylesheet = stylesheet;
         self.style = self.stylesheet.get_styles(vec!["root".to_owned(), "window".to_owned()]);
         self
@@ -310,7 +301,7 @@ impl Window {
 
 impl Renderable for Window {
     fn update(
-        &self,
+        &mut self,
         _parent: (Rect, (Dimensions, Appearance)),
         previous: (Rect, (Dimensions, Appearance)),
     ) -> Result<(), String> {
@@ -319,7 +310,7 @@ impl Renderable for Window {
         for child in self.children.iter() {
             match child {
                 ChildType::Control(control) => {
-                    let control = control.borrow_mut();
+                    let mut control = control.borrow_mut();
                     control.update((self.rect().clone(), self.style.clone()), previous)?;
                     previous = (control.rect().clone(), control.style().clone());
                 }
@@ -341,6 +332,10 @@ impl Renderable for Window {
                 }
             }
         }
+    }
+
+    fn handle(&self) -> &HWND {
+        &self.handle
     }
 
     fn rect(&self) -> &Rect {

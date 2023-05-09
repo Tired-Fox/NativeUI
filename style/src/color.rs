@@ -1,20 +1,29 @@
-//! Implements `Color`. Heavily based on the `Color` module in Servo's CSS parser, but tweaked
-//! for (what I believe) is a friendlier API, and to separate out the parsing into a separate
-//! module.
+//! Color data object which holds red, green, blue, and alpha channels.
+//!
+//! This data object containts helpers to convert to platform specific color values.
+//!
+//! # Example
+//!
+//! ```rust
+//! // For windows COLROREF
+//! COLORREF(Color::new(255, 10, 154, 1.0).into())
+//! ```
+//!
+//! # Credit
+//!
+//! Credit to ryanmcgrath (Alchemy) for the inspireation and ground work for this module
+//!
+//! Alchemy repo: https://github.com/ryanmcgrath/alchemy/tree/trunk/styles
 
 use cssparser::{BasicParseError, ParseError, Parser, ToCss, Token};
 use std::{f32::consts::PI, fmt};
 
-/// A color with red, green, blue, and alpha components, in a byte each.
+/// A color with red, green, blue, and alpha components
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Color {
-    /// The red component.
     pub red: u8,
-    /// The green component.
     pub green: u8,
-    /// The blue component.
     pub blue: u8,
-    /// The alpha component.
     pub alpha: f32,
 }
 

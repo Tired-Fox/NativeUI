@@ -1,15 +1,15 @@
+use style::{Appearance, Dimensions, Stylesheet};
+use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
 
-use style::{Stylesheet, Dimensions, Appearance};
-use windows::Win32::Foundation::{LPARAM, WPARAM, HWND};
-
-use crate::core::{Renderable, ViewType, ProcResult, Rect};
+use crate::core::{ProcResult, Rect, Renderable, ViewType};
 
 use super::Control;
-
 
 #[derive(Debug)]
 pub struct Button {
     parent: ViewType,
+
+    pub handle: HWND,
     pub rect: Rect,
     pub style: (Dimensions, Appearance),
 }
@@ -19,6 +19,7 @@ impl Control for Button {
         self.style = stylesheet.get_styles(vec!["button".to_owned()]);
 
         self.parent = parent;
+        self.handle = HWND(0);
         Ok(())
     }
 
@@ -26,29 +27,29 @@ impl Control for Button {
         ProcResult::Default
     }
 
-    fn classes(&mut self, classes: Vec<&'static str>) {
-        
-    }
+    fn classes(&mut self, classes: Vec<&'static str>) {}
 }
 
 impl Renderable for Button {
     fn update(
-        &self,
+        &mut self,
         parent: (Rect, (Dimensions, Appearance)),
         previous: (Rect, (Dimensions, Appearance)),
     ) -> Result<(), String> {
         Ok(())
     }
 
-    fn show(&self) {
-        
+    fn show(&self) {}
+
+    fn handle(&self) -> &HWND {
+        &self.handle
     }
 
     fn rect(&self) -> &Rect {
         &self.rect
     }
 
-    fn style(&self) -> &(Dimensions, Appearance) { 
+    fn style(&self) -> &(Dimensions, Appearance) {
         &self.style
     }
 }

@@ -5,6 +5,8 @@ use cssparser::{Parser, ParserInput, RuleListParser};
 pub mod color;
 use color::Color;
 mod parser;
+mod size;
+use size::Size;
 mod rules;
 
 pub use parser::{Rule, RuleParser, StyleParser};
@@ -14,6 +16,10 @@ pub use rules::*;
 pub struct Dimensions {
     pub width: Unit,
     pub height: Unit,
+
+    pub padding: Size,
+    pub margin: Size,
+    pub inset: Size,
 }
 
 impl Default for Dimensions {
@@ -21,6 +27,10 @@ impl Default for Dimensions {
         Dimensions {
             width: Unit::default(),
             height: Unit::default(),
+
+            padding: Size::default(),
+            margin: Size::default(),
+            inset: Size::default(),
         }
     }
 }
@@ -93,6 +103,48 @@ impl Stylesheet {
                         Style::FontStyle(font_style) => appearance.font_style = font_style.clone(),
 
                         Style::BackgroundColor(color) => appearance.background_color = color.to_owned(),
+
+                        Style::Padding(size) => dimensions.padding = *size,
+                        Style::PaddingInline(inline) => {
+                            dimensions.padding.left = inline.clone();
+                            dimensions.padding.right = *inline;
+                        }
+                        Style::PaddingBlock(block) => {
+                            dimensions.padding.top = block.clone();
+                            dimensions.padding.bottom = *block;
+                        }
+                        Style::PaddingLeft(left) => dimensions.padding.left = *left,
+                        Style::PaddingTop(top) => dimensions.padding.top = *top,
+                        Style::PaddingRight(right) => dimensions.padding.right = *right,
+                        Style::PaddingBottom(bottom) => dimensions.padding.bottom = *bottom,
+
+                        Style::Margin(size) => dimensions.margin = *size,
+                        Style::MarginInline(inline) => {
+                            dimensions.margin.left = inline.clone();
+                            dimensions.margin.right = *inline;
+                        }
+                        Style::MarginBlock(block) => {
+                            dimensions.margin.top = block.clone();
+                            dimensions.margin.bottom = *block;
+                        }
+                        Style::MarginTop(top) => dimensions.margin.top = *top,
+                        Style::MarginLeft(left) => dimensions.margin.left = *left,
+                        Style::MarginRight(right) => dimensions.margin.right = *right,
+                        Style::MarginBottom(bottom) => dimensions.margin.bottom = *bottom,
+
+                        Style::Inset(inset) => dimensions.inset = *inset,
+                        Style::InsetBlock(block) => {
+                            dimensions.inset.left = block.clone();
+                            dimensions.inset.left = *block;
+                        },
+                        Style::InsetInline(inline) => {
+                            dimensions.inset.top = inline.clone();
+                            dimensions.inset.bottom = *inline;
+                        },
+                        Style::Top(top) => dimensions.inset.top = *top,
+                        Style::Left(left) => dimensions.inset.left = *left,
+                        Style::Right(right) => dimensions.inset.right = *right,
+                        Style::Bottom(bottom) => dimensions.inset.bottom = *bottom,
                     };
                 }
             }

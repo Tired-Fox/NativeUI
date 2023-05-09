@@ -7,15 +7,18 @@ use windows::{
             BeginPaint, DrawTextW, EndPaint, GetDC, SetBkMode, PAINTSTRUCT, TRANSPARENT,
         },
         UI::WindowsAndMessaging::{
-            CreateWindowExW, GetClientRect, SendMessageW, SetWindowLongPtrW, SetWindowPos,
-            ShowWindow, GWL_WNDPROC, SET_WINDOW_POS_FLAGS, SW_SHOW, WM_CREATE,
+            CreateWindowExW, GetClientRect, SendMessageW, SetWindowLongPtrW, ShowWindow,
+            GWL_WNDPROC, SW_SHOW, WM_CREATE,
         },
     },
 };
 
-use crate::core::{
-    constants::{DT, WM, WS},
-    ProcResult, Rect, Renderable, ViewType,
+use crate::{
+    control::helpers::update_pos,
+    core::{
+        constants::{DT, WM, WS},
+        ProcResult, Rect, Renderable, ViewType,
+    },
 };
 
 use super::{helpers::text_size, wndproc, Control};
@@ -43,7 +46,6 @@ impl Text {
             initialized: false,
         }
     }
-
 }
 
 impl Control for Text {
@@ -142,17 +144,7 @@ impl Control for Text {
                 Unit::Default => self.rect.bottom = text_rect.bottom,
             }
 
-            unsafe {
-                SetWindowPos(
-                    self.handle,
-                    None,
-                    self.rect.left,
-                    self.rect.top,
-                    self.rect.width(),
-                    self.rect.height(),
-                    SET_WINDOW_POS_FLAGS::default(),
-                );
-            }
+            update_pos(self);
             self.initialized = true;
         }
         Ok(())
@@ -161,11 +153,26 @@ impl Control for Text {
 
 impl Renderable for Text {
     fn update(
-        &self,
+        &mut self,
         parent: (Rect, (Dimensions, Appearance)),
         previous: (Rect, (Dimensions, Appearance)),
     ) -> Result<(), String> {
-        println!("Update Text");
+        println!("{:?}", self.style());
+
+        // text size as default rect size
+        let mut rect = text_size(self.handle, self.text.to_string_lossy());
+        let dimensions = self.style().0;
+        // let appearance = self.style().1;
+
+        // padding, margin
+        // starting position
+
+        // width, height
+        rect.right = dimensions.width.as_i32(parent.0.width(), rect.right);
+        rect.bottom = dimensions.height.as_i32(parent.0.height(), rect.bottom);
+
+        update_pos(self);
+        println!("Update Text: {:?}", rect);
         Ok(())
     }
 
@@ -173,6 +180,10 @@ impl Renderable for Text {
         unsafe {
             ShowWindow(self.handle, SW_SHOW);
         }
+    }
+
+    fn handle(&self) -> &HWND {
+        &self.handle
     }
 
     fn rect(&self) -> &Rect {
