@@ -13,7 +13,10 @@ fn main() {
         .title("Native UI")
         .icon("NativeUi.ico")
         .background(Brush::hatch("B6996D".into(), HS::DCROSS))
-        .layout(vec![controls::text!("Native UI Test Window", ".h1")])
+        .layout(vec![
+            controls::text!("Native UI Test Window", ".h1"),
+            controls::text!("Second Line", ".h1")
+        ])
         // .stylesheet(styles! {
         //     root {
         //         width: 75%;

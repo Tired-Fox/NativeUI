@@ -11,6 +11,7 @@ pub struct Button {
 
     pub handle: HWND,
     pub rect: Rect,
+    ns_rect: Rect,
     pub style: (Dimensions, Appearance),
 }
 
@@ -21,6 +22,10 @@ impl Control for Button {
         self.parent = parent;
         self.handle = HWND(0);
         Ok(())
+    }
+
+    fn ns_rect(&self) -> &Rect {
+        &self.ns_rect
     }
 
     fn proc(&mut self, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> ProcResult {
@@ -34,7 +39,7 @@ impl Renderable for Button {
     fn update(
         &mut self,
         parent: (Rect, (Dimensions, Appearance)),
-        previous: (Rect, (Dimensions, Appearance)),
+        previous: Option<(Rect, (Dimensions, Appearance))>,
     ) -> Result<(), String> {
         Ok(())
     }

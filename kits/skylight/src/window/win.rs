@@ -60,10 +60,7 @@ impl Window {
             WM::SIZE => {
                 self.update(
                     (Rect::new(0, 0, 0, 0), self.style.clone()),
-                    (
-                        Rect::new(0, 0, 0, 0),
-                        (Dimensions::default(), Appearance::default()),
-                    ),
+                    None,
                 )
                 .unwrap();
             }
@@ -303,7 +300,7 @@ impl Renderable for Window {
     fn update(
         &mut self,
         _parent: (Rect, (Dimensions, Appearance)),
-        previous: (Rect, (Dimensions, Appearance)),
+        previous: Option<(Rect, (Dimensions, Appearance))>,
     ) -> Result<(), String> {
         let mut previous = previous;
 
@@ -312,7 +309,7 @@ impl Renderable for Window {
                 ChildType::Control(control) => {
                     let mut control = control.borrow_mut();
                     control.update((self.rect().clone(), self.style.clone()), previous)?;
-                    previous = (control.rect().clone(), control.style().clone());
+                    previous = Some((control.rect().clone(), control.style().clone()));
                 }
             }
         }

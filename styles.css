@@ -1,14 +1,13 @@
 root {
   width: 75%;
   height: 75%;
-  padding-right: 10px;
   background-color: #ff6b6b;
   left: 10px;
-  margin: 20px 0;
+  padding: 20px;
 }
 
 .h1 {
   font-style: italic;
   padding: 10px 5px 20px 50%;
-  padding-right: 69px;
+  margin: 5px;
 }

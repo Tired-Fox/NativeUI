@@ -15,9 +15,10 @@ use windows::Win32::{
     },
 };
 
-use crate::core::{ViewType, ProcResult, Renderable};
+use crate::core::{ViewType, ProcResult, Renderable, Rect};
 
 pub trait Control: fmt::Debug + Renderable {
+    fn ns_rect(&self) -> &Rect;
     fn classes(&mut self, classes: Vec<&'static str>);
     fn create(&mut self, parent: ViewType, stylesheet: &Stylesheet) -> Result<(), String>;
     fn proc(&mut self, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> ProcResult;

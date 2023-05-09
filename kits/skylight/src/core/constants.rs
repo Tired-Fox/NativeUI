@@ -12,12 +12,13 @@ pub mod WS {
     //! Window Styles
     //! Direct mapping of window style constants from the windows api
     use windows::Win32::UI::WindowsAndMessaging::{
-        WINDOW_STYLE, WS_CHILD, WS_TILEDWINDOW, WS_VISIBLE,
+        WINDOW_STYLE, WS_CHILD, WS_TILEDWINDOW, WS_VISIBLE, WS_BORDER,
     };
 
     pub const TILED_WINDOW: WINDOW_STYLE = WS_TILEDWINDOW;
     pub const VISIBLE: WINDOW_STYLE = WS_VISIBLE;
     pub const CHILD: WINDOW_STYLE = WS_CHILD;
+    pub const BORDER: WINDOW_STYLE = WS_BORDER;
 
     pub mod EX {
         use windows::Win32::UI::WindowsAndMessaging::{WINDOW_EX_STYLE, WS_EX_LAYERED};

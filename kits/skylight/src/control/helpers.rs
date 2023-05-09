@@ -42,3 +42,14 @@ pub fn update_pos(control: &mut impl Control) {
         );
     }
 }
+
+pub fn padding_rect(control: &impl Control, rect: &mut RECT) {
+    // Top, right, bottom, left
+    let ns = control.ns_rect();
+    let padding = control.style().0.padding.calc(ns.width(), ns.height());
+
+    rect.top += padding.0;
+    rect.right -= padding.1;
+    rect.bottom -= padding.2;
+    rect.left += padding.3;
+}

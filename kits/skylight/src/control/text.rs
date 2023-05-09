@@ -21,7 +21,10 @@ use crate::{
     },
 };
 
-use super::{helpers::text_size, wndproc, Control};
+use super::{
+    helpers::{padding_rect, text_size},
+    wndproc, Control,
+};
 
 #[derive(Debug)]
 pub struct Text {
@@ -29,6 +32,7 @@ pub struct Text {
     pub handle: HWND,
     pub text: HSTRING,
     pub rect: Rect,
+    ns_rect: Rect,
     pub style: (Dimensions, Appearance),
     pub classes: Vec<String>,
     pub initialized: bool,
@@ -41,6 +45,7 @@ impl Text {
             handle: HWND(0),
             text: HSTRING::from(text),
             rect: Rect::new(0, 0, 0, 0),
+            ns_rect: Rect::new(0, 0, 0, 0),
             style: (Dimensions::default(), Appearance::default()),
             classes: Vec::new(),
             initialized: false,
@@ -62,11 +67,17 @@ impl Control for Text {
             .collect::<Vec<String>>();
     }
 
-    fn proc(&mut self, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> ProcResult {
+    fn ns_rect(&self) -> &Rect {
+        &self.ns_rect
+    }
+
+    fn proc(&mut self, hwnd: HWND, msg: u32, _wparam: WPARAM, _lparam: LPARAM) -> ProcResult {
         match msg {
             WM::PAINT => unsafe {
-                let mut rect = self.rect.into();
+                let mut rect: RECT = self.rect.into();
                 GetClientRect(hwnd, &mut rect as *mut RECT);
+
+                padding_rect(self, &mut rect);
 
                 let mut ps = PAINTSTRUCT {
                     hdc: GetDC(self.handle),
@@ -79,7 +90,7 @@ impl Control for Text {
                 DrawTextW(
                     hdc,
                     &mut text[..],
-                    &mut self.rect.into() as *mut RECT,
+                    &mut rect as *mut RECT,
                     DT::CENTER | DT::SINGLELINE | DT::VCENTER,
                 );
                 EndPaint(self.handle, &mut ps as *mut PAINTSTRUCT);
@@ -111,7 +122,7 @@ impl Control for Text {
                     windows::Win32::UI::WindowsAndMessaging::WINDOW_EX_STYLE(0),
                     PCWSTR(HSTRING::from("STATIC").as_ptr()),
                     PCWSTR(self.text.as_ptr()),
-                    WS::VISIBLE | WS::CHILD,
+                    WS::VISIBLE | WS::CHILD | WS::BORDER,
                     self.rect.left,
                     self.rect.top,
                     self.rect.width(),
@@ -155,24 +166,55 @@ impl Renderable for Text {
     fn update(
         &mut self,
         parent: (Rect, (Dimensions, Appearance)),
-        previous: (Rect, (Dimensions, Appearance)),
+        previous: Option<(Rect, (Dimensions, Appearance))>,
     ) -> Result<(), String> {
-        println!("{:?}", self.style());
-
-        // text size as default rect size
-        let mut rect = text_size(self.handle, self.text.to_string_lossy());
+        // TODO: Implement inset alignment based ond display relative or absolute
         let dimensions = self.style().0;
-        // let appearance = self.style().1;
+        let parent_padding = parent.1 .0.padding;
 
-        // padding, margin
-        // starting position
+        match previous {
+            Some((previous_rect, previous_style)) => {
+                let previous_margin = previous_style.0.margin;
 
-        // width, height
-        rect.right = dimensions.width.as_i32(parent.0.width(), rect.right);
-        rect.bottom = dimensions.height.as_i32(parent.0.height(), rect.bottom);
+                let width = dimensions.width.as_i32(parent.0.width(), self.rect.width());
+                let height = dimensions
+                    .height
+                    .as_i32(parent.0.height(), self.rect.height());
 
-        update_pos(self);
-        println!("Update Text: {:?}", rect);
+                let padding = self.style().0.padding.calc(width, height);
+                let margin = self.style().0.margin.calc(width, height);
+
+                self.rect.left = parent_padding.left.as_i32(parent.0.width(), 0) + margin.3;
+                self.rect.top = previous_rect.bottom
+                    + previous_margin.bottom.as_i32(parent.0.height(), 0)
+                    + margin.0;
+
+                self.rect.right = self.rect.left + width + padding.3 + padding.1;
+                self.rect.bottom = self.rect.top + height + padding.0 + padding.2;
+                update_pos(self);
+
+                self.ns_rect = self.rect.clone();
+                self.ns_rect.right -= padding.3 + padding.1;
+                self.ns_rect.bottom -= padding.0 + padding.2;
+            }
+            _ => {
+                let width = dimensions.width.as_i32(parent.0.width(), self.rect.width());
+                let height = dimensions
+                    .height
+                    .as_i32(parent.0.height(), self.rect.height());
+
+                let padding = self.style().0.padding.calc(width, height);
+                let margin = self.style().0.margin.calc(width, height);
+
+                self.rect.left = parent_padding.left.as_i32(parent.0.width(), 0) + margin.3;
+                self.rect.top = parent_padding.top.as_i32(parent.0.height(), 0) + margin.0;
+
+                self.rect.right = width + self.rect.left + padding.3 + padding.1;
+                self.rect.bottom = height + self.rect.top + padding.0 + padding.2;
+
+                update_pos(self);
+            }
+        }
         Ok(())
     }
 

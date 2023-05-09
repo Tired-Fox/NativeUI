@@ -23,7 +23,9 @@ impl From<Vec<Unit>> for Size {
         match value.len() {
             1 => Size {
                 top: value[0],
-                ..Default::default()
+                right: value[0],
+                bottom: value[0],
+                left: value[0],
             },
             2 => Size {
                 top: value[0],
@@ -78,6 +80,18 @@ impl Size {
             right,
             bottom,
         }
+    }
+
+    /// Calculate the i32 values for top, right, bottom, left in that order.
+    ///
+    /// Provided a total with and total height the final values are calculated
+    pub fn calc(&self, width: i32, height: i32) -> (i32, i32, i32, i32) {
+        (
+            self.top.as_i32(height, 0),
+            self.right.as_i32(width, 0),
+            self.bottom.as_i32(height, 0),
+            self.left.as_i32(width, 0),
+        )
     }
 
     /// Create a block shorthand size

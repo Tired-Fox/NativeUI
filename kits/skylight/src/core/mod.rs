@@ -73,7 +73,7 @@ pub trait Renderable {
     fn update(
         &mut self,
         parent: (Rect, (Dimensions, Appearance)),
-        previous: (Rect, (Dimensions, Appearance)),
+        previous: Option<(Rect, (Dimensions, Appearance))>,
 
     ) -> Result<(), String> {
         Ok(())
