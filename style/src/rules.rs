@@ -1,4 +1,4 @@
-use std::borrow::Borrow;
+use std::{borrow::Borrow, default};
 
 use crate::size::Size;
 
@@ -52,6 +52,13 @@ pub enum FontStyle {
     Oblique,
 }
 
+#[derive(Debug, PartialEq, Clone, Copy, Default)]
+pub enum Position {
+    Absolute,
+    #[default]
+    Relative,
+}
+
 #[derive(Debug)]
 pub enum Style {
     BackgroundColor(Color),
@@ -59,6 +66,8 @@ pub enum Style {
 
     Height(Unit),
     Width(Unit),
+
+    Position(Position),
 
     Inset(Size),
     InsetBlock(Unit),

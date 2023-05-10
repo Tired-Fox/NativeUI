@@ -15,7 +15,7 @@ fn main() {
         .background(Brush::hatch("B6996D".into(), HS::DCROSS))
         .layout(vec![
             controls::text!("Native UI Test Window", ".h1"),
-            controls::text!("Second Line", ".h1")
+            controls::text!("Second Line", ".h2")
         ])
         // .stylesheet(styles! {
         //     root {

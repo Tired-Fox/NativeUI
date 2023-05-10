@@ -13,6 +13,25 @@ use crate::{size::Size, Color};
 
 use super::rules::*;
 
+macro_rules! option {
+    ($input: ident, $($case: literal => $value: expr),* $(,)?) => {
+        {
+            let s: cssparser::SourceLocation = $input.current_source_location();
+            let t: &cssparser::Token = $input.next()?;
+            let token = match t {
+                cssparser::Token::Ident(ref value) => &*value,
+                _ => "",
+            };
+            match token {
+                $($case => $value,)*
+                _ => {
+                    return Err(s.new_unexpected_token_error(t.clone()));
+                }
+            }
+        }
+    };
+}
+
 #[derive(Debug)]
 pub struct Rule {
     pub key: String,
@@ -50,8 +69,8 @@ impl<'i> QualifiedRuleParser<'i> for RuleParser {
                         Token::Ident(ref element_name) => format!(".{}", element_name),
                         t => return Err(location.new_unexpected_token_error(t.clone())),
                     }
-                },
-                _ => return Err(location.new_unexpected_token_error(token.clone()))
+                }
+                _ => return Err(location.new_unexpected_token_error(token.clone())),
             },
             t => {
                 return Err(location.new_unexpected_token_error(t.clone()));
@@ -128,18 +147,18 @@ impl<'i> DeclarationParser<'i> for StyleParser {
         input: &mut Parser<'i, 't>,
     ) -> Result<Self::Declaration, ParseError<'i, Self::Error>> {
         let style = match &*name {
-            "font-style" => {
-                let s = input.current_source_location();
-                let t = input.next()?;
-                match ident(&t) {
-                    "normal" => Style::FontStyle(FontStyle::Normal),
-                    "italic" => Style::FontStyle(FontStyle::Italic),
-                    "oblique" => Style::FontStyle(FontStyle::Oblique),
-                    _ => {
-                        return Err(s.new_unexpected_token_error(t.clone()));
-                    }
-                }
-            }
+            "font-style" => option!(
+                input,
+                "normal" => Style::FontStyle(FontStyle::Normal),
+                "italic" => Style::FontStyle(FontStyle::Italic),
+                "oblique" => Style::FontStyle(FontStyle::Oblique),
+            ),
+
+            "position" => option!(
+                input,
+                "relative" => Style::Position(Position::Relative),
+                "absolute" => Style::Position(Position::Absolute),
+            ),
 
             "background-color" => Style::BackgroundColor(Color::parse(input)?),
 

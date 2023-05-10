@@ -14,6 +14,7 @@ pub use rules::*;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Dimensions {
+    pub position: Position,
     pub width: Unit,
     pub height: Unit,
 
@@ -25,6 +26,7 @@ pub struct Dimensions {
 impl Default for Dimensions {
     fn default() -> Self {
         Dimensions {
+            position: Position::default(),
             width: Unit::default(),
             height: Unit::default(),
 
@@ -46,7 +48,6 @@ impl Default for Appearance {
     fn default() -> Self {
         Appearance {
             font_style: FontStyle::default(),
-
             background_color: Color::new(255, 255, 255, 1.),
         }
     }
@@ -103,6 +104,7 @@ impl Stylesheet {
                         Style::FontStyle(font_style) => appearance.font_style = font_style.clone(),
 
                         Style::BackgroundColor(color) => appearance.background_color = color.to_owned(),
+                        Style::Position(position) => dimensions.position = *position,
 
                         Style::Padding(size) => dimensions.padding = *size,
                         Style::PaddingInline(inline) => {

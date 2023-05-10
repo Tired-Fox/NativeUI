@@ -7,17 +7,16 @@ use windows::{
     Win32::UI::WindowsAndMessaging::*,
 };
 
-use style::color::hex;
+use style::{color::hex, Position};
 use style::{Appearance, Dimensions, Stylesheet, Unit};
 pub use windows::{s as pcstr, w as pwstr};
 
 static WIN_ID: AtomicU16 = AtomicU16::new(1);
 
 use crate::core::{
-    Brush,
     constants::{CS, WM, WS},
     image::icon,
-    ChildType, ProcResult, Rect, Renderable, View, ViewType,
+    Brush, ChildType, ProcResult, Rect, Renderable, View, ViewType,
 };
 
 pub enum HookType {
@@ -58,11 +57,12 @@ impl Window {
     fn on_message(&mut self, message: u32, wparam: WPARAM, lparam: LPARAM) -> ProcResult {
         match message {
             WM::SIZE => {
-                self.update(
-                    (Rect::new(0, 0, 0, 0), self.style.clone()),
-                    None,
-                )
-                .unwrap();
+                let mut rect: RECT = Rect::new(0, 0, 0, 0).into();
+                unsafe {
+                    GetClientRect(self.handle, &mut rect as *mut RECT);
+                }
+                self.update((rect.into(), self.style.clone()), None)
+                    .unwrap();
             }
             WM::ERASEBKGND => unsafe {
                 // Redraw the window background when an erase background event occurs
@@ -263,8 +263,10 @@ impl Window {
                 match child {
                     ChildType::Control(control) => {
                         let mut control = control.borrow_mut();
-                        control
-                            .create(ViewType::Window(self.handle.clone(), self.instance.clone()), &self.stylesheet)?;
+                        control.create(
+                            ViewType::Window(self.handle.clone(), self.instance.clone()),
+                            &self.stylesheet,
+                        )?;
                     }
                 }
             }
@@ -276,7 +278,9 @@ impl Window {
 
     pub fn stylesheet(mut self, stylesheet: Stylesheet) -> Self {
         self.stylesheet = stylesheet;
-        self.style = self.stylesheet.get_styles(vec!["root".to_owned(), "window".to_owned()]);
+        self.style = self
+            .stylesheet
+            .get_styles(vec!["root".to_owned(), "window".to_owned()]);
         self
     }
 
@@ -308,8 +312,10 @@ impl Renderable for Window {
             match child {
                 ChildType::Control(control) => {
                     let mut control = control.borrow_mut();
-                    control.update((self.rect().clone(), self.style.clone()), previous)?;
-                    previous = Some((control.rect().clone(), control.style().clone()));
+                    control.update(_parent, previous)?;
+                    if control.style().0.position != Position::Absolute {
+                        previous = Some((control.rect().clone(), control.style().clone()));
+                    }
                 }
             }
         }
