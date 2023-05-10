@@ -1,10 +1,10 @@
-use style::{Appearance, Dimensions, Stylesheet, Unit};
+use style::{Appearance, Dimensions, Stylesheet, Unit, color::Color};
 use windows::{
     core::{HSTRING, PCWSTR},
     Win32::{
-        Foundation::{HWND, LPARAM, RECT, WPARAM},
+        Foundation::{HWND, LPARAM, RECT, WPARAM, COLORREF},
         Graphics::Gdi::{
-            BeginPaint, DrawTextW, EndPaint, GetDC, SetBkMode, PAINTSTRUCT, TRANSPARENT,
+            BeginPaint, DrawTextW, EndPaint, GetDC, SetBkMode, PAINTSTRUCT, TRANSPARENT, FrameRect, CreateSolidBrush,
         },
         UI::WindowsAndMessaging::{
             CreateWindowExW, GetClientRect, SendMessageW, SetWindowLongPtrW, ShowWindow,
@@ -87,6 +87,7 @@ impl Control for Text {
                 };
                 let hdc = BeginPaint(hwnd, &mut ps as *mut PAINTSTRUCT);
 
+                FrameRect(hdc, &mut rect as *mut RECT, CreateSolidBrush(COLORREF(Color::new(0, 0, 0, 1.).into())));
                 SetBkMode(hdc, TRANSPARENT);
                 let mut text: Vec<u16> = self.text.to_string_lossy().encode_utf16().collect();
                 DrawTextW(
@@ -285,6 +286,12 @@ impl Renderable for Text {
                         self.rect.bottom = self.rect.top + height;
                     }
                 };
+
+                self.ns_rect = self.rect.clone();
+                self.ns_rect.top += padding.0;
+                self.ns_rect.right -= padding.1;
+                self.ns_rect.bottom -= padding.2;
+                self.ns_rect.left += padding.3;
 
                 update_pos(self);
             }
