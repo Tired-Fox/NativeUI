@@ -9,7 +9,6 @@ root {
   position: absolute;
   font-style: italic;
   padding: 15px 50px;
-
   margin: 5px;
 
   /* width: fit-content; */

@@ -1,14 +1,15 @@
-use style::{Appearance, Dimensions, Stylesheet, Unit, color::Color};
+use style::{color::Color, Appearance, Dimensions, Position, Stylesheet, Unit};
 use windows::{
     core::{HSTRING, PCWSTR},
     Win32::{
-        Foundation::{HWND, LPARAM, RECT, WPARAM, COLORREF},
+        Foundation::{COLORREF, HWND, LPARAM, RECT, WPARAM},
         Graphics::Gdi::{
-            BeginPaint, DrawTextW, EndPaint, GetDC, SetBkMode, PAINTSTRUCT, TRANSPARENT, FrameRect, CreateSolidBrush,
+            BeginPaint, CreateSolidBrush, DrawTextW, EndPaint, FrameRect, GetDC, SetBkMode,
+            PAINTSTRUCT, TRANSPARENT,
         },
         UI::WindowsAndMessaging::{
             CreateWindowExW, GetClientRect, SendMessageW, SetWindowLongPtrW, ShowWindow,
-            GWL_WNDPROC, SW_SHOW, WM_CREATE,
+            GWL_WNDPROC, SW_HIDE, SW_SHOW, WM_CREATE,
         },
     },
 };
@@ -81,22 +82,23 @@ impl Control for Text {
 
                 padding_rect(self, &mut rect);
 
-                let mut ps = PAINTSTRUCT {
-                    hdc: GetDC(self.handle),
-                    ..Default::default()
-                };
-                let hdc = BeginPaint(hwnd, &mut ps as *mut PAINTSTRUCT);
+                if rect.right > rect.left && rect.bottom > rect.top {
+                    let mut ps = PAINTSTRUCT {
+                        hdc: GetDC(self.handle),
+                        ..Default::default()
+                    };
+                    let hdc = BeginPaint(hwnd, &mut ps as *mut PAINTSTRUCT);
 
-                FrameRect(hdc, &mut rect as *mut RECT, CreateSolidBrush(COLORREF(Color::new(0, 0, 0, 1.).into())));
-                SetBkMode(hdc, TRANSPARENT);
-                let mut text: Vec<u16> = self.text.to_string_lossy().encode_utf16().collect();
-                DrawTextW(
-                    hdc,
-                    &mut text[..],
-                    &mut rect as *mut RECT,
-                    DT::CENTER | DT::SINGLELINE | DT::VCENTER,
-                );
-                EndPaint(self.handle, &mut ps as *mut PAINTSTRUCT);
+                    SetBkMode(hdc, TRANSPARENT);
+                    let mut text: Vec<u16> = self.text.to_string_lossy().encode_utf16().collect();
+                    DrawTextW(
+                        hdc,
+                        &mut text[..],
+                        &mut rect as *mut RECT,
+                        DT::CENTER | DT::SINGLELINE | DT::VCENTER,
+                    );
+                    EndPaint(self.handle, &mut ps as *mut PAINTSTRUCT);
+                }
 
                 ProcResult::Success
             },
@@ -146,16 +148,15 @@ impl Control for Text {
             }
 
             assert!(self.handle.0 != 0);
+
             self.text_rect = text_size(self.handle, self.text.to_string_lossy());
             match self.style.0.width {
                 Unit::PX(width) => self.rect.right = width as i32,
-                Unit::Percent(width) => self.rect.right = self.text_rect.right,
-                Unit::Default => self.rect.right = self.text_rect.right,
+                _ => self.rect.right = self.text_rect.right,
             }
             match self.style.0.width {
                 Unit::PX(height) => self.rect.bottom = height as i32,
-                Unit::Percent(_) => self.rect.bottom = self.text_rect.bottom,
-                Unit::Default => self.rect.bottom = self.text_rect.bottom,
+                _ => self.rect.bottom = self.text_rect.bottom,
             }
 
             update_pos(self);
@@ -172,136 +173,162 @@ impl Renderable for Text {
         previous: Option<(Rect, (Dimensions, Appearance))>,
     ) -> Result<(), String> {
         // TODO: Implement inset alignment based ond display relative or absolute
+
+        let mut add_padding = (false, false);
         let dimensions = self.style().0;
-        let parent_padding = parent.1 .0.padding;
 
-        match dimensions.position {
-            style::Position::Relative => match previous {
-                Some((previous_rect, previous_style)) => {
-                    let previous_margin = previous_style.0.margin;
+        let parent_padding = parent
+            .1
+             .0
+            .padding
+            .calc(parent.0.width(), parent.0.height());
 
-                    let width = dimensions.width.as_i32(parent.0.width(), self.rect.width());
-                    let height = dimensions
-                        .height
-                        .as_i32(parent.0.height(), self.rect.height());
+        let inset = dimensions.inset.calc(parent.0.width(), parent.0.height());
+        let margin = self
+            .style()
+            .0
+            .margin
+            .calc(parent.0.width(), parent.0.height());
 
-                    let padding = self.style().0.padding.calc(width, height);
-                    let margin = self.style().0.margin.calc(width, height);
-
-                    self.rect.left = parent_padding.left.as_i32(parent.0.width(), 0) + margin.3;
-                    self.rect.top = previous_rect.bottom
-                        + previous_margin.bottom.as_i32(parent.0.height(), 0)
-                        + margin.0;
-
-                    self.rect.right = self.rect.left + width + padding.3 + padding.1;
-                    self.rect.bottom = self.rect.top + height + padding.0 + padding.2;
-                    update_pos(self);
-
-                    self.ns_rect = self.rect.clone();
-                    self.ns_rect.right -= padding.3 + padding.1;
-                    self.ns_rect.bottom -= padding.0 + padding.2;
+        let width = dimensions.width.as_i32(
+            parent.0.width() - parent_padding.1 - parent_padding.3,
+            match dimensions.position {
+                style::Position::Absolute
+                    if inset.3 != 0 && inset.1 != 0 && dimensions.width == Unit::Default =>
+                {
+                    parent.0.width() - inset.3 - inset.1 - margin.1 - margin.3
                 }
-                _ => {
-                    let width = dimensions.width.as_i32(parent.0.width(), self.rect.width());
-                    let height = dimensions
-                        .height
-                        .as_i32(parent.0.height(), self.rect.height());
+                _ => match dimensions.width {
+                    Unit::FitConent => {
+                        add_padding.0 = true;
+                        self.text_rect.width()
+                    }
+                    Unit::Default => parent.0.width() - parent_padding.1 - parent_padding.3,
+                    _ => {
+                        parent.0.width() - parent_padding.1 - parent_padding.3
+                    },
+                },
+            }
+        );
 
-                    let padding = self.style().0.padding.calc(width, height);
-                    let margin = self.style().0.margin.calc(width, height);
-
-                    self.rect.left = parent_padding.left.as_i32(parent.0.width(), 0) + margin.3;
-                    self.rect.top = parent_padding.top.as_i32(parent.0.height(), 0) + margin.0;
-
-                    self.rect.right = width + self.rect.left + padding.3 + padding.1;
-                    self.rect.bottom = height + self.rect.top + padding.0 + padding.2;
-                    self.ns_rect = self.rect.clone();
-
-                    update_pos(self);
+        let height = dimensions.height.as_i32(
+            parent.0.height() - parent_padding.0 - parent_padding.2,
+            match dimensions.position {
+                Position::Absolute
+                    if inset.0 != 0 && inset.2 != 0 && dimensions.height == Unit::Default =>
+                {
+                    parent.0.height() - inset.2 - inset.0 - margin.2 - margin.0
                 }
+                _ => match dimensions.height {
+                    Unit::FitConent | Unit::Default => {
+                        add_padding.1 = true;
+                        self.text_rect.height()
+                    }
+                    _ => {
+                        parent.0.height()
+                            - margin.0
+                            - margin.2
+                            - parent_padding.0
+                            - parent_padding.2
+                    }
+                },
             },
-            style::Position::Absolute => {
-                println!("Absolute positioning");
+        );
 
-                let inset = dimensions.inset.calc(parent.0.width(), parent.0.height());
-                let margin = self
-                    .style()
-                    .0
-                    .margin
-                    .calc(parent.0.width(), parent.0.height());
+        let padding = self.style().0.padding.calc(width, height);
 
-                let default_width = parent.0.width() - inset.3 - inset.1 - margin.1 - margin.3;
+        self.rect.left = match dimensions.position {
+            style::Position::Absolute => match dimensions.inset.left {
+                Unit::Default => match dimensions.inset.right {
+                    Unit::Default => margin.3,
+                    _ => parent.0.width() - margin.1 - inset.1 - width,
+                },
+                _ => margin.3 + inset.3,
+            },
+            _ => parent_padding.3 + margin.3,
+        };
 
-                let mut default_height = self.text_rect.height();
-                if parent.0.height() - inset.2 - inset.0 - margin.2 - margin.0 > 0 {
-                    default_height = parent.0.height() - inset.2 - inset.0 - margin.2 - margin.0;
+        self.rect.top = match dimensions.position {
+            style::Position::Absolute => match dimensions.inset.top {
+                Unit::Default => match dimensions.inset.bottom {
+                    Unit::Default => margin.0,
+                    _ => parent.0.height() - margin.2 - inset.2 - height,
+                },
+                _ => margin.0 + inset.0,
+            },
+            _ => parent_padding.0 + margin.0,
+        };
+
+        self.rect.right = self.rect.left + width;
+        self.rect.bottom = self.rect.top + height;
+
+        if add_padding.0 {
+            self.rect.right += padding.3 + padding.1 + 4;
+        }
+
+        if add_padding.1 {
+            self.rect.bottom += padding.0 + padding.2;
+        }
+
+        match dimensions.max_width {
+            Unit::Default => (),
+            _ => {
+                let max = dimensions.max_width.as_i32(parent.0.width(), 0);
+                if self.rect.width() > max {
+                    self.rect.right -= self.rect.width() - max;
                 }
-
-                let width = dimensions.width.as_i32(parent.0.width(), default_width);
-                let height = dimensions.height.as_i32(parent.0.height(), default_height);
-
-                let padding = self.style().0.padding.calc(width, height);
-
-                match dimensions.inset.left {
-                    Unit::Default => match dimensions.inset.right {
-                        Unit::Default => {
-                            println!("ABSOLUTE DEFAULT");
-                            self.rect.left = margin.3;
-                            self.rect.right = width + self.rect.left;
-                        }
-                        _ => {
-                            println!("ABSOLUTE RIGHT");
-                            self.rect.right = parent.0.width() - margin.1 - inset.1;
-                            // TODO: Clamp the values so rect isn't smaller than parent padding on
-                            // left
-                            self.rect.left = self.rect.right - width;
-                        }
-                    },
-                    _ => {
-                        println!("ABSOLUTE LEFT");
-                        self.rect.left = margin.3 + inset.3;
-                        self.rect.right = self.rect.left + width;
-                    }
-                };
-
-                match dimensions.inset.top {
-                    Unit::Default => match dimensions.inset.bottom {
-                        Unit::Default => {
-                            println!("ABSOLUTE DEFAULT");
-                            self.rect.top = margin.0;
-                            self.rect.bottom = height + self.rect.top;
-                        }
-                        _ => {
-                            println!("ABSOLUTE BOTTOM");
-                            self.rect.bottom = parent.0.height() - margin.2 - inset.2;
-                            // TODO: Clamp the values so rect isn't smaller than parent padding on
-                            // left
-                            self.rect.top =
-                                self.rect.bottom - height;
-                        }
-                    },
-                    _ => {
-                        println!("ABSOLUTE TOP");
-                        self.rect.top = margin.0 + inset.0;
-                        self.rect.bottom = self.rect.top + height;
-                    }
-                };
-
-                self.ns_rect = self.rect.clone();
-                self.ns_rect.top += padding.0;
-                self.ns_rect.right -= padding.1;
-                self.ns_rect.bottom -= padding.2;
-                self.ns_rect.left += padding.3;
-
-                update_pos(self);
             }
         }
+
+        match dimensions.min_width {
+            Unit::Default => (),
+            _ => {
+                let min = dimensions.min_width.as_i32(parent.0.width(), 0);
+                if self.rect.width() < min {
+                    self.rect.right += min - self.rect.width();
+                }
+            }
+        };
+
+        match dimensions.max_height {
+            Unit::Default => (),
+            _ => {
+                let max = dimensions.max_height.as_i32(parent.0.height(), 0);
+                if self.rect.height() > max {
+                    self.rect.bottom -= self.rect.height() - max;
+                }
+            }
+        }
+
+        match dimensions.min_height {
+            Unit::Default => (),
+            _ => {
+                let min = dimensions.min_height.as_i32(parent.0.height(), 0);
+                if self.rect.height() < min {
+                    self.rect.bottom += min - self.rect.height();
+                }
+            }
+        };
+
+        self.ns_rect = self.rect.clone();
+        self.ns_rect.top += padding.0;
+        self.ns_rect.right -= padding.1;
+        self.ns_rect.bottom -= padding.2;
+        self.ns_rect.left += padding.3;
+        update_pos(self);
+
         Ok(())
     }
 
     fn show(&self) {
         unsafe {
             ShowWindow(self.handle, SW_SHOW);
+        }
+    }
+
+    fn hide(&self) {
+        unsafe {
+            ShowWindow(self.handle, SW_HIDE);
         }
     }
 

@@ -1,6 +1,7 @@
 use windows::Win32::{
-    Foundation::{HWND, RECT},
-    Graphics::Gdi::{DrawTextW, GetDC, DT_CALCRECT}, UI::WindowsAndMessaging::{SET_WINDOW_POS_FLAGS, SetWindowPos},
+    Foundation::{HWND, RECT, BOOL},
+    Graphics::Gdi::{DrawTextW, GetDC, InvalidateRect, DT_CALCRECT},
+    UI::WindowsAndMessaging::{SetWindowPos, SET_WINDOW_POS_FLAGS},
 };
 
 use crate::core::Rect;
@@ -40,6 +41,9 @@ pub fn update_pos(control: &mut impl Control) {
             rect.height(),
             SET_WINDOW_POS_FLAGS::default(),
         );
+
+        let rect: RECT = control.rect().clone().into();
+        InvalidateRect(*control.handle(), Some(&rect as *const RECT), true);
     }
 }
 

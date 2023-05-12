@@ -47,9 +47,10 @@ pub mod HS {
 }
 
 pub mod WM {
-    use windows::Win32::UI::WindowsAndMessaging::{WM_ERASEBKGND, WM_PAINT, WM_SIZE, WM_DESTROY, WM_CLOSE};
+    use windows::Win32::UI::WindowsAndMessaging::{WM_ERASEBKGND, WM_PAINT, WM_SIZE, WM_DESTROY, WM_CLOSE, WM_NCPAINT};
 
     pub const PAINT: u32 = WM_PAINT;
+    pub const NC_PAINT: u32 = WM_NCPAINT;
     pub const SIZE: u32 = WM_SIZE;
     pub const ERASEBKGND: u32 = WM_ERASEBKGND;
     pub const CLOSE: u32 = WM_CLOSE;

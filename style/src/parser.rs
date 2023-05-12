@@ -162,8 +162,12 @@ impl<'i> DeclarationParser<'i> for StyleParser {
 
             "background-color" => Style::BackgroundColor(Color::parse(input)?),
 
+            "min-height" => Style::MinHeight(parse_value(input)?),
             "height" => Style::Height(parse_value(input)?),
+            "max-height" => Style::MaxHeight(parse_value(input)?),
+            "min-width" => Style::MinWidth(parse_value(input)?),
             "width" => Style::Width(parse_value(input)?),
+            "max-width" => Style::MaxWidth(parse_value(input)?),
 
             "inset" => Style::Inset(Size::parse(input)?),
             "inset-block" => Style::InsetBlock(parse_value(input)?),
@@ -206,6 +210,10 @@ fn parse_value<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Unit, BasicParseErr
     let token = input.next()?;
 
     match token {
+        Token::Ident(ident)  => Ok(match ident.to_string().as_str() {
+            "fit-content" => Unit::FitConent,
+            _ => return Err(location.new_basic_unexpected_token_error(token.clone())),
+        }),
         Token::Number { value, .. } => Ok(Unit::PX(*value)),
         Token::Dimension { value, unit, .. } => Ok(Unit::from_unit(unit, value)),
         Token::Percentage { unit_value, .. } => Ok(Unit::Percent(*unit_value)),

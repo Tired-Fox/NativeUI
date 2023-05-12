@@ -74,12 +74,10 @@ pub trait Renderable {
         &mut self,
         parent: (Rect, (Dimensions, Appearance)),
         previous: Option<(Rect, (Dimensions, Appearance))>,
-
-    ) -> Result<(), String> {
-        Ok(())
-    }
+    ) -> Result<(), String>;
 
     fn show(&self);
+    fn hide(&self);
     fn rect(&self) -> &Rect;
     fn style(&self) -> &(Dimensions, Appearance);
     fn handle(&self) -> &HWND;

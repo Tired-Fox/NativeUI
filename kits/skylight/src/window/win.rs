@@ -54,17 +54,20 @@ pub struct Window {
 }
 
 impl Window {
-    fn on_message(&mut self, message: u32, wparam: WPARAM, lparam: LPARAM) -> ProcResult {
+    fn on_message(&mut self, message: u32, _wparam: WPARAM, _lparam: LPARAM) -> ProcResult {
         match message {
             WM::SIZE => {
                 let mut rect: RECT = Rect::new(0, 0, 0, 0).into();
                 unsafe {
                     GetClientRect(self.handle, &mut rect as *mut RECT);
+                    self.rect = rect.into();
+                    InvalidateRect(self.handle, Some(&rect as *const RECT), true);
                 }
+
                 self.update((rect.into(), self.style.clone()), None)
                     .unwrap();
             }
-            WM::ERASEBKGND => unsafe {
+            WM::ERASEBKGND | WM::PAINT => unsafe {
                 // Redraw the window background when an erase background event occurs
                 let mut ps = PAINTSTRUCT::default();
                 let hdc = BeginPaint(self.handle, &mut ps);
@@ -326,14 +329,12 @@ impl Renderable for Window {
     fn show(&self) {
         unsafe {
             ShowWindow(self.handle, SW_SHOW);
+        }
+    }
 
-            for child in self.children.iter() {
-                match child {
-                    ChildType::Control(control) => {
-                        control.borrow_mut().show();
-                    }
-                }
-            }
+    fn hide(&self) {
+        unsafe {
+            ShowWindow(self.handle, SW_HIDE);
         }
     }
 

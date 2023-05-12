@@ -15,8 +15,12 @@ pub use rules::*;
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Dimensions {
     pub position: Position,
+    pub min_width: Unit,
     pub width: Unit,
+    pub max_width: Unit,
+    pub min_height: Unit,
     pub height: Unit,
+    pub max_height: Unit,
 
     pub padding: Size,
     pub margin: Size,
@@ -27,8 +31,12 @@ impl Default for Dimensions {
     fn default() -> Self {
         Dimensions {
             position: Position::default(),
-            width: Unit::default(),
-            height: Unit::default(),
+            min_width: Unit::Default,
+            width: Unit::Default,
+            max_width: Unit::Default,
+            min_height: Unit::Default,
+            height: Unit::Default,
+            max_height: Unit::Default,
 
             padding: Size::default(),
             margin: Size::default(),
@@ -98,12 +106,16 @@ impl Stylesheet {
             if self.0.contains_key(rule) {
                 for style in self.0.get(rule).unwrap().iter() {
                     match style {
-                        Style::Width(width) => dimensions.width = width.clone(),
-                        Style::Height(height) => dimensions.height = height.clone(),
+                        Style::MinWidth(min_width) => dimensions.min_width = *min_width,
+                        Style::Width(width) => dimensions.width = *width,
+                        Style::MaxWidth(max_width) => dimensions.max_width = *max_width,
+                        Style::MinHeight(min_height) => dimensions.min_height = *min_height,
+                        Style::Height(height) => dimensions.height = *height,
+                        Style::MaxHeight(max_height) => dimensions.max_height = *max_height,
 
-                        Style::FontStyle(font_style) => appearance.font_style = font_style.clone(),
+                        Style::FontStyle(font_style) => appearance.font_style = *font_style,
 
-                        Style::BackgroundColor(color) => appearance.background_color = color.to_owned(),
+                        Style::BackgroundColor(color) => appearance.background_color = *color,
                         Style::Position(position) => dimensions.position = *position,
 
                         Style::Padding(size) => dimensions.padding = *size,

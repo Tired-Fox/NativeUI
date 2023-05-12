@@ -46,6 +46,8 @@ impl Renderable for Button {
 
     fn show(&self) {}
 
+    fn hide(&self) {}
+
     fn handle(&self) -> &HWND {
         &self.handle
     }

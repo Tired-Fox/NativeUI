@@ -10,6 +10,7 @@ use cssparser::CowRcStr;
 pub enum Unit {
     PX(f32),
     Percent(f32),
+    FitConent,
     Default,
 }
 
@@ -31,6 +32,7 @@ impl Unit {
         match self {
             Self::PX(px) => px.clone() as i32,
             Self::Percent(percent) => (total as f32 * percent) as i32,
+            Self::FitConent => default,
             Self::Default => default,
         }
     }
@@ -39,6 +41,7 @@ impl Unit {
         match self {
             Self::PX(px) => px.clone(),
             Self::Percent(percent) => total * percent,
+            Self::FitConent => default,
             Self::Default => default,
         }
     }
@@ -64,8 +67,12 @@ pub enum Style {
     BackgroundColor(Color),
     FontStyle(FontStyle),
 
+    MinHeight(Unit),
     Height(Unit),
+    MaxHeight(Unit),
+    MinWidth(Unit),
     Width(Unit),
+    MaxWidth(Unit),
 
     Position(Position),
 
