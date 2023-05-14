@@ -6,16 +6,18 @@ root {
 }
 
 .h1 {
-  position: absolute;
   font-style: italic;
   padding: 15px 50px;
 
   margin: 5px;
 
+  /* min-width: 1200px; */
+
   /* width: fit-content; */
-  inset: 15px 10px;
-  max-width: 1600px;
-  min-width: 1200px;
+
+  /* position: absolute; */
+  /* inset: 15px 10px; */
+  /* max-width: 1600px; */
 }
 
 .h2 {

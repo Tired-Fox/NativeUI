@@ -89,6 +89,12 @@ impl Control for Text {
                     };
                     let hdc = BeginPaint(hwnd, &mut ps as *mut PAINTSTRUCT);
 
+                    // FrameRect(
+                    //     hdc,
+                    //     &rect as *const RECT,
+                    //     CreateSolidBrush(COLORREF(Color::new(0, 0, 0, 1.).into())),
+                    // );
+
                     SetBkMode(hdc, TRANSPARENT);
                     let mut text: Vec<u16> = self.text.to_string_lossy().encode_utf16().collect();
                     DrawTextW(
@@ -191,7 +197,7 @@ impl Renderable for Text {
             .calc(parent.0.width(), parent.0.height());
 
         let width = dimensions.width.as_i32(
-            parent.0.width() - parent_padding.1 - parent_padding.3,
+            parent.0.width() - parent_padding.1 - parent_padding.3 - margin.1 - margin.3,
             match dimensions.position {
                 style::Position::Absolute
                     if inset.3 != 0 && inset.1 != 0 && dimensions.width == Unit::Default =>
@@ -203,12 +209,11 @@ impl Renderable for Text {
                         add_padding.0 = true;
                         self.text_rect.width()
                     }
-                    Unit::Default => parent.0.width() - parent_padding.1 - parent_padding.3,
                     _ => {
-                        parent.0.width() - parent_padding.1 - parent_padding.3
-                    },
+                        parent.0.width() - parent_padding.1 - parent_padding.3 - margin.1 - margin.3
+                    }
                 },
-            }
+            },
         );
 
         let height = dimensions.height.as_i32(
@@ -256,7 +261,15 @@ impl Renderable for Text {
                 },
                 _ => margin.0 + inset.0,
             },
-            _ => parent_padding.0 + margin.0,
+            _ => match previous {
+                Some(prev) => {
+                    prev.0.bottom
+                        + prev.1 .0.margin.bottom.as_i32(parent.0.height(), 0)
+                        + parent_padding.0
+                        + margin.0
+                }
+                None => parent_padding.0 + margin.0,
+            },
         };
 
         self.rect.right = self.rect.left + width;

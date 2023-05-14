@@ -643,7 +643,6 @@ impl From<Color> for u32 {
 }
 
 fn rgb_to_color(mut value: &str) -> Color {
-    let default = String::from(value);
     if value.starts_with("rgb(") {
         value = value.strip_prefix("rgb(").unwrap();
     }
