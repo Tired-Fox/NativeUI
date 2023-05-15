@@ -193,6 +193,25 @@ impl<'i> DeclarationParser<'i> for StyleParser {
             "margin-right" => Style::MarginRight(parse_value(input)?),
             "margin-bottom" => Style::MarginBottom(parse_value(input)?),
 
+            "overflow" => Style::Overflow(option!(
+                input,
+                "auto" => Overflow::Auto,
+                "scroll" => Overflow::Scroll,
+                "hidden" => Overflow::Hidden,
+            )),
+            "overflow-x" => Style::OverflowX(option!(
+                input,
+                "auto" => Overflow::Auto,
+                "scroll" => Overflow::Scroll,
+                "hidden" => Overflow::Hidden,
+            )),
+            "overflow-y" => Style::OverflowY(option!(
+                input,
+                "auto" => Overflow::Auto,
+                "scroll" => Overflow::Scroll,
+                "hidden" => Overflow::Hidden,
+            )),
+
             t => {
                 let location = input.current_source_location();
                 return Err(location.new_unexpected_token_error(Token::Ident(t.to_string().into())));

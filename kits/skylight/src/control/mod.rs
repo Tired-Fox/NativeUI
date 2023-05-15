@@ -1,10 +1,12 @@
 mod button;
+mod scroll_bar;
 mod helpers;
 mod text;
 
 use std::fmt;
 
 pub use button::Button;
+pub use scroll_bar::ScrollBar;
 use style::Stylesheet;
 pub use text::Text;
 use windows::Win32::{

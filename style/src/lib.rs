@@ -25,6 +25,8 @@ pub struct Dimensions {
     pub padding: Size,
     pub margin: Size,
     pub inset: Size,
+    pub overflow_x: Overflow,
+    pub overflow_y: Overflow,
 }
 
 impl Default for Dimensions {
@@ -41,6 +43,8 @@ impl Default for Dimensions {
             padding: Size::default(),
             margin: Size::default(),
             inset: Size::default(),
+            overflow_x: Overflow::default(),
+            overflow_y: Overflow::default(),
         }
     }
 }
@@ -159,6 +163,16 @@ impl Stylesheet {
                         Style::Left(left) => dimensions.inset.left = *left,
                         Style::Right(right) => dimensions.inset.right = *right,
                         Style::Bottom(bottom) => dimensions.inset.bottom = *bottom,
+                        Style::Overflow(overflow) => {
+                            dimensions.overflow_x = overflow.clone();
+                            dimensions.overflow_y = *overflow
+                        },
+                        Style::OverflowX(overflow) => {
+                            dimensions.overflow_x = *overflow;
+                        },
+                        Style::OverflowY(overflow) => {
+                            dimensions.overflow_y = *overflow;
+                        }
                     };
                 }
             }

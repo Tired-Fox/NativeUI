@@ -1,10 +1,13 @@
 extern crate native_ui;
+
 use native_ui::skylight::{
-    core::{constants::HS, Brush},
+    core::{constants::{HS, SBS}, Brush, ChildType},
     macros::controls,
+    control::ScrollBar,
     popup::{ButtonLayout, Icon, MessageBox, MessageReturn},
     HookType, Window,
 };
+
 use native_ui::styles;
 use style::Stylesheet;
 
@@ -15,7 +18,7 @@ fn main() {
         .background(Brush::hatch("B6996D".into(), HS::DCROSS))
         .layout(vec![
             controls::text!("Native UI Test Window", ".h1"),
-            controls::text!("Second Line", ".h2")
+            controls::text!("Second Line", ".h2"),
         ])
         // .stylesheet(styles! {
         //     root {

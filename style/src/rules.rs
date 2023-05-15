@@ -56,6 +56,14 @@ pub enum FontStyle {
 }
 
 #[derive(Debug, PartialEq, Clone, Copy, Default)]
+pub enum Overflow {
+    #[default]
+    Auto,
+    Scroll,
+    Hidden,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy, Default)]
 pub enum Position {
     Absolute,
     #[default]
@@ -99,4 +107,8 @@ pub enum Style {
     MarginTop(Unit),
     MarginRight(Unit),
     MarginBottom(Unit),
+
+    Overflow(Overflow),
+    OverflowX(Overflow),
+    OverflowY(Overflow),
 }

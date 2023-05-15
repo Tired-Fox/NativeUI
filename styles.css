@@ -3,6 +3,8 @@ root {
   height: 75%;
   background-color: #ff6b6b;
   padding: 20px;
+
+  /* overflow: scroll; */
 }
 
 .h1 {
@@ -15,9 +17,9 @@ root {
 
   /* width: fit-content; */
 
-  /* position: absolute; */
-  /* inset: 15px 10px; */
-  /* max-width: 1600px; */
+  position: absolute;
+  inset: 15px 10px;
+  max-width: 1600px;
 }
 
 .h2 {

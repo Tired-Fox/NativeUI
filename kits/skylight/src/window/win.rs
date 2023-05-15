@@ -8,15 +8,19 @@ use windows::{
 };
 
 use style::{color::hex, Position};
-use style::{Appearance, Dimensions, Stylesheet, Unit};
+use style::{Appearance, Dimensions, Overflow, Stylesheet};
 pub use windows::{s as pcstr, w as pwstr};
 
 static WIN_ID: AtomicU16 = AtomicU16::new(1);
 
-use crate::core::{
-    constants::{CS, WM, WS},
-    image::icon,
-    Brush, ChildType, ProcResult, Rect, Renderable, View, ViewType,
+use crate::{
+    control::{Control, ScrollBar},
+    core::{
+        constants::{CS, WM, WS},
+        image::icon,
+        Brush, ChildType, ProcResult, Rect, Renderable, View, ViewType,
+    },
+    macros::controls,
 };
 
 pub enum HookType {
@@ -51,6 +55,7 @@ pub struct Window {
     pub stylesheet: Stylesheet,
     pub children: Vec<ChildType>,
     hooks: Hooks,
+    scrollbars: (ScrollBar, ScrollBar),
 }
 
 impl Window {
@@ -186,6 +191,28 @@ impl Window {
             }
         }
 
+        self.scrollbars = (controls::scrollbar!(12, "h"), controls::scrollbar!(12, "v"));
+
+        self.scrollbars.0.create(
+            ViewType::Window(self.handle, self.instance),
+            &self.stylesheet,
+        )?;
+
+        self.scrollbars.1.create(
+            ViewType::Window(self.handle, self.instance),
+            &self.stylesheet,
+        )?;
+
+        println!("{:?}", self.style.0.overflow_x);
+        println!("{:?}", self.style.0.overflow_y);
+        if self.style.0.overflow_x == Overflow::Scroll {
+            self.scrollbars.0.show();
+        }
+
+        if self.style.0.overflow_y == Overflow::Scroll {
+            self.scrollbars.1.show();
+        }
+
         Ok(())
     }
 
@@ -218,6 +245,7 @@ impl Window {
             style: (Dimensions::default(), Appearance::default()),
             stylesheet: Stylesheet::default(),
             children: Vec::new(),
+            scrollbars: (ScrollBar::default(), ScrollBar::default()),
         }
     }
 

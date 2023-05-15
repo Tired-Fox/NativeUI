@@ -1,3 +1,5 @@
+use windows::Win32::UI::WindowsAndMessaging::WINDOW_STYLE;
+
 pub mod CS {
     //! Class Styles
     //! Direct mapping of class style constants from the windows api
@@ -65,4 +67,20 @@ pub mod DT {
     pub const DEFAULT: DRAW_TEXT_FORMAT = DRAW_TEXT_FORMAT(0);
     pub const VCENTER: DRAW_TEXT_FORMAT = DT_VCENTER;
     pub const SINGLELINE: DRAW_TEXT_FORMAT = DT_SINGLELINE;
+}
+
+pub mod SBS {
+    use windows::Win32::UI::WindowsAndMessaging::{SBS_HORZ, SBS_VERT};
+
+    pub const HORZ: i32 = SBS_HORZ;
+    pub const VERT: i32 = SBS_VERT;
+}
+
+pub mod SB {
+    use windows::Win32::UI::WindowsAndMessaging::{SB_BOTH, SCROLLBAR_CONSTANTS, SB_HORZ, SB_VERT, SB_CTL};
+
+    pub const BOTH: SCROLLBAR_CONSTANTS = SB_BOTH;
+    pub const HORZ: SCROLLBAR_CONSTANTS = SB_HORZ;
+    pub const VERT: SCROLLBAR_CONSTANTS = SB_VERT;
+    pub const CTL: SCROLLBAR_CONSTANTS = SB_CTL;
 }

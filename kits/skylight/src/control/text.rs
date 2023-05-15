@@ -1,8 +1,8 @@
-use style::{color::Color, Appearance, Dimensions, Position, Stylesheet, Unit};
+use style::{Appearance, Dimensions, Position, Stylesheet, Unit};
 use windows::{
     core::{HSTRING, PCWSTR},
     Win32::{
-        Foundation::{COLORREF, HWND, LPARAM, RECT, WPARAM},
+        Foundation::{HWND, LPARAM, RECT, WPARAM},
         Graphics::Gdi::{
             BeginPaint, CreateSolidBrush, DrawTextW, EndPaint, FrameRect, GetDC, SetBkMode,
             PAINTSTRUCT, TRANSPARENT,
