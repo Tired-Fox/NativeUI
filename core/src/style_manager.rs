@@ -1,6 +1,7 @@
 use style::Stylesheet;
 use once_cell::sync::Lazy;
 
+// TODO: Convert to theme manager. Automatically gets system defaults and uses what is set
 #[derive(Debug)]
 pub struct StyleManager(Stylesheet);
 
