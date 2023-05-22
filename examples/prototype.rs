@@ -4,8 +4,7 @@ use native_ui::skylight::{
     core::{constants::{HS, SBS}, Brush, ChildType},
     macros::controls,
     control::ScrollBar,
-    popup::{ButtonLayout, Icon, MessageBox, MessageReturn},
-    HookType, Window,
+    ui::{popup::{ButtonLayout, Icon, MessageBox, MessageReturn}, Window, HookType},
 };
 
 use native_ui::styles;

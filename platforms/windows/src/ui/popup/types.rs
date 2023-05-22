@@ -1,11 +1,12 @@
 use windows::Win32::UI::WindowsAndMessaging::*;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Default)]
 pub enum Icon {
     Info,
     Warning,
     Question,
     Error,
+    #[default]
     None,
 }
 
@@ -21,12 +22,25 @@ impl From<Icon> for MESSAGEBOX_STYLE {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+impl From<&str> for Icon{
+    fn from(value: &str) -> Self {
+        match value {
+            "info" => Icon::Info,
+            "question" => Icon::Question,
+            "warning" => Icon::Warning,
+            "error" => Icon::Error,
+            _ => return Icon::default(),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Default)]
 pub enum ButtonLayout {
     OkCancel,
     AbortRetryIgnore,
     CancelTryContinue,
     Help,
+    #[default]
     Ok,
     RetryCancel,
     YesNo,
@@ -44,6 +58,22 @@ impl From<ButtonLayout> for MESSAGEBOX_STYLE {
             ButtonLayout::YesNoCancel => MB_YESNOCANCEL,
             ButtonLayout::CancelTryContinue => MB_CANCELTRYCONTINUE,
             ButtonLayout::AbortRetryIgnore => MB_ABORTRETRYIGNORE,
+        }
+    }
+}
+
+impl From<&str> for ButtonLayout {
+    fn from(value: &str) -> Self {
+        match value {
+            "ok" => ButtonLayout::Ok,
+            "help" => ButtonLayout::Help,
+            "yes_no" => ButtonLayout::YesNo,
+            "ok_cancel" => ButtonLayout::OkCancel,
+            "retry_cancel" => ButtonLayout::RetryCancel,
+            "yes_no_cancel" => ButtonLayout::YesNoCancel,
+            "cancel_try_continue" => ButtonLayout::CancelTryContinue,
+            "abort_retry_ignore" => ButtonLayout::AbortRetryIgnore,
+            _ => ButtonLayout::default()
         }
     }
 }

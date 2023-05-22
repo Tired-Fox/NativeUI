@@ -12,7 +12,6 @@ pub mod controls {
     }
 
     pub fn build_scrollbar_control(size: i32, direction: &str) -> ScrollBar {
-        println!("{} {}", size, direction);
         match direction {
             "h" => ScrollBar::new(size, SBS::HORZ),
             "v" => ScrollBar::new(size, SBS::VERT),

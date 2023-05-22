@@ -4,7 +4,7 @@ use windows::{
     Win32::{
         Foundation::{HWND, LPARAM, RECT, WPARAM},
         Graphics::Gdi::{
-            BeginPaint, CreateSolidBrush, DrawTextW, EndPaint, FrameRect, GetDC, SetBkMode,
+            BeginPaint, DrawTextW, EndPaint, GetDC, SetBkMode,
             PAINTSTRUCT, TRANSPARENT,
         },
         UI::WindowsAndMessaging::{
@@ -18,9 +18,11 @@ use crate::{
     control::helpers::update_pos,
     core::{
         constants::{DT, WM, WS},
-        ProcResult, Rect, Renderable, ViewType,
+        ProcResult, Renderable, ViewType, to_RECT,
     },
 };
+
+use native_core::Rect;
 
 use super::{
     helpers::{padding_rect, text_size},
@@ -77,7 +79,7 @@ impl Control for Text {
     fn proc(&mut self, hwnd: HWND, msg: u32, _wparam: WPARAM, _lparam: LPARAM) -> ProcResult {
         match msg {
             WM::PAINT => unsafe {
-                let mut rect: RECT = self.rect.into();
+                let mut rect: RECT = to_RECT(self.rect);
                 GetClientRect(hwnd, &mut rect as *mut RECT);
 
                 padding_rect(self, &mut rect);

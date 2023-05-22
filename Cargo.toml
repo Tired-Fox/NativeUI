@@ -6,12 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 proc-macro-hack = "0.5"
+native_core = { path = "core" }
 macros = { path = "macros" }
-skylight = { path = "kits/skylight", optional = true }
+skylight = { path = "platforms/windows" }
 style = { path = "style" }
-
-[features]
-all = ["windows", "apple", "linux"]
-windows = ["dep:skylight"]
-apple = []
-linux = []

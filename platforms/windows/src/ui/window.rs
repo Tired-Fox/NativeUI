@@ -18,10 +18,12 @@ use crate::{
     core::{
         constants::{CS, WM, WS},
         image::icon,
-        Brush, ChildType, ProcResult, Rect, Renderable, View, ViewType,
+        Brush, ChildType, ProcResult, Renderable, View, ViewType, to_RECT, to_Rect,
     },
     macros::controls,
 };
+
+use native_core::Rect;
 
 pub enum HookType {
     QUIT,
@@ -62,14 +64,14 @@ impl Window {
     fn on_message(&mut self, message: u32, _wparam: WPARAM, _lparam: LPARAM) -> ProcResult {
         match message {
             WM::SIZE => {
-                let mut rect: RECT = Rect::new(0, 0, 0, 0).into();
+                let mut rect: RECT = to_RECT(Rect::new(0, 0, 0, 0));
                 unsafe {
                     GetClientRect(self.handle, &mut rect as *mut RECT);
-                    self.rect = rect.into();
+                    self.rect = to_Rect(rect.into());
                     InvalidateRect(self.handle, Some(&rect as *const RECT), true);
                 }
 
-                self.update((rect.into(), self.style.clone()), None)
+                self.update((self.rect.clone(), self.style.clone()), None)
                     .unwrap();
             }
             WM::ERASEBKGND | WM::PAINT => unsafe {
@@ -203,8 +205,6 @@ impl Window {
             &self.stylesheet,
         )?;
 
-        println!("{:?}", self.style.0.overflow_x);
-        println!("{:?}", self.style.0.overflow_y);
         if self.style.0.overflow_x == Overflow::Scroll {
             self.scrollbars.0.show();
         }

@@ -1,6 +1,6 @@
 use style::{Dimensions, Appearance};
 
-use super::Rect;
+use native_core::Rect;
 
 fn calculate_rect(
     rect: &mut Rect,

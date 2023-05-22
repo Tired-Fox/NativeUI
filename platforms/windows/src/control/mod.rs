@@ -17,7 +17,8 @@ use windows::Win32::{
     },
 };
 
-use crate::core::{ViewType, ProcResult, Renderable, Rect};
+use crate::core::{ViewType, ProcResult, Renderable};
+use native_core::Rect;
 
 pub trait Control: fmt::Debug + Renderable {
     fn ns_rect(&self) -> &Rect;

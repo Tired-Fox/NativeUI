@@ -12,8 +12,10 @@ use windows::{
 
 use crate::core::{
     constants::{SBS, WS, SB},
-    ProcResult, Rect, Renderable, ViewType,
+    ProcResult, Renderable, ViewType, to_RECT,
 };
+
+use native_core::Rect;
 
 use super::Control;
 
@@ -52,7 +54,7 @@ impl ScrollBar {
 impl Control for ScrollBar {
     fn create(&mut self, parent: ViewType, stylesheet: &Stylesheet) -> Result<(), String> {
         self.parent = parent;
-        let mut rect: RECT = Rect::new(0, 0, 0, 0).into();
+        let mut rect: RECT = to_RECT(Rect::new(0, 0, 0, 0));
         let (handle, instance) = match self.parent {
             ViewType::Window(hwnd, instance) => unsafe {
                 GetClientRect(hwnd, &mut rect as *mut RECT);
@@ -84,7 +86,6 @@ impl Control for ScrollBar {
         };
 
         self.rect = rect;
-        println!("{:?}", self.rect);
 
         unsafe {
             self.handle = CreateWindowExW(

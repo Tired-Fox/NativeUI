@@ -5,68 +5,21 @@ pub mod image;
 pub mod layout;
 use std::{cell::RefCell, rc::Rc};
 
+use native_core::Rect;
+
 pub use brush::*;
-use style::{Appearance, Dimensions, Stylesheet};
+use style::{Appearance, Dimensions};
 use windows::Win32::{
     Foundation::{HMODULE, HWND, RECT},
     UI::WindowsAndMessaging::{GetWindowLongPtrW, GWLP_USERDATA},
 };
 
-use crate::{control::Control, Window};
+use crate::{control::Control, ui::Window};
 
 pub enum ProcResult {
     Default,
     Success,
     Fail,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct Rect {
-    pub left: i32,
-    pub top: i32,
-    pub right: i32,
-    pub bottom: i32,
-}
-
-impl Rect {
-    pub fn new(left: i32, top: i32, right: i32, bottom: i32) -> Self {
-        Rect {
-            left,
-            top,
-            right,
-            bottom,
-        }
-    }
-
-    pub fn width(&self) -> i32 {
-        self.right - self.left
-    }
-
-    pub fn height(&self) -> i32 {
-        self.bottom - self.top
-    }
-}
-
-impl From<RECT> for Rect {
-    fn from(value: RECT) -> Self {
-        Rect {
-            left: value.left,
-            top: value.top,
-            right: value.right,
-            bottom: value.bottom,
-        }
-    }
-}
-
-impl From<Rect> for RECT {
-    fn from(value: Rect) -> Self {
-        RECT {
-            left: value.left,
-            top: value.top,
-            right: value.right,
-            bottom: value.bottom,
-        }
-    }
 }
 
 pub trait Renderable {
@@ -85,6 +38,24 @@ pub trait Renderable {
 
 pub trait View: Renderable {
     fn children(&mut self) -> &mut Vec<ChildType>;
+}
+
+pub fn to_RECT(rect: Rect) -> RECT {
+    RECT {
+        left: rect.left,
+        top: rect.top,
+        right: rect.right,
+        bottom: rect.bottom,
+    }
+}
+
+pub fn to_Rect(rect: RECT) -> Rect {
+    Rect {
+        left: rect.left,
+        top: rect.top,
+        right: rect.right,
+        bottom: rect.bottom,
+    }
 }
 
 // Styling and layout

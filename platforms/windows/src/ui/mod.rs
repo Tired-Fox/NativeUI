@@ -1,10 +1,9 @@
-pub mod popup;
-mod win;
-
-use super::core::Renderable;
-pub use win::*;
-
 use windows::Win32::UI::WindowsAndMessaging::{DispatchMessageA, GetMessageA, MSG};
+use super::core::Renderable;
+mod window;
+
+pub mod popup;
+pub use window::{Window, HookType};
 
 pub fn run(mut windows: Vec<Window>) -> Result<(), String> {
     for win in windows.iter_mut() {

@@ -4,7 +4,9 @@ use windows::Win32::{
     UI::WindowsAndMessaging::{SetWindowPos, SET_WINDOW_POS_FLAGS},
 };
 
-use crate::core::Rect;
+use native_core::Rect;
+
+use crate::core::{to_Rect, to_RECT};
 
 use super::Control;
 
@@ -25,7 +27,7 @@ pub fn text_size(parent: HWND, text: String) -> Rect {
             DT_CALCRECT,
         );
     }
-    rect.into()
+    to_Rect(rect)
 }
 
 pub fn update_pos(control: &mut impl Control) {
@@ -42,7 +44,7 @@ pub fn update_pos(control: &mut impl Control) {
             SET_WINDOW_POS_FLAGS::default(),
         );
 
-        let rect: RECT = control.rect().clone().into();
+        let rect: RECT = to_RECT(control.rect().clone());
         InvalidateRect(*control.handle(), Some(&rect as *const RECT), true);
     }
 }
