@@ -26,7 +26,24 @@
   - Linux API > Humboldt
   - Windows > Skylight
 
-## Objects
+## Core
+- Wrapper around objects to allow for styling and events
+  - This includes methods for toggling visibility and custom drawing
+  - Wrapper has handlers for events to provide interactivity
+  - Constructors and destructors
+- Container objects have automatic support for scrolling
+
+## Rendering
+- Containers to create tree like structure
+- Layout system
+- Can manipulate core elements into a layout
+- renders the system and provides style updates
+
+## Styling
+- CSS at it's core using the same styles and shorthands
+- Styles are passed to elements on update/draw
+
+## Elements
   - Scroll Bar
   - Rich Edit
   - Combo Box
