@@ -1,4 +1,3 @@
-use std::sync::atomic::{AtomicU16, Ordering};
 use windows::{
     core::{HSTRING, PCWSTR},
     Win32::Foundation::*,
@@ -7,23 +6,21 @@ use windows::{
     Win32::UI::WindowsAndMessaging::*,
 };
 
-use style::{color::hex, Position};
-use style::{Appearance, Dimensions, Overflow, Stylesheet};
+use style::color::hex;
+use style::Overflow;
 pub use windows::{s as pcstr, w as pwstr};
 
-static WIN_ID: AtomicU16 = AtomicU16::new(1);
-
 use crate::{
-    control::{Control, ScrollBar},
     core::{
         constants::{CS, WM, WS},
         image::icon,
-        Brush, ChildType, ProcResult, Renderable, View, ViewType, to_RECT, to_Rect,
+        to_RECT, to_Rect,
     },
     macros::controls,
+    ui::{component::{ProcResult, ScrollBar}, Brush},
 };
 
-use native_core::Rect;
+use native_core::{Container, Layout, Rect, Renderable};
 
 pub enum HookType {
     QUIT,
@@ -40,10 +37,24 @@ pub struct WindowStyles {
     class: WNDCLASS_STYLES,
 }
 
+impl Default for WindowStyles {
+    fn default() -> Self {
+        WindowStyles {
+            window: WS::TILED_WINDOW,
+            class: CS::DEFAULT,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Window {
+    index: u32,
+    max_point: (i32, i32),
+    initialized: bool,
     pub title: HSTRING,
     pub background: HBRUSH,
+    id: String,
+    classes: Vec<String>,
 
     pub handle: HWND,
     pub instance: HMODULE,
@@ -53,9 +64,8 @@ pub struct Window {
     pub alive: bool,
     pub icon: Option<&'static str>,
     pub rect: Rect,
-    pub style: (Dimensions, Appearance),
-    pub stylesheet: Stylesheet,
-    pub children: Vec<ChildType>,
+
+    pub layout: Layout,
     hooks: Hooks,
     scrollbars: (ScrollBar, ScrollBar),
 }
@@ -71,8 +81,9 @@ impl Window {
                     InvalidateRect(self.handle, Some(&rect as *const RECT), true);
                 }
 
-                self.update((self.rect.clone(), self.style.clone()), None)
-                    .unwrap();
+                let rect = self.rect().clone();
+                let dimensions = self.get_styles().0.clone();
+                self.layout.update(&rect, &dimensions);
             }
             WM::ERASEBKGND | WM::PAINT => unsafe {
                 // Redraw the window background when an erase background event occurs
@@ -138,9 +149,7 @@ impl Window {
     }
 
     fn create(&mut self) -> Result<(), String> {
-        // Create unique window name from a global window counter
-        let id = WIN_ID.swap(WIN_ID.load(Ordering::SeqCst) + 1, Ordering::SeqCst);
-        self.class = HSTRING::from(format!("NativeUi.rs-{}", id).as_str());
+        self.class = HSTRING::from(format!("NativeUi.rs-{}", self.index).as_str());
 
         unsafe {
             self.instance = match GetModuleHandleW(None) {
@@ -195,21 +204,15 @@ impl Window {
 
         self.scrollbars = (controls::scrollbar!(12, "h"), controls::scrollbar!(12, "v"));
 
-        self.scrollbars.0.create(
-            ViewType::Window(self.handle, self.instance),
-            &self.stylesheet,
-        )?;
+        self.scrollbars.0.create((self.handle, self.instance))?;
+        self.scrollbars.1.create((self.handle, self.instance))?;
 
-        self.scrollbars.1.create(
-            ViewType::Window(self.handle, self.instance),
-            &self.stylesheet,
-        )?;
-
-        if self.style.0.overflow_x == Overflow::Scroll {
+        let dimensions = self.get_styles().0;
+        if dimensions.overflow_x == Overflow::Scroll {
             self.scrollbars.0.show();
         }
 
-        if self.style.0.overflow_y == Overflow::Scroll {
+        if dimensions.overflow_y == Overflow::Scroll {
             self.scrollbars.1.show();
         }
 
@@ -217,36 +220,62 @@ impl Window {
     }
 
     fn apply_styles(&mut self) -> Result<(), String> {
-        self.rect.right = self.style.0.width.as_i32(1900, 400);
-        self.rect.bottom = self.style.0.height.as_i32(1000, 300);
+        let (dimensions, appearance) = self.get_styles();
+        self.rect.right = dimensions.width.as_i32(
+            1900,
+            match self.rect.width() {
+                0 => 400,
+                _ => self.rect.width(),
+            },
+        );
+        self.rect.bottom = dimensions.height.as_i32(
+            1000,
+            match self.rect.width() {
+                0 => 300,
+                _ => self.rect.height(),
+            },
+        );
 
-        self.background = Brush::solid(self.style.1.background_color);
+        self.background = Brush::solid(appearance.background_color);
 
         Ok(())
     }
 }
 
-impl Window {
+pub struct WindowBuilder {
+    index: u32,
+    id: String,
+    classes: Vec<String>,
+    title: HSTRING,
+    background: HBRUSH,
+    rect: Rect,
+    class: HSTRING,
+    styles: WindowStyles,
+    icon: Option<&'static str>,
+    layout: Layout,
+    hooks: Hooks,
+}
+
+impl WindowBuilder {
     pub fn new() -> Self {
-        Window {
+        WindowBuilder {
+            index: 0,
+            id: String::new(),
+            classes: vec![String::from("window")],
             title: HSTRING::new(),
-            background: unsafe { CreateSolidBrush(COLORREF(hex("FFF").into())) },
+            rect: Rect::default(),
             class: HSTRING::new(),
-            styles: WindowStyles {
-                window: WS::TILED_WINDOW,
-                class: CS::DEFAULT,
-            },
-            handle: HWND(0),
-            instance: HMODULE(0),
-            hooks: Hooks { quit: None },
-            alive: false,
+            styles: WindowStyles::default(),
+            background: unsafe { CreateSolidBrush(COLORREF(hex("FFF").into())) },
             icon: None,
-            rect: Rect::new(0, 0, 400, 300),
-            style: (Dimensions::default(), Appearance::default()),
-            stylesheet: Stylesheet::default(),
-            children: Vec::new(),
-            scrollbars: (ScrollBar::default(), ScrollBar::default()),
+            layout: Layout::new(),
+            hooks: Hooks::default(),
         }
+    }
+
+    pub fn index(mut self, index: u32) -> Self {
+        self.index = index;
+        self
     }
 
     pub fn icon(mut self, path: &'static str) -> Self {
@@ -265,6 +294,11 @@ impl Window {
         self
     }
 
+    pub fn classes(mut self, classes: Vec<String>) -> Self {
+        self.classes.extend(classes);
+        self
+    }
+
     pub fn background(mut self, brush: HBRUSH) -> Self {
         self.background = brush;
         self
@@ -278,46 +312,82 @@ impl Window {
         self
     }
 
-    pub fn layout(mut self, children: Vec<ChildType>) -> Self {
-        for child in children.iter() {
-            self.children.push(child.clone())
-        }
+    pub fn layout(mut self, layout: Layout) -> Self {
+        self.layout = layout;
         self
     }
 
-    pub fn init(&mut self) -> Result<(), String> {
-        if self.class.to_string_lossy().len() == 0 {
+    pub fn build(self) -> Window {
+        Window {
+            index: self.index,
+            initialized: false,
+            id: self.id,
+            classes: self.classes,
+            max_point: (self.rect.width(), self.rect.height()),
+            background: self.background,
+            handle: HWND(0),
+            instance: HMODULE(0),
+            title: self.title,
+            class: self.class,
+            styles: self.styles,
+            alive: false,
+            icon: self.icon,
+            rect: self.rect,
+            layout: self.layout,
+            hooks: self.hooks,
+            scrollbars: (ScrollBar::default(), ScrollBar::default()),
+        }
+    }
+
+    pub fn open(self) -> Result<(), String> {
+        self.build().open()
+    }
+}
+
+impl Window {
+    pub fn set_index(&mut self, index: u32) {
+        self.index = index;
+    }
+
+    pub fn new() -> Self {
+        Window {
+            index: 0,
+            initialized: false,
+            id: String::new(),
+            classes: vec![String::from("window")],
+            max_point: (0, 0),
+            title: HSTRING::new(),
+            background: unsafe { CreateSolidBrush(COLORREF(hex("FFF").into())) },
+            class: HSTRING::new(),
+            styles: WindowStyles::default(),
+            handle: HWND(0),
+            instance: HMODULE(0),
+            hooks: Hooks { quit: None },
+            alive: false,
+            icon: None,
+            rect: Rect::new(0, 0, 400, 300),
+            layout: Layout::new(),
+            scrollbars: (ScrollBar::default(), ScrollBar::default()),
+        }
+    }
+
+    pub fn build(&mut self) -> Result<(), String> {
+        if !self.initialized {
             self.apply_styles()?;
             self.create()?;
-
-            for child in self.children.iter_mut() {
-                match child {
-                    ChildType::Control(control) => {
-                        let mut control = control.borrow_mut();
-                        control.create(
-                            ViewType::Window(self.handle.clone(), self.instance.clone()),
-                            &self.stylesheet,
-                        )?;
-                    }
-                }
-            }
-
             self.show();
+            self.initialized = true;
         }
         Ok(())
     }
 
-    pub fn stylesheet(mut self, stylesheet: Stylesheet) -> Self {
-        self.stylesheet = stylesheet;
-        self.style = self
-            .stylesheet
-            .get_styles(vec!["root".to_owned(), "window".to_owned()]);
-        self
+    pub fn builder() -> WindowBuilder {
+        WindowBuilder::new()
     }
 
     pub fn open(&mut self) -> Result<(), String> {
         self.alive = true;
-        self.init()?;
+        self.build()?;
 
         unsafe {
             let mut message = MSG::default();
@@ -331,109 +401,44 @@ impl Window {
     }
 }
 
+impl Container for Window {
+    fn layout(&mut self) -> &mut Layout {
+        &mut self.layout
+    }
+}
+
 impl Renderable for Window {
-    fn update(
-        &mut self,
-        _parent: (Rect, (Dimensions, Appearance)),
-        previous: Option<(Rect, (Dimensions, Appearance))>,
-    ) -> Result<(), String> {
-        let mut previous = previous;
+    fn update(&mut self) {}
 
-        for child in self.children.iter() {
-            match child {
-                ChildType::Control(control) => {
-                    let mut control = control.borrow_mut();
-                    control.update(_parent, previous)?;
-                    if control.style().0.position != Position::Absolute {
-                        previous = Some((control.rect().clone(), control.style().clone()));
-                    }
-                }
-            }
-        }
-
-        Ok(())
+    fn id(&self) -> &String {
+        &self.id
     }
 
-    fn show(&self) {
-        unsafe {
-            ShowWindow(self.handle, SW_SHOW);
-        }
-    }
-
-    fn hide(&self) {
-        unsafe {
-            ShowWindow(self.handle, SW_HIDE);
-        }
-    }
-
-    fn handle(&self) -> &HWND {
-        &self.handle
+    fn classes(&self) -> &Vec<String> {
+        &self.classes
     }
 
     fn rect(&self) -> &Rect {
         &self.rect
     }
 
-    fn style(&self) -> &(Dimensions, Appearance) {
-        &self.style
+    fn default_rect(&self) -> &Rect {
+        &self.rect
+    }
+
+    fn update_rect(&mut self, rect: Rect) {
+        self.rect = rect
+    }
+
+    fn show(&mut self) {
+        unsafe {
+            ShowWindow(self.handle, SW_SHOW);
+        }
+    }
+
+    fn hide(&mut self) {
+        unsafe {
+            ShowWindow(self.handle, SW_HIDE);
+        }
     }
 }
-
-impl View for Window {
-    fn children(&mut self) -> &mut Vec<ChildType> {
-        &mut self.children
-    }
-}
-
-// fn build_background(window: &mut Window) -> Result<(), String> {
-//     let mut color: Color = "FFF".into();
-//     let mut pattern = None;
-//     let mut apply_background = false;
-
-//     if window.style.contains_key("background") {
-//         match window.style.get("background").unwrap() {
-//             Prop::Background(c, hatch) => {
-//                 color = c.to_owned();
-//                 match hatch {
-//                     Some(h) => {
-//                         pattern = Some(h.to_hatch());
-//                         apply_background = true;
-//                     }
-//                     _ => (),
-//                 }
-//             }
-//             _ => return Err("Invalid background values".to_owned()),
-//         };
-//     }
-
-//     if window.style.contains_key("background-color") {
-//         match window.style.get("background-color").unwrap() {
-//             Prop::Color(c) => {
-//                 color = c.to_owned();
-//                 apply_background = true;
-//             }
-//             _ => return Err("Invalid background-color color value".to_owned()),
-//         };
-//     }
-
-//     if window.style.contains_key("background-style") {
-//         match window.style.get("background-style").unwrap() {
-//             Prop::BackgroundStyle(style) => match style {
-//                 BS::SOLID => {
-//                     window.background = Brush::solid(color);
-//                 }
-//                 _ => {
-//                     window.background = Brush::hatch(color, style.to_hatch());
-//                 }
-//             },
-//             _ => return Err("Invalid background-style value".to_owned()),
-//         };
-//     } else {
-//         match pattern {
-//             Some(p) => window.background = Brush::hatch(color, p),
-//             _ if apply_background => window.background = Brush::solid(color),
-//             _ => (),
-//         }
-//     }
-//     Ok(())
-// }

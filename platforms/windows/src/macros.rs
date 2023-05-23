@@ -1,22 +1,18 @@
+use native_core::{Child, Layout};
+
 pub mod controls {
-    use crate::{
-        control::{Control, ScrollBar, Text},
-        core::constants::SBS,
-    };
-    use std::{cell::RefCell, rc::Rc};
+    use crate::{ui::component::{Text, ScrollBar}, core::constants::SBS};
+    use native_core::Child;
+    use std::{cell::RefCell, sync::Arc};
 
-    pub fn build_text_control(text: &str, classes: Vec<&'static str>) -> Rc<RefCell<dyn Control>> {
-        let child = Rc::new(RefCell::new(Text::new(text)));
-        child.borrow_mut().classes(classes);
-        child
-    }
-
-    pub fn build_scrollbar_control(size: i32, direction: &str) -> ScrollBar {
-        match direction {
-            "h" => ScrollBar::new(size, SBS::HORZ),
-            "v" => ScrollBar::new(size, SBS::VERT),
-            _ => ScrollBar::default(),
+    pub fn build_text(text: &str, id: Option<&str>, classes: Vec<&str>) -> Child {
+        let mut text = Text::builder(text).classes(classes.iter().map(|c| format!(".{}", c)).collect());
+        
+        if let Some(id) = id {
+            text = text.id(format!("#{}", id).as_str());
         }
+
+        Child::Component(Arc::new(RefCell::new(text.build())))
     }
 
     /// Creates a text Control.
@@ -28,18 +24,34 @@ pub mod controls {
     #[macro_export]
     macro_rules! text {
         ($text: literal) => {
-            $crate::core::ChildType::Control(
-                $crate::macros::controls::build_text_control($text, Vec::new())
+            $crate::macros::controls::build_text($text, None, Vec::new())
+        };
+        ($text: literal, $id: literal.) => {
+            $crate::macros::controls::build_text($text, Some($id), Vec::new())
+        };
+        ($text: literal, [$($class: literal),*]) => {
+            $crate::macros::controls::build_text(
+                $text,
+                None,
+                vec![$($class,)*]
             )
         };
-        ($text: literal $(, $class: literal)*) => {
-            $crate::core::ChildType::Control(
-                $crate::macros::controls::build_text_control(
-                    $text,
-                    vec![$($class,)*]
-                )
+        ($text: literal, $id: literal, [$($class: literal),*]) => {
+            $crate::macros::controls::build_text(
+                $text,
+                Some($id),
+                vec![$($class,)*]
             )
         };
+    }
+    pub use text;
+
+    pub fn build_scrollbar_control(size: i32, direction: &str) -> ScrollBar {
+        match direction {
+            "h" => ScrollBar::new(size, SBS::HORZ),
+            "v" => ScrollBar::new(size, SBS::VERT),
+            _ => ScrollBar::default(),
+        }
     }
 
     /// Creates a scrollbar Control.
@@ -55,5 +67,17 @@ pub mod controls {
     }
 
     pub use scrollbar;
-    pub use text;
 }
+
+pub fn build_layout(children: Vec<Child>) -> Layout {
+    Layout::from(children)
+}
+
+#[macro_export]
+macro_rules! layout {
+    [$($child: expr),*] => {
+       $crate::macros::build_layout(vec![$($child,)*]) 
+    };
+}
+
+pub use layout;

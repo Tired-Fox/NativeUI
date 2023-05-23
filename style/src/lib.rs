@@ -2,13 +2,13 @@ use std::{collections::HashMap, fs::File, io::Read, path::Path};
 
 use cssparser::{Parser, ParserInput, RuleListParser};
 
-pub mod color;
 use color::Color;
 mod parser;
 mod size;
-use size::Size;
 mod rules;
 
+pub mod color;
+pub use size::Size;
 pub use parser::{Rule, RuleParser, StyleParser};
 pub use rules::*;
 
@@ -68,7 +68,14 @@ impl Default for Appearance {
 #[derive(Debug, Default)]
 pub struct Stylesheet(HashMap<String, Vec<Style>>);
 
+unsafe impl Send for Stylesheet {}
+unsafe impl Sync for Stylesheet {}
+
 impl Stylesheet {
+    pub fn dup(&mut self, src: Stylesheet) {
+        self.0 = src.0.clone();
+    }
+
     pub fn parse(src: &str) -> Self {
         let mut input = ParserInput::new(src);
         let mut input = Parser::new(&mut input);

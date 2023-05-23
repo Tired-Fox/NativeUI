@@ -1,13 +1,16 @@
+use native_core::Renderable;
 use windows::Win32::UI::WindowsAndMessaging::{DispatchMessageA, GetMessageA, MSG};
-use super::core::Renderable;
 mod window;
+mod brush;
 
+pub mod component;
 pub mod popup;
 pub use window::{Window, HookType};
+pub use brush::Brush;
 
 pub fn run(mut windows: Vec<Window>) -> Result<(), String> {
     for win in windows.iter_mut() {
-        win.init()?;
+        win.build()?;
         win.alive = true;
         win.show();
     }

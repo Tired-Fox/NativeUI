@@ -1,13 +1,10 @@
-mod brush;
 pub mod constants;
 pub mod errors;
 pub mod image;
-pub mod layout;
 use std::{cell::RefCell, rc::Rc};
 
 use native_core::Rect;
 
-pub use brush::*;
 use style::{Appearance, Dimensions};
 use windows::Win32::{
     Foundation::{HMODULE, HWND, RECT},
@@ -16,12 +13,7 @@ use windows::Win32::{
 
 use crate::{control::Control, ui::Window};
 
-pub enum ProcResult {
-    Default,
-    Success,
-    Fail,
-}
-
+#[deprecated]
 pub trait Renderable {
     fn update(
         &mut self,
@@ -36,6 +28,7 @@ pub trait Renderable {
     fn handle(&self) -> &HWND;
 }
 
+#[deprecated]
 pub trait View: Renderable {
     fn children(&mut self) -> &mut Vec<ChildType>;
 }
@@ -60,11 +53,13 @@ pub fn to_Rect(rect: RECT) -> Rect {
 
 // Styling and layout
 
+#[deprecated]
 #[derive(Debug, Clone)]
 pub enum ChildType {
     Control(Rc<RefCell<dyn Control>>),
 }
 
+#[deprecated]
 #[derive(Debug, Clone)]
 pub enum ViewType {
     Window(HWND, HMODULE),

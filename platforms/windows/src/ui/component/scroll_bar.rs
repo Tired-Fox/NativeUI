@@ -1,28 +1,29 @@
-use style::{Appearance, Dimensions, Stylesheet};
+use style::{Appearance, Dimensions};
 use windows::{
     core::{HSTRING, PCWSTR},
     Win32::{
         Foundation::{HMODULE, HWND, LPARAM, RECT, WPARAM},
+        Graphics::Gdi::UpdateWindow,
         UI::{
             Controls::ShowScrollBar,
-            WindowsAndMessaging::{CreateWindowExW, GetClientRect, WINDOW_EX_STYLE, WINDOW_STYLE, ShowWindow},
+            WindowsAndMessaging::{CreateWindowExW, GetClientRect, WINDOW_EX_STYLE, WINDOW_STYLE},
         },
     },
 };
 
 use crate::core::{
-    constants::{SBS, WS, SB},
-    ProcResult, Renderable, ViewType, to_RECT,
+    constants::{SB, SBS, WS},
+    to_RECT
 };
 
-use native_core::Rect;
+use super::{ProcResult, Proc};
 
-use super::Control;
+use native_core::{Component, Rect, Renderable};
 
 #[derive(Debug)]
 pub struct ScrollBar {
-    parent: ViewType,
-
+    id: String,
+    classes: Vec<String>,
     pub handle: HWND,
     pub rect: Rect,
     ns_rect: Rect,
@@ -40,8 +41,9 @@ impl Default for ScrollBar {
 impl ScrollBar {
     pub fn new(size: i32, direction: i32) -> Self {
         ScrollBar {
-            parent: ViewType::None,
             handle: HWND(0),
+            id: String::new(),
+            classes: vec![String::from("scrollbar")],
             rect: Rect::new(0, 0, 0, 0),
             ns_rect: Rect::new(0, 0, 0, 0),
             size,
@@ -49,19 +51,13 @@ impl ScrollBar {
             style: (Dimensions::default(), Appearance::default()),
         }
     }
-}
 
-impl Control for ScrollBar {
-    fn create(&mut self, parent: ViewType, stylesheet: &Stylesheet) -> Result<(), String> {
-        self.parent = parent;
+    pub fn create(&mut self, parent: (HWND, HMODULE)) -> Result<(), String> {
         let mut rect: RECT = to_RECT(Rect::new(0, 0, 0, 0));
-        let (handle, instance) = match self.parent {
-            ViewType::Window(hwnd, instance) => unsafe {
-                GetClientRect(hwnd, &mut rect as *mut RECT);
-                (hwnd, instance)
-            },
-            _ => (HWND(0), HMODULE(0)),
-        };
+        let (handle, instance) = parent;
+        unsafe {
+            GetClientRect(handle, &mut rect as *mut RECT);
+        }
 
         let (direction, rect) = match self.direction {
             SBS::HORZ => (
@@ -108,43 +104,53 @@ impl Control for ScrollBar {
         Ok(())
     }
 
-    fn ns_rect(&self) -> &Rect {
-        &self.ns_rect
-    }
-
-    fn proc(&mut self, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> ProcResult {
+    fn proc(&mut self, _hwnd: HWND, _msg: u32, _wparam: WPARAM, _lparam: LPARAM) -> ProcResult {
         ProcResult::Default
     }
-
-    fn classes(&mut self, classes: Vec<&'static str>) {}
 }
 
+impl Proc for ScrollBar {
+    fn proc(&mut self, hwnd: HWND, msg: u32, _wparam: WPARAM, _lparam: LPARAM) -> ProcResult {
+        ProcResult::Default        
+    }
+}
+
+impl Component for ScrollBar {}
+
 impl Renderable for ScrollBar {
-    fn update(
-        &mut self,
-        parent: (Rect, (Dimensions, Appearance)),
-        previous: Option<(Rect, (Dimensions, Appearance))>,
-    ) -> Result<(), String> {
-        Ok(())
+    fn update(&mut self) {
+        unsafe { UpdateWindow(self.handle); }
     }
 
-    fn show(&self) {
-        unsafe { ShowScrollBar(self.handle, SB::CTL, true); }
+    fn show(&mut self) {
+        unsafe {
+            ShowScrollBar(self.handle, SB::CTL, true);
+        }
     }
 
-    fn hide(&self) {
-        unsafe { ShowScrollBar(self.handle, SB::CTL, false); }
-    }
-
-    fn handle(&self) -> &HWND {
-        &self.handle
+    fn hide(&mut self) {
+        unsafe {
+            ShowScrollBar(self.handle, SB::CTL, false);
+        }
     }
 
     fn rect(&self) -> &Rect {
         &self.rect
     }
 
-    fn style(&self) -> &(Dimensions, Appearance) {
-        &self.style
+    fn id(&self) -> &String {
+        &self.id
+    }
+
+    fn classes(&self) -> &Vec<String> {
+        &self.classes
+    }
+
+    fn update_rect(&mut self, rect: Rect) {
+        self.rect = rect
+    }
+
+    fn default_rect(&self) -> &Rect {
+        &self.rect
     }
 }

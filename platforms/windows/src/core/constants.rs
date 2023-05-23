@@ -21,6 +21,7 @@ pub mod WS {
     pub const VISIBLE: WINDOW_STYLE = WS_VISIBLE;
     pub const CHILD: WINDOW_STYLE = WS_CHILD;
     pub const BORDER: WINDOW_STYLE = WS_BORDER;
+    pub const DEFAULT: WINDOW_STYLE = WINDOW_STYLE(0);
 
     pub mod EX {
         use windows::Win32::UI::WindowsAndMessaging::{WINDOW_EX_STYLE, WS_EX_LAYERED};

@@ -1,7 +1,8 @@
 use style::{Appearance, Dimensions, Stylesheet};
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
 
-use crate::core::{ProcResult, Renderable, ViewType};
+use crate::{core::{Renderable, ViewType}, ui::component::ProcResult};
+
 use native_core::Rect;
 
 use super::Control;

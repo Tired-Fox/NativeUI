@@ -1,15 +1,26 @@
 extern crate native_ui;
 use std::process::exit;
 
-use native_ui::ui::{
-    popup::{message, Buttons, Icon},
-    // Window,
-};
+use native_ui::{App, ui::{popup::{message, Buttons, Icon}, Window}, macros::{layout, components}};
 
 fn main() {
     if message("Quit", "Close Application?", Buttons::YesNo, Icon::Info).into() {
         exit(2)
     }
+
+    let app = App::builder()
+        .add_window(
+            Window::builder()
+                .title("Rust Window")
+                .size(800, 200)
+                .layout(layout![
+                    components::text!("Some text here", "dog")
+                ])
+                .build()
+        )
+        .build();
+
+    app.run().unwrap();
 
     // Window::builder()
     //     .id("main")

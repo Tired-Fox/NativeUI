@@ -1,10 +1,3 @@
-mod button;
-mod helpers;
-
-use std::fmt;
-
-pub use button::Button;
-use style::Stylesheet;
 use windows::Win32::{
     Foundation::{HWND, LPARAM, LRESULT, WPARAM},
     UI::WindowsAndMessaging::{
@@ -13,14 +6,23 @@ use windows::Win32::{
     },
 };
 
-use crate::{core::{ViewType, Renderable}, ui::component::{ProcResult, Proc}};
-use native_core::Rect;
+mod helpers;
+mod text;
+mod scroll_bar;
 
-pub trait Control: fmt::Debug + Renderable {
-    fn ns_rect(&self) -> &Rect;
-    fn classes(&mut self, classes: Vec<&'static str>);
-    fn create(&mut self, parent: ViewType, stylesheet: &Stylesheet) -> Result<(), String>;
-    fn proc(&mut self, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> ProcResult;
+pub use text::Text;
+pub use scroll_bar::ScrollBar;
+
+#[derive(Default)]
+pub enum ProcResult {
+    #[default]
+    Default,
+    Success,
+    Fail,
+}
+
+pub trait Proc {
+    fn proc(&mut self, hwnd: HWND, msg: u32, _wparam: WPARAM, _lparam: LPARAM) -> ProcResult;
 }
 
 pub extern "system" fn wndproc<'a, T>(
