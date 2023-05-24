@@ -53,14 +53,14 @@ impl Default for Dimensions {
 pub struct Appearance {
     pub font_style: FontStyle,
 
-    pub background_color: Color,
+    pub background_color: Option<Color>,
 }
 
 impl Default for Appearance {
     fn default() -> Self {
         Appearance {
             font_style: FontStyle::default(),
-            background_color: Color::new(255, 255, 255, 1.),
+            background_color: None,
         }
     }
 }
@@ -126,7 +126,7 @@ impl Stylesheet {
 
                         Style::FontStyle(font_style) => appearance.font_style = *font_style,
 
-                        Style::BackgroundColor(color) => appearance.background_color = *color,
+                        Style::BackgroundColor(color) => appearance.background_color = Some(*color),
                         Style::Position(position) => dimensions.position = *position,
 
                         Style::Padding(size) => dimensions.padding = *size,

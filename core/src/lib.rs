@@ -16,8 +16,6 @@ pub trait Renderable {
 
     fn default_rect(&self) -> &Rect;
 
-    fn update_rect(&mut self, rect: Rect);
-
     fn get_styles(&self) -> (Dimensions, Appearance) {
         let mut styles = self.classes().clone();
         styles.push(self.id().clone());
@@ -26,14 +24,17 @@ pub trait Renderable {
 
     fn show(&mut self);
     fn hide(&mut self);
-    fn update(&mut self);
+    fn update(&mut self, rect: Rect);
 }
 
 pub trait Container: Renderable + fmt::Debug {
     fn layout(&mut self) -> &mut Layout;
+    fn init(&mut self) -> Result<(), String>;
 }
 
-pub trait Component: Renderable + fmt::Debug {}
+pub trait Component: Renderable + fmt::Debug {
+    fn create(&mut self) -> Result<(), String>;
+}
 
 #[derive(Debug, Clone)]
 pub enum Child {
@@ -60,7 +61,7 @@ impl LayoutBuilder {
 
 #[derive(Debug, Clone)]
 pub struct Layout {
-    children: Vec<Child>,
+    pub children: Vec<Child>,
 }
 
 impl From<Vec<Child>> for Layout {
@@ -91,7 +92,7 @@ impl Layout {
                 Child::Component(component) => {
                     let component = &mut *component.borrow_mut();
                     let dimensions = component.get_styles().0;
-                    component.update_rect(self.calc(
+                    component.update(self.calc(
                         component.rect(),
                         component.default_rect(),
                         &dimensions,
@@ -100,7 +101,6 @@ impl Layout {
                         previous,
                     ));
                     previous = Some((component.rect().clone(), dimensions.margin));
-                    component.update();
                 }
                 Child::Container(container) => {
                     let container = &mut *container.borrow_mut();
@@ -115,9 +115,8 @@ impl Layout {
                     );
                     
                     container.layout().update(&crect, &dimensions);
-                    container.update_rect(crect);
-                    container.update();
                     previous = Some((crect.clone(), dimensions.margin));
+                    container.update(crect);
                 }
             }
         }

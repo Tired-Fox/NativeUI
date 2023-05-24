@@ -1,3 +1,4 @@
+use native_core::Component;
 use windows::Win32::{
     Foundation::{HWND, LPARAM, LRESULT, WPARAM},
     UI::WindowsAndMessaging::{
@@ -22,7 +23,9 @@ pub enum ProcResult {
 }
 
 pub trait Proc {
-    fn proc(&mut self, hwnd: HWND, msg: u32, _wparam: WPARAM, _lparam: LPARAM) -> ProcResult;
+    fn proc(&mut self, hwnd: HWND, msg: u32, _wparam: WPARAM, _lparam: LPARAM) -> ProcResult {
+        ProcResult::Default
+    }
 }
 
 pub extern "system" fn wndproc<'a, T>(
@@ -60,4 +63,8 @@ where
             }
         }
     }
+}
+
+pub trait WindowsComponent: Component {
+    fn create(&mut self, parent: (HWND, HMODULE)) -> Result<(), String>;
 }

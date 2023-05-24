@@ -22,7 +22,7 @@ use native_core::{Component, Rect, Renderable};
 
 use super::{
     helpers::{padding_rect, text_size},
-    wndproc, Proc, ProcResult,
+    wndproc, Proc, ProcResult, WindowsComponent,
 };
 
 pub struct TextBuilder {
@@ -134,8 +134,6 @@ impl Proc for Text {
     }
 }
 
-impl Component for Text {}
-
 impl Text {
     pub fn new(text: &str) -> Self {
         Text {
@@ -154,6 +152,10 @@ impl Text {
         TextBuilder::new(text)
     }
 
+}
+
+impl Component for Text {}
+impl WindowsComponent for Text {
     fn create(&mut self, parent: (HWND, HMODULE)) -> Result<(), String> {
         if !self.initialized {
             let (handle, instance) = parent;
@@ -194,7 +196,7 @@ impl Text {
                 _ => self.rect.bottom = self.default_rect.bottom,
             }
 
-            self.update();
+            self.update(self.rect);
             self.initialized = true;
         }
         Ok(())
@@ -218,7 +220,9 @@ impl Renderable for Text {
         &self.rect
     }
 
-    fn update(&mut self) {
+    fn update(&mut self, rect: Rect) {
+        self.rect = rect;
+
         unsafe {
             SetWindowPos(
                 self.handle,

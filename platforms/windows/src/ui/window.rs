@@ -20,7 +20,9 @@ use crate::{
     ui::{component::{ProcResult, ScrollBar}, Brush},
 };
 
-use native_core::{Container, Layout, Rect, Renderable};
+use native_core::{Container, Layout, Rect, Renderable, Child};
+
+use super::component::WindowsComponent;
 
 pub enum HookType {
     QUIT,
@@ -82,8 +84,7 @@ impl Window {
                 }
 
                 let rect = self.rect().clone();
-                let dimensions = self.get_styles().0.clone();
-                self.layout.update(&rect, &dimensions);
+                self.update(rect)
             }
             WM::ERASEBKGND | WM::PAINT => unsafe {
                 // Redraw the window background when an erase background event occurs
@@ -148,77 +149,6 @@ impl Window {
         }
     }
 
-    fn create(&mut self) -> Result<(), String> {
-        self.class = HSTRING::from(format!("NativeUi.rs-{}", self.index).as_str());
-
-        unsafe {
-            self.instance = match GetModuleHandleW(None) {
-                Ok(module) => {
-                    if module.0 == 0 {
-                        return Err("Invalid module handle".to_owned());
-                    }
-                    module
-                }
-                Err(_) => return Err("Failed to generate module handle".to_owned()),
-            };
-
-            let icon = match self.icon {
-                Some(ico) => icon(ico)?.0,
-                _ => 0,
-            };
-
-            let wc = WNDCLASSW {
-                hCursor: LoadCursorW(None, IDC_ARROW).unwrap(),
-                hInstance: self.instance,
-                lpszClassName: PCWSTR::from_raw(self.class.as_ptr()),
-                style: self.styles.class,
-                lpfnWndProc: Some(Self::wndproc),
-                hIcon: HICON(icon),
-                ..Default::default()
-            };
-
-            let atom = RegisterClassW(&wc);
-            if atom == 0 {
-                return Err("Failed to register window class".to_owned());
-            }
-
-            let handle = CreateWindowExW(
-                WINDOW_EX_STYLE::default(),
-                PCWSTR::from_raw(self.class.as_ptr()),
-                PCWSTR::from_raw(self.title.as_ptr()),
-                self.styles.window,
-                CW_USEDEFAULT,
-                CW_USEDEFAULT,
-                self.rect.width().into(),
-                self.rect.height().into(),
-                None,
-                None,
-                self.instance,
-                Some(self as *mut _ as _),
-            );
-
-            if handle.0 == 0 || handle != self.handle {
-                return Err("Failed to create new window".to_owned());
-            }
-        }
-
-        self.scrollbars = (controls::scrollbar!(12, "h"), controls::scrollbar!(12, "v"));
-
-        self.scrollbars.0.create((self.handle, self.instance))?;
-        self.scrollbars.1.create((self.handle, self.instance))?;
-
-        let dimensions = self.get_styles().0;
-        if dimensions.overflow_x == Overflow::Scroll {
-            self.scrollbars.0.show();
-        }
-
-        if dimensions.overflow_y == Overflow::Scroll {
-            self.scrollbars.1.show();
-        }
-
-        Ok(())
-    }
-
     fn apply_styles(&mut self) -> Result<(), String> {
         let (dimensions, appearance) = self.get_styles();
         self.rect.right = dimensions.width.as_i32(
@@ -236,7 +166,10 @@ impl Window {
             },
         );
 
-        self.background = Brush::solid(appearance.background_color);
+        self.background = match appearance.background_color {
+            Some(color) => Brush::solid(color),
+            None => self.background
+        };
 
         Ok(())
     }
@@ -374,7 +307,7 @@ impl Window {
     pub fn build(&mut self) -> Result<(), String> {
         if !self.initialized {
             self.apply_styles()?;
-            self.create()?;
+            self.init()?;
             self.show();
             self.initialized = true;
         }
@@ -405,10 +338,96 @@ impl Container for Window {
     fn layout(&mut self) -> &mut Layout {
         &mut self.layout
     }
+
+    fn init(&mut self) -> Result<(), String> {
+        self.class = HSTRING::from(format!("NativeUi.rs-{}", self.index).as_str());
+
+        unsafe {
+            self.instance = match GetModuleHandleW(None) {
+                Ok(module) => {
+                    if module.0 == 0 {
+                        return Err("Invalid module handle".to_owned());
+                    }
+                    module
+                }
+                Err(_) => return Err("Failed to generate module handle".to_owned()),
+            };
+
+            let icon = match self.icon {
+                Some(ico) => icon(ico)?.0,
+                _ => 0,
+            };
+
+            let wc = WNDCLASSW {
+                hCursor: LoadCursorW(None, IDC_ARROW).unwrap(),
+                hInstance: self.instance,
+                lpszClassName: PCWSTR::from_raw(self.class.as_ptr()),
+                style: self.styles.class,
+                lpfnWndProc: Some(Self::wndproc),
+                hIcon: HICON(icon),
+                ..Default::default()
+            };
+
+            let atom = RegisterClassW(&wc);
+            if atom == 0 {
+                return Err("Failed to register window class".to_owned());
+            }
+
+            let handle = CreateWindowExW(
+                WINDOW_EX_STYLE::default(),
+                PCWSTR::from_raw(self.class.as_ptr()),
+                PCWSTR::from_raw(self.title.as_ptr()),
+                self.styles.window,
+                CW_USEDEFAULT,
+                CW_USEDEFAULT,
+                self.rect.width().into(),
+                self.rect.height().into(),
+                None,
+                None,
+                self.instance,
+                Some(self as *mut _ as _),
+            );
+
+            if handle.0 == 0 || handle != self.handle {
+                return Err("Failed to create new window".to_owned());
+            }
+
+            for child in self.layout().children.iter_mut() {
+                match child {
+                    Child::Component(component) => {
+                        let component = &mut *component.borrow_mut();
+                        component.create((self.handle, self.instance));
+                    },
+                    Child::Container(container) => {
+                        container.borrow_mut().init();
+                    }
+                }
+            }
+        }
+
+        self.scrollbars = (controls::scrollbar!(12, "h"), controls::scrollbar!(12, "v"));
+
+        self.scrollbars.0.create((self.handle, self.instance))?;
+        self.scrollbars.1.create((self.handle, self.instance))?;
+
+        let dimensions = self.get_styles().0;
+        if dimensions.overflow_x == Overflow::Scroll {
+            self.scrollbars.0.show();
+        }
+
+        if dimensions.overflow_y == Overflow::Scroll {
+            self.scrollbars.1.show();
+        }
+
+        Ok(())
+    }
 }
 
 impl Renderable for Window {
-    fn update(&mut self) {}
+    fn update(&mut self, rect: Rect) {
+        let dimensions = self.get_styles().0.clone();
+        self.layout.update(&rect, &dimensions);
+    }
 
     fn id(&self) -> &String {
         &self.id

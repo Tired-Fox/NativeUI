@@ -16,7 +16,7 @@ use crate::core::{
     to_RECT
 };
 
-use super::{ProcResult, Proc};
+use super::{ProcResult, Proc, WindowsComponent};
 
 use native_core::{Component, Rect, Renderable};
 
@@ -51,8 +51,11 @@ impl ScrollBar {
             style: (Dimensions::default(), Appearance::default()),
         }
     }
+}
 
-    pub fn create(&mut self, parent: (HWND, HMODULE)) -> Result<(), String> {
+impl Component for ScrollBar {}
+impl WindowsComponent for ScrollBar {
+    fn create(&mut self, parent: (HWND, HMODULE)) -> Result<(), String> {
         let mut rect: RECT = to_RECT(Rect::new(0, 0, 0, 0));
         let (handle, instance) = parent;
         unsafe {
@@ -103,22 +106,12 @@ impl ScrollBar {
 
         Ok(())
     }
-
-    fn proc(&mut self, _hwnd: HWND, _msg: u32, _wparam: WPARAM, _lparam: LPARAM) -> ProcResult {
-        ProcResult::Default
-    }
 }
 
-impl Proc for ScrollBar {
-    fn proc(&mut self, hwnd: HWND, msg: u32, _wparam: WPARAM, _lparam: LPARAM) -> ProcResult {
-        ProcResult::Default        
-    }
-}
-
-impl Component for ScrollBar {}
+impl Proc for ScrollBar {}
 
 impl Renderable for ScrollBar {
-    fn update(&mut self) {
+    fn update(&mut self, rect: Rect) {
         unsafe { UpdateWindow(self.handle); }
     }
 
@@ -144,10 +137,6 @@ impl Renderable for ScrollBar {
 
     fn classes(&self) -> &Vec<String> {
         &self.classes
-    }
-
-    fn update_rect(&mut self, rect: Rect) {
-        self.rect = rect
     }
 
     fn default_rect(&self) -> &Rect {
