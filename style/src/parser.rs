@@ -61,15 +61,25 @@ impl<'i> QualifiedRuleParser<'i> for RuleParser {
 
         let token = input.next()?;
         let selector = match token {
+            // Element
             Token::Ident(ref element_name) => element_name.to_string(),
             Token::Delim(delim) => match delim {
+                // Class
                 '.' => {
                     let token = input.next()?;
                     match token {
                         Token::Ident(ref element_name) => format!(".{}", element_name),
                         t => return Err(location.new_unexpected_token_error(t.clone())),
                     }
-                }
+                },
+                // ID
+                '#' => {
+                    let token = input.next()?;
+                    match token {
+                        Token::Ident(ref element_name) => format!("#{}", element_name),
+                        t => return Err(location.new_unexpected_token_error(t.clone())),
+                    }
+                },
                 _ => return Err(location.new_unexpected_token_error(token.clone())),
             },
             t => {

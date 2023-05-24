@@ -9,9 +9,9 @@ pub use macros::styles;
 use style::Stylesheet;
 
 pub mod ui;
+pub mod prelude;
 pub use core;
 pub use style;
-pub use macros;
 
 pub struct AppBuilder {
     window_count: u32,

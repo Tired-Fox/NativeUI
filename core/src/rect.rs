@@ -62,8 +62,8 @@ impl From<[i32; 2]> for Rect {
     fn from(value: [i32; 2]) -> Self {
         Rect {
             left: 0,
-            top: value[0],
-            right: 0,
+            top: 0,
+            right: value[0],
             bottom: value[1],
         }
     }

@@ -22,7 +22,7 @@ use native_core::{Component, Rect, Renderable};
 
 use super::{
     helpers::{padding_rect, text_size},
-    wndproc, Proc, ProcResult, WindowsComponent,
+    wndproc, Proc, ProcResult,
 };
 
 pub struct TextBuilder {
@@ -59,7 +59,12 @@ impl TextBuilder {
     }
 
     pub fn classes(mut self, classes: Vec<String>) -> Self {
-        self.classes.extend(classes.iter().map(|c| c.to_string()).collect::<Vec<String>>());
+        self.classes.extend(
+            classes
+                .iter()
+                .map(|c| c.to_string())
+                .collect::<Vec<String>>(),
+        );
         self
     }
 
@@ -151,14 +156,12 @@ impl Text {
     pub fn builder(text: &str) -> TextBuilder {
         TextBuilder::new(text)
     }
-
 }
 
-impl Component for Text {}
-impl WindowsComponent for Text {
-    fn create(&mut self, parent: (HWND, HMODULE)) -> Result<(), String> {
+impl Component<(HWND, HMODULE)> for Text {
+    fn create(&mut self, data: (HWND, HMODULE)) -> Result<(), String> {
         if !self.initialized {
-            let (handle, instance) = parent;
+            let (handle, instance) = data;
             unsafe {
                 self.handle = CreateWindowExW(
                     windows::Win32::UI::WindowsAndMessaging::WINDOW_EX_STYLE(0),
@@ -246,9 +249,5 @@ impl Renderable for Text {
 
     fn id(&self) -> &String {
         &self.id
-    }
-
-    fn update_rect(&mut self, rect: Rect) {
-        self.rect = rect
     }
 }

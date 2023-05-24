@@ -27,32 +27,32 @@ pub trait Renderable {
     fn update(&mut self, rect: Rect);
 }
 
-pub trait Container: Renderable + fmt::Debug {
-    fn layout(&mut self) -> &mut Layout;
+pub trait Container<Data>: Renderable + fmt::Debug {
+    fn layout(&mut self) -> &mut Layout<Data>;
     fn init(&mut self) -> Result<(), String>;
 }
 
-pub trait Component: Renderable + fmt::Debug {
-    fn create(&mut self) -> Result<(), String>;
+pub trait Component<Data>: Renderable + fmt::Debug {
+    fn create(&mut self, data: Data) -> Result<(), String>;
 }
 
 #[derive(Debug, Clone)]
-pub enum Child {
-    Component(Arc<RefCell<dyn Component>>),
-    Container(Arc<RefCell<dyn Container>>),
+pub enum Child<Data> {
+    Component(Arc<RefCell<dyn Component<Data>>>),
+    Container(Arc<RefCell<dyn Container<Data>>>),
 }
 
-pub struct LayoutBuilder {
-    children: Vec<Child>,
+pub struct LayoutBuilder<Data> {
+    children: Vec<Child<Data>>,
 }
 
-impl LayoutBuilder {
-    pub fn add(mut self, child: Child) -> Self {
+impl<Data> LayoutBuilder<Data> {
+    pub fn add(mut self, child: Child<Data>) -> Self {
         self.children.push(child);
         self
     }
 
-    pub fn build(self) -> Layout {
+    pub fn build(self) -> Layout<Data> {
         Layout {
             children: self.children,
         }
@@ -60,24 +60,24 @@ impl LayoutBuilder {
 }
 
 #[derive(Debug, Clone)]
-pub struct Layout {
-    pub children: Vec<Child>,
+pub struct Layout<Data> {
+    pub children: Vec<Child<Data>>,
 }
 
-impl From<Vec<Child>> for Layout {
-    fn from(value: Vec<Child>) -> Self {
+impl<Data> From<Vec<Child<Data>>> for Layout<Data> {
+    fn from(value: Vec<Child<Data>>) -> Self {
        Layout { children: value } 
     }
 }
 
-impl Layout {
-    pub fn new() -> Layout {
+impl<Data> Layout<Data> {
+    pub fn new() -> Layout<Data> {
         Layout {
             children: Vec::new(),
         }
     }
 
-    pub fn builder() -> LayoutBuilder {
+    pub fn builder() -> LayoutBuilder<Data> {
         LayoutBuilder {
             children: Vec::new(),
         }

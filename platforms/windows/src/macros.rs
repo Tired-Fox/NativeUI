@@ -1,11 +1,13 @@
 use native_core::{Child, Layout};
+use windows::Win32::Foundation::{HWND, HMODULE};
 
-pub mod controls {
+pub mod component {
     use crate::{ui::component::{Text, ScrollBar}, core::constants::SBS};
     use native_core::Child;
+    use windows::Win32::Foundation::{HWND, HMODULE};
     use std::{cell::RefCell, sync::Arc};
 
-    pub fn build_text(text: &str, id: Option<&str>, classes: Vec<&str>) -> Child {
+    pub fn build_text(text: &str, id: Option<&str>, classes: Vec<&str>) -> Child<(HWND, HMODULE)> {
         let mut text = Text::builder(text).classes(classes.iter().map(|c| format!(".{}", c)).collect());
         
         if let Some(id) = id {
@@ -24,20 +26,20 @@ pub mod controls {
     #[macro_export]
     macro_rules! text {
         ($text: literal) => {
-            $crate::macros::controls::build_text($text, None, Vec::new())
+            $crate::macros::component::build_text($text, None, Vec::new())
         };
-        ($text: literal, $id: literal.) => {
-            $crate::macros::controls::build_text($text, Some($id), Vec::new())
+        ($text: literal, $id: literal) => {
+            $crate::macros::component::build_text($text, Some($id), Vec::new())
         };
         ($text: literal, [$($class: literal),*]) => {
-            $crate::macros::controls::build_text(
+            $crate::macros::component::build_text(
                 $text,
                 None,
                 vec![$($class,)*]
             )
         };
         ($text: literal, $id: literal, [$($class: literal),*]) => {
-            $crate::macros::controls::build_text(
+            $crate::macros::component::build_text(
                 $text,
                 Some($id),
                 vec![$($class,)*]
@@ -62,14 +64,14 @@ pub mod controls {
     #[macro_export]
     macro_rules! scrollbar {
         ($size: literal, $direction: literal) => {
-            $crate::macros::controls::build_scrollbar_control($size, $direction)
+            $crate::macros::component::build_scrollbar_control($size, $direction)
         };
     }
 
     pub use scrollbar;
 }
 
-pub fn build_layout(children: Vec<Child>) -> Layout {
+pub fn build_layout(children: Vec<Child<(HWND, HMODULE)>>) -> Layout<(HWND, HMODULE)> {
     Layout::from(children)
 }
 

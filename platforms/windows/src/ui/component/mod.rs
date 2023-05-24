@@ -64,7 +64,3 @@ where
         }
     }
 }
-
-pub trait WindowsComponent: Component {
-    fn create(&mut self, parent: (HWND, HMODULE)) -> Result<(), String>;
-}

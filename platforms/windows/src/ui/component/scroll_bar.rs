@@ -2,7 +2,7 @@ use style::{Appearance, Dimensions};
 use windows::{
     core::{HSTRING, PCWSTR},
     Win32::{
-        Foundation::{HMODULE, HWND, LPARAM, RECT, WPARAM},
+        Foundation::{HMODULE, HWND, RECT},
         Graphics::Gdi::UpdateWindow,
         UI::{
             Controls::ShowScrollBar,
@@ -13,10 +13,10 @@ use windows::{
 
 use crate::core::{
     constants::{SB, SBS, WS},
-    to_RECT
+    to_RECT,
 };
 
-use super::{ProcResult, Proc, WindowsComponent};
+use super::Proc;
 
 use native_core::{Component, Rect, Renderable};
 
@@ -53,11 +53,10 @@ impl ScrollBar {
     }
 }
 
-impl Component for ScrollBar {}
-impl WindowsComponent for ScrollBar {
-    fn create(&mut self, parent: (HWND, HMODULE)) -> Result<(), String> {
+impl Component<(HWND, HMODULE)> for ScrollBar {
+    fn create(&mut self, data: (HWND, HMODULE)) -> Result<(), String> {
         let mut rect: RECT = to_RECT(Rect::new(0, 0, 0, 0));
-        let (handle, instance) = parent;
+        let (handle, instance) = data;
         unsafe {
             GetClientRect(handle, &mut rect as *mut RECT);
         }
@@ -112,7 +111,9 @@ impl Proc for ScrollBar {}
 
 impl Renderable for ScrollBar {
     fn update(&mut self, rect: Rect) {
-        unsafe { UpdateWindow(self.handle); }
+        unsafe {
+            UpdateWindow(self.handle);
+        }
     }
 
     fn show(&mut self) {

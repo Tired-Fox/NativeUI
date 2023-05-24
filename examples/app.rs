@@ -1,7 +1,7 @@
 extern crate native_ui;
 use std::process::exit;
 
-use native_ui::{App, ui::{popup::{message, Buttons, Icon}, Window}, macros::{layout, components}};
+use native_ui::{App, ui::{popup::{message, Buttons, Icon}, Window}, prelude::{layout, component}, styles};
 
 fn main() {
     if message("Quit", "Close Application?", Buttons::YesNo, Icon::Info).into() {
@@ -13,11 +13,29 @@ fn main() {
             Window::builder()
                 .title("Rust Window")
                 .size(800, 200)
+                .class("window1")
                 .layout(layout![
-                    components::text!("Some text here", "dog")
+                    component::text!("Some text here", "dog")
                 ])
                 .build()
         )
+        .add_window(
+            Window::builder()
+                .title("Rust Window 2")
+                .class("window2")
+                .layout(layout![
+                    component::text!("Some text here", "dog")
+                ])
+                .build()
+        )
+        .set_style(styles!(
+            .window1 {
+                background-color: green; 
+            }
+            .window2 {
+                background-color: red; 
+            }
+        ))
         .build();
 
     app.run().unwrap();

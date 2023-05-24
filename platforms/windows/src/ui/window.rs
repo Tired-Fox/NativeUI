@@ -16,13 +16,14 @@ use crate::{
         image::icon,
         to_RECT, to_Rect,
     },
-    macros::controls,
-    ui::{component::{ProcResult, ScrollBar}, Brush},
+    macros::component,
+    ui::{
+        component::{ProcResult, ScrollBar},
+        Brush,
+    },
 };
 
-use native_core::{Container, Layout, Rect, Renderable, Child};
-
-use super::component::WindowsComponent;
+use native_core::{Child, Component, Container, Layout, Rect, Renderable};
 
 pub enum HookType {
     QUIT,
@@ -67,7 +68,7 @@ pub struct Window {
     pub icon: Option<&'static str>,
     pub rect: Rect,
 
-    pub layout: Layout,
+    pub layout: Layout<(HWND, HMODULE)>,
     hooks: Hooks,
     scrollbars: (ScrollBar, ScrollBar),
 }
@@ -168,7 +169,7 @@ impl Window {
 
         self.background = match appearance.background_color {
             Some(color) => Brush::solid(color),
-            None => self.background
+            None => self.background,
         };
 
         Ok(())
@@ -185,7 +186,7 @@ pub struct WindowBuilder {
     class: HSTRING,
     styles: WindowStyles,
     icon: Option<&'static str>,
-    layout: Layout,
+    layout: Layout<(HWND, HMODULE)>,
     hooks: Hooks,
 }
 
@@ -196,7 +197,7 @@ impl WindowBuilder {
             id: String::new(),
             classes: vec![String::from("window")],
             title: HSTRING::new(),
-            rect: Rect::default(),
+            rect: Rect::from([400, 300]),
             class: HSTRING::new(),
             styles: WindowStyles::default(),
             background: unsafe { CreateSolidBrush(COLORREF(hex("FFF").into())) },
@@ -232,6 +233,11 @@ impl WindowBuilder {
         self
     }
 
+    pub fn class(mut self, class: &str) -> Self {
+        self.classes.push(format!(".{}", class));
+        self
+    }
+
     pub fn background(mut self, brush: HBRUSH) -> Self {
         self.background = brush;
         self
@@ -245,12 +251,13 @@ impl WindowBuilder {
         self
     }
 
-    pub fn layout(mut self, layout: Layout) -> Self {
+    pub fn layout(mut self, layout: Layout<(HWND, HMODULE)>) -> Self {
         self.layout = layout;
         self
     }
 
     pub fn build(self) -> Window {
+        println!("{:?}", self.rect);
         Window {
             index: self.index,
             initialized: false,
@@ -334,8 +341,8 @@ impl Window {
     }
 }
 
-impl Container for Window {
-    fn layout(&mut self) -> &mut Layout {
+impl Container<(HWND, HMODULE)> for Window {
+    fn layout(&mut self) -> &mut Layout<(HWND, HMODULE)> {
         &mut self.layout
     }
 
@@ -380,8 +387,8 @@ impl Container for Window {
                 self.styles.window,
                 CW_USEDEFAULT,
                 CW_USEDEFAULT,
-                self.rect.width().into(),
-                self.rect.height().into(),
+                self.rect.width(),
+                self.rect.height(),
                 None,
                 None,
                 self.instance,
@@ -392,20 +399,24 @@ impl Container for Window {
                 return Err("Failed to create new window".to_owned());
             }
 
-            for child in self.layout().children.iter_mut() {
+            for child in self.layout.children.iter() {
                 match child {
                     Child::Component(component) => {
                         let component = &mut *component.borrow_mut();
-                        component.create((self.handle, self.instance));
-                    },
+                        component.create((self.handle.clone(), self.instance.clone()))?;
+                    }
                     Child::Container(container) => {
-                        container.borrow_mut().init();
+                        container.borrow_mut().init()?;
                     }
                 }
             }
         }
 
-        self.scrollbars = (controls::scrollbar!(12, "h"), controls::scrollbar!(12, "v"));
+        // PERF: Scrollbars pull in styles for width and height
+        self.scrollbars = (
+            component::scrollbar!(12, "h"),
+            component::scrollbar!(12, "v"),
+        );
 
         self.scrollbars.0.create((self.handle, self.instance))?;
         self.scrollbars.1.create((self.handle, self.instance))?;
@@ -443,10 +454,6 @@ impl Renderable for Window {
 
     fn default_rect(&self) -> &Rect {
         &self.rect
-    }
-
-    fn update_rect(&mut self, rect: Rect) {
-        self.rect = rect
     }
 
     fn show(&mut self) {
