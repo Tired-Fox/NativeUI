@@ -1,11 +1,8 @@
 use native_core::STYLESHEET;
-use proc_macro_hack::proc_macro_hack;
 
 #[cfg(target_os="windows")]
 pub use skylight;
 
-#[proc_macro_hack]
-pub use macros::styles;
 use style::Stylesheet;
 
 pub mod ui;

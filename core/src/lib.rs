@@ -155,7 +155,7 @@ impl<Data> Layout<Data> {
                         add_padding.0 = true;
                         default_rect.width()
                     }
-                    _ => parent_rect.width() - ppadding.1 - ppadding.3 - margin.1 - margin.3,
+                    _ => parent_rect.width() - margin.1 - margin.3,
                 },
             },
         );
@@ -173,7 +173,7 @@ impl<Data> Layout<Data> {
                         add_padding.1 = true;
                         default_rect.height()
                     }
-                    _ => parent_rect.height() - margin.0 - margin.2 - ppadding.0 - ppadding.2,
+                    _ => parent_rect.height() - margin.0 - margin.2,
                 },
             },
         );
@@ -203,7 +203,7 @@ impl<Data> Layout<Data> {
             _ => match previous {
                 Some((prect, pmargin)) => {
                     let (bottom, pad) = (prect.bottom, pmargin.bottom.as_i32(rect.height(), 0));
-                    bottom + pad + ppadding.0 + margin.0
+                    bottom + pad + margin.0
                 }
                 None => ppadding.0 + margin.0,
             },

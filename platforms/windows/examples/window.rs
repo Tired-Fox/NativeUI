@@ -1,17 +1,26 @@
 extern crate skylight;
 
+use native_core::STYLESHEET;
 use skylight::{
+    styles,
     core::constants::HS,
-    macros::{controls, layout},
+    prelude::{component, layout},
     ui::{
         popup::{ButtonLayout, Icon, MessageBox, MessageReturn},
         Brush, HookType, Window,
     },
 };
 
-// use style::{Prop, BS};
-
 fn main() {
+    STYLESHEET.0.write().unwrap().dup(styles!(
+        window {
+            padding: 2px;
+        }
+        text {
+            margin-block: 2px;
+        }
+    ));
+
     let window = Window::builder()
         .size(800, 400)
         .title("Native UI")
@@ -26,11 +35,16 @@ fn main() {
                 Icon::Info,
             ) == MessageReturn::Yes
         })
-        .layout(layout!(controls::text!(
-            "Native UI Sample Window",
-            "id-goes-here",
-            ["text", "two"]
-        )));
+        .layout(layout!(component::text!(
+                "Native UI Sample Window",
+                "id-goes-here",
+                ["text", "two"]
+            ),
+            component::text!(
+                "Second line of text",
+                "second-line"
+            )
+        ));
 
     match window.open() {
         Err(message) => {

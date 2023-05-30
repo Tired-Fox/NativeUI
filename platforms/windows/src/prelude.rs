@@ -26,20 +26,20 @@ pub mod component {
     #[macro_export]
     macro_rules! text {
         ($text: literal) => {
-            $crate::macros::component::build_text($text, None, Vec::new())
+            $crate::prelude::component::build_text($text, None, Vec::new())
         };
         ($text: literal, $id: literal) => {
-            $crate::macros::component::build_text($text, Some($id), Vec::new())
+            $crate::prelude::component::build_text($text, Some($id), Vec::new())
         };
         ($text: literal, [$($class: literal),*]) => {
-            $crate::macros::component::build_text(
+            $crate::prelude::component::build_text(
                 $text,
                 None,
                 vec![$($class,)*]
             )
         };
         ($text: literal, $id: literal, [$($class: literal),*]) => {
-            $crate::macros::component::build_text(
+            $crate::prelude::component::build_text(
                 $text,
                 Some($id),
                 vec![$($class,)*]
@@ -64,7 +64,7 @@ pub mod component {
     #[macro_export]
     macro_rules! scrollbar {
         ($size: literal, $direction: literal) => {
-            $crate::macros::component::build_scrollbar_control($size, $direction)
+            $crate::prelude::component::build_scrollbar_control($size, $direction)
         };
     }
 
@@ -78,7 +78,7 @@ pub fn build_layout(children: Vec<Child<(HWND, HMODULE)>>) -> Layout<(HWND, HMOD
 #[macro_export]
 macro_rules! layout {
     [$($child: expr),*] => {
-       $crate::macros::build_layout(vec![$($child,)*]) 
+       $crate::prelude::build_layout(vec![$($child,)*]) 
     };
 }
 

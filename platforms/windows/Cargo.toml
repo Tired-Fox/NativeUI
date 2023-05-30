@@ -5,8 +5,10 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-style = { path = "../../style" }
+proc-macro-hack = "0.5"
+macros = { path = "../../macros" }
 native_core = { path = "../../core"}
+style = { path = "../../style" }
 
 [dependencies.windows]
 version = "0.48"

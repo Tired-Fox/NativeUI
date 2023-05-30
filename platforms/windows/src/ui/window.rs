@@ -16,7 +16,7 @@ use crate::{
         image::icon,
         to_RECT, to_Rect,
     },
-    macros::component,
+    prelude::component,
     ui::{
         component::{ProcResult, ScrollBar},
         Brush,
