@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use style::{Appearance, Dimensions, Stylesheet};
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
 
@@ -18,8 +20,8 @@ pub struct Button {
 }
 
 impl Control for Button {
-    fn create(&mut self, parent: ViewType, stylesheet: &Stylesheet) -> Result<(), String> {
-        self.style = stylesheet.get_styles(vec!["button".to_owned()]);
+    fn create(&mut self, parent: ViewType, stylesheet: &mut Stylesheet) -> Result<(), String> {
+        self.style = stylesheet.get_styles(HashSet::from(["button".to_owned()]));
 
         self.parent = parent;
         self.handle = HWND(0);

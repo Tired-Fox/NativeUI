@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use style::{Appearance, Dimensions, Unit};
 use windows::{
     core::{HSTRING, PCWSTR},
@@ -29,7 +31,7 @@ pub struct TextBuilder {
     pub text: HSTRING,
     pub rect: Rect,
     pub id: String,
-    pub classes: Vec<String>,
+    pub classes: HashSet<String>,
 }
 
 impl TextBuilder {
@@ -38,7 +40,7 @@ impl TextBuilder {
             text: HSTRING::from(text),
             rect: Rect::default(),
             id: String::new(),
-            classes: vec![String::from("text")],
+            classes: HashSet::from(["text".to_string()]),
         }
     }
 
@@ -69,7 +71,7 @@ impl TextBuilder {
     }
 
     pub fn class(mut self, class: &str) -> Self {
-        self.classes.push(String::from(class));
+        self.classes.insert(String::from(class));
         self
     }
 
@@ -95,7 +97,7 @@ pub struct Text {
     pub default_rect: Rect,
     pub style: (Dimensions, Appearance),
     pub id: String,
-    pub classes: Vec<String>,
+    pub classes: HashSet<String>,
     pub initialized: bool,
 }
 
@@ -148,7 +150,7 @@ impl Text {
             default_rect: Rect::default(),
             style: (Dimensions::default(), Appearance::default()),
             id: String::new(),
-            classes: vec![String::from("text")],
+            classes: HashSet::from(["text".to_string()]),
             initialized: false,
         }
     }
@@ -243,7 +245,7 @@ impl Renderable for Text {
         &self.default_rect
     }
 
-    fn classes(&self) -> &Vec<String> {
+    fn classes(&self) -> &HashSet<String> {
         &self.classes
     }
 

@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use windows::{
     core::{HSTRING, PCWSTR},
     Win32::Foundation::*,
@@ -54,18 +56,18 @@ pub struct Window {
     index: u32,
     max_point: (i32, i32),
     initialized: bool,
+    pub alive: bool,
+    pub icon: Option<&'static str>,
+
     pub title: HSTRING,
     pub background: HBRUSH,
     id: String,
-    classes: Vec<String>,
+    classes: HashSet<String>,
 
     pub handle: HWND,
     pub instance: HMODULE,
     pub class: HSTRING,
     pub styles: WindowStyles,
-
-    pub alive: bool,
-    pub icon: Option<&'static str>,
     pub rect: Rect,
 
     pub layout: Layout<(HWND, HMODULE)>,
@@ -179,7 +181,7 @@ impl Window {
 pub struct WindowBuilder {
     index: u32,
     id: String,
-    classes: Vec<String>,
+    classes: HashSet<String>,
     title: HSTRING,
     background: HBRUSH,
     rect: Rect,
@@ -195,7 +197,7 @@ impl WindowBuilder {
         WindowBuilder {
             index: 0,
             id: String::new(),
-            classes: vec![String::from("window")],
+            classes: HashSet::from(["window".to_string()]),
             title: HSTRING::new(),
             rect: Rect::from([400, 300]),
             class: HSTRING::new(),
@@ -228,13 +230,24 @@ impl WindowBuilder {
         self
     }
 
-    pub fn classes(mut self, classes: Vec<String>) -> Self {
-        self.classes.extend(classes);
+    pub fn classes(mut self, classes: Vec<&str>) -> Self {
+        self.classes.extend(
+            classes
+                .iter()
+                .map(|c| match c.starts_with(".") {
+                    true => c.to_string(),
+                    false => format!(".{}", c),
+                })
+                .collect::<Vec<String>>(),
+        );
         self
     }
 
     pub fn class(mut self, class: &str) -> Self {
-        self.classes.push(format!(".{}", class));
+        self.classes.insert(match class.starts_with("#") {
+            true => class.to_string(),
+            false => format!(".{}", class),
+        });
         self
     }
 
@@ -253,6 +266,15 @@ impl WindowBuilder {
 
     pub fn layout(mut self, layout: Layout<(HWND, HMODULE)>) -> Self {
         self.layout = layout;
+        self
+    }
+
+    pub fn id(mut self, id: &str) -> Self {
+        self.id = match id.starts_with("#") {
+            true => id.to_string(),
+            false if id.trim() != "" => format!("#{}", id),
+            _ => String::new()
+        };
         self
     }
 
@@ -294,7 +316,7 @@ impl Window {
             index: 0,
             initialized: false,
             id: String::new(),
-            classes: vec![String::from("window")],
+            classes: HashSet::from(["window".to_string()]),
             max_point: (0, 0),
             title: HSTRING::new(),
             background: unsafe { CreateSolidBrush(COLORREF(hex("FFF").into())) },
@@ -444,7 +466,7 @@ impl Renderable for Window {
         &self.id
     }
 
-    fn classes(&self) -> &Vec<String> {
+    fn classes(&self) -> &HashSet<String> {
         &self.classes
     }
 

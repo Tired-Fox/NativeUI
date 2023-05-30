@@ -1,7 +1,7 @@
 mod rect;
 mod style_manager;
 
-use std::{cell::RefCell, fmt, sync::Arc};
+use std::{cell::RefCell, fmt, sync::Arc, collections::HashSet};
 
 pub use rect::Rect;
 use style::{Appearance, Dimensions, Position, Size, Unit};
@@ -10,7 +10,7 @@ pub use style_manager::STYLESHEET;
 pub trait Renderable {
     fn id(&self) -> &String;
 
-    fn classes(&self) -> &Vec<String>;
+    fn classes(&self) -> &HashSet<String>;
 
     fn rect(&self) -> &Rect;
 
@@ -18,8 +18,9 @@ pub trait Renderable {
 
     fn get_styles(&self) -> (Dimensions, Appearance) {
         let mut styles = self.classes().clone();
-        styles.push(self.id().clone());
-        STYLESHEET.0.read().unwrap().get_styles(styles)
+        styles.insert(self.id().clone());
+        // println!("{:?} {:?}", styles, STYLESHEET.0.read());
+        STYLESHEET.get().get_styles(styles)
     }
 
     fn show(&mut self);

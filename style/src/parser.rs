@@ -4,6 +4,8 @@
 //! Uses [servo's cssparser](https://github.com/servo/rust-cssparser) with custom
 //! data types to parse the data.
 
+use std::collections::HashMap;
+
 use cssparser::{
     AtRuleParser, BasicParseError, CowRcStr, DeclarationListParser, DeclarationParser, ParseError,
     Parser, ParserState, QualifiedRuleParser, Token,
@@ -13,7 +15,7 @@ use crate::{size::Size, Color};
 
 use super::rules::*;
 
-macro_rules! option {
+macro_rules! ident{
     ($input: ident, $($case: literal => $value: expr),* $(,)?) => {
         {
             let s: cssparser::SourceLocation = $input.current_source_location();
@@ -60,23 +62,25 @@ impl<'i> QualifiedRuleParser<'i> for RuleParser {
         let location = input.current_source_location();
 
         let token = input.next()?;
+        // println!("{:?}", token);
         let selector = match token {
             // Element
             Token::Ident(ref element_name) => element_name.to_string(),
+            // Id
+            Token::IDHash(ref name) => format!("#{}", name),
+            Token::Colon => {
+                let token = input.next()?;
+                match token {
+                    Token::Ident(ref name) => format!(":{}", name),
+                    t => return Err(location.new_unexpected_token_error(t.clone())),
+                }
+            }
             Token::Delim(delim) => match delim {
                 // Class
                 '.' => {
                     let token = input.next()?;
                     match token {
                         Token::Ident(ref element_name) => format!(".{}", element_name),
-                        t => return Err(location.new_unexpected_token_error(t.clone())),
-                    }
-                },
-                // ID
-                '#' => {
-                    let token = input.next()?;
-                    match token {
-                        Token::Ident(ref element_name) => format!("#{}", element_name),
                         t => return Err(location.new_unexpected_token_error(t.clone())),
                     }
                 },
@@ -103,7 +107,7 @@ impl<'i> QualifiedRuleParser<'i> for RuleParser {
         _start: &ParserState,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self::QualifiedRule, ParseError<'i, Self::Error>> {
-        let styles = DeclarationListParser::new(input, StyleParser {}).collect::<Vec<_>>();
+        let styles = DeclarationListParser::new(input, StyleParser { variables: HashMap::new() }).collect::<Vec<_>>();
 
         Ok(Rule {
             key,
@@ -114,7 +118,13 @@ impl<'i> QualifiedRuleParser<'i> for RuleParser {
                         eprintln!("{:?}", decl);
                     }
 
-                    decl.ok()
+                    let decl = decl.ok();
+                    if let Some(decl) = decl {
+                        if decl != Style::Variable {
+                            return Some(decl);
+                        }
+                    }
+                    None
                 })
                 .collect(),
         })
@@ -123,21 +133,15 @@ impl<'i> QualifiedRuleParser<'i> for RuleParser {
 
 /// Contains logic for matching CSS attributes to their `Styles` counterpart.
 #[derive(Debug)]
-pub struct StyleParser {}
+pub struct StyleParser {
+    variables: HashMap<String, String> 
+}
 
 /// Types, etc.
 impl<'i> AtRuleParser<'i> for StyleParser {
     type Prelude = ();
     type AtRule = Style;
     type Error = BasicParseError<'i>;
-}
-
-/// A utility method for dereferencing a value, to make some code later on a bit more clean.
-fn ident<'a>(token: &'a Token) -> &'a str {
-    match token {
-        Token::Ident(ref value) => &*value,
-        _ => "",
-    }
 }
 
 impl<'i> QualifiedRuleParser<'i> for StyleParser {
@@ -156,15 +160,29 @@ impl<'i> DeclarationParser<'i> for StyleParser {
         name: CowRcStr<'i>,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self::Declaration, ParseError<'i, Self::Error>> {
-        let style = match &*name {
-            "font-style" => option!(
+        let name = &*name;
+        if name.starts_with("--") {
+            // TODO: Parse variables into variable token (enum)
+            let token = input.next()?;
+            let value = match token {
+                Token::IDHash(ref name) => format!("#{}", name),
+                Token::Ident(ref ident) => ident.to_string(),
+                _ => String::new()
+            };
+            self.variables.insert(name.to_string(), value.to_string());
+            println!("{:?}", self.variables);
+            return Ok(Style::Variable);
+        }
+
+        let style = match name {
+            "font-style" => ident!(
                 input,
                 "normal" => Style::FontStyle(FontStyle::Normal),
                 "italic" => Style::FontStyle(FontStyle::Italic),
                 "oblique" => Style::FontStyle(FontStyle::Oblique),
             ),
 
-            "position" => option!(
+            "position" => ident!(
                 input,
                 "relative" => Style::Position(Position::Relative),
                 "absolute" => Style::Position(Position::Absolute),
@@ -203,19 +221,19 @@ impl<'i> DeclarationParser<'i> for StyleParser {
             "margin-right" => Style::MarginRight(parse_value(input)?),
             "margin-bottom" => Style::MarginBottom(parse_value(input)?),
 
-            "overflow" => Style::Overflow(option!(
+            "overflow" => Style::Overflow(ident!(
                 input,
                 "auto" => Overflow::Auto,
                 "scroll" => Overflow::Scroll,
                 "hidden" => Overflow::Hidden,
             )),
-            "overflow-x" => Style::OverflowX(option!(
+            "overflow-x" => Style::OverflowX(ident!(
                 input,
                 "auto" => Overflow::Auto,
                 "scroll" => Overflow::Scroll,
                 "hidden" => Overflow::Hidden,
             )),
-            "overflow-y" => Style::OverflowY(option!(
+            "overflow-y" => Style::OverflowY(ident!(
                 input,
                 "auto" => Overflow::Auto,
                 "scroll" => Overflow::Scroll,

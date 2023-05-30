@@ -70,8 +70,9 @@ pub enum Position {
     Relative,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Style {
+    Variable,
     BackgroundColor(Color),
     FontStyle(FontStyle),
 

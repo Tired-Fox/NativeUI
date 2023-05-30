@@ -1,3 +1,5 @@
+use std::{collections::HashSet, ptr::hash};
+
 use style::{Appearance, Dimensions};
 use windows::{
     core::{HSTRING, PCWSTR},
@@ -23,7 +25,7 @@ use native_core::{Component, Rect, Renderable};
 #[derive(Debug)]
 pub struct ScrollBar {
     id: String,
-    classes: Vec<String>,
+    classes: HashSet<String>,
     pub handle: HWND,
     pub rect: Rect,
     ns_rect: Rect,
@@ -43,7 +45,7 @@ impl ScrollBar {
         ScrollBar {
             handle: HWND(0),
             id: String::new(),
-            classes: vec![String::from("scrollbar")],
+            classes: HashSet::from(["scrollbar".to_string()]),
             rect: Rect::new(0, 0, 0, 0),
             ns_rect: Rect::new(0, 0, 0, 0),
             size,
@@ -136,7 +138,7 @@ impl Renderable for ScrollBar {
         &self.id
     }
 
-    fn classes(&self) -> &Vec<String> {
+    fn classes(&self) -> &HashSet<String> {
         &self.classes
     }
 

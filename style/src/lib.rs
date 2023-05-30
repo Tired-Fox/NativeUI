@@ -1,16 +1,17 @@
-use std::{collections::HashMap, fs::File, io::Read, path::Path};
+use std::{collections::{HashMap, HashSet}, fs::File, io::Read, path::Path};
+use itertools::Itertools;
 
 use cssparser::{Parser, ParserInput, RuleListParser};
 
 use color::Color;
 mod parser;
-mod size;
 mod rules;
+mod size;
 
 pub mod color;
-pub use size::Size;
 pub use parser::{Rule, RuleParser, StyleParser};
 pub use rules::*;
+pub use size::Size;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Dimensions {
@@ -66,14 +67,18 @@ impl Default for Appearance {
 }
 
 #[derive(Debug, Default)]
-pub struct Stylesheet(HashMap<String, Vec<Style>>);
+pub struct Stylesheet {
+    rules: HashMap<String, Vec<Style>>,
+    cached: HashMap<String, (Dimensions, Appearance)>,
+}
 
 unsafe impl Send for Stylesheet {}
 unsafe impl Sync for Stylesheet {}
 
 impl Stylesheet {
     pub fn dup(&mut self, src: Stylesheet) {
-        self.0 = src.0.clone();
+        self.rules = src.rules.clone();
+        self.cached = HashMap::new();
     }
 
     pub fn parse(src: &str) -> Self {
@@ -90,7 +95,11 @@ impl Stylesheet {
             styles.insert(rule.key, rule.styles);
         }
 
-        Stylesheet(styles)
+        println!("{:?}", styles);
+        Stylesheet {
+            rules: styles,
+            cached: HashMap::new(),
+        }
     }
 
     pub fn file(path: &str) -> Self {
@@ -109,13 +118,21 @@ impl Stylesheet {
         Stylesheet::parse(s.as_str())
     }
 
-    pub fn get_styles(&self, rules: Vec<String>) -> (Dimensions, Appearance) {
+    pub fn get_styles(&mut self, rules: HashSet<String>) -> (Dimensions, Appearance) {
         let mut dimensions = Dimensions::default();
         let mut appearance = Appearance::default();
 
+        let key = rules.iter().join("::");
+
+        if self.cached.contains_key(&key) {
+            if let Some(styles) = self.cached.get(&key) {
+                return styles.clone();
+            }
+        }
+
         for rule in rules.iter() {
-            if self.0.contains_key(rule) {
-                for style in self.0.get(rule).unwrap().iter() {
+            if self.rules.contains_key(rule) {
+                for style in self.rules.get(rule).unwrap().iter() {
                     match style {
                         Style::MinWidth(min_width) => dimensions.min_width = *min_width,
                         Style::Width(width) => dimensions.width = *width,
@@ -161,11 +178,11 @@ impl Stylesheet {
                         Style::InsetBlock(block) => {
                             dimensions.inset.left = block.clone();
                             dimensions.inset.left = *block;
-                        },
+                        }
                         Style::InsetInline(inline) => {
                             dimensions.inset.top = inline.clone();
                             dimensions.inset.bottom = *inline;
-                        },
+                        }
                         Style::Top(top) => dimensions.inset.top = *top,
                         Style::Left(left) => dimensions.inset.left = *left,
                         Style::Right(right) => dimensions.inset.right = *right,
@@ -173,18 +190,20 @@ impl Stylesheet {
                         Style::Overflow(overflow) => {
                             dimensions.overflow_x = overflow.clone();
                             dimensions.overflow_y = *overflow
-                        },
+                        }
                         Style::OverflowX(overflow) => {
                             dimensions.overflow_x = *overflow;
-                        },
+                        }
                         Style::OverflowY(overflow) => {
                             dimensions.overflow_y = *overflow;
                         }
+                        Style::Variable => (),
                     };
                 }
             }
         }
 
-        (dimensions, appearance)
+        self.cached.insert(key.clone(), (dimensions, appearance));
+        self.cached.get(&key).unwrap().clone()
     }
 }

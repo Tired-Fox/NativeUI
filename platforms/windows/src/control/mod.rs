@@ -19,7 +19,7 @@ use native_core::Rect;
 pub trait Control: fmt::Debug + Renderable {
     fn ns_rect(&self) -> &Rect;
     fn classes(&mut self, classes: Vec<&'static str>);
-    fn create(&mut self, parent: ViewType, stylesheet: &Stylesheet) -> Result<(), String>;
+    fn create(&mut self, parent: ViewType, stylesheet: &mut Stylesheet) -> Result<(), String>;
     fn proc(&mut self, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> ProcResult;
 }
 
