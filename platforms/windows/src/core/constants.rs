@@ -14,7 +14,7 @@ pub mod WS {
     //! Window Styles
     //! Direct mapping of window style constants from the windows api
     use windows::Win32::UI::WindowsAndMessaging::{
-        WINDOW_STYLE, WS_CHILD, WS_TILEDWINDOW, WS_VISIBLE, WS_BORDER,
+        WINDOW_STYLE, WS_BORDER, WS_CHILD, WS_TILEDWINDOW, WS_VISIBLE,
     };
 
     pub const TILED_WINDOW: WINDOW_STYLE = WS_TILEDWINDOW;
@@ -32,6 +32,8 @@ pub mod WS {
 }
 
 pub mod HS {
+    //! Hatch Styles
+    //! Direct mapping of hatch style constants from the windows api
     use windows::Win32::Graphics::Gdi::{
         HATCH_BRUSH_STYLE, HS_BDIAGONAL, HS_CROSS, HS_DIAGCROSS, HS_FDIAGONAL, HS_HORIZONTAL,
         HS_VERTICAL,
@@ -50,8 +52,13 @@ pub mod HS {
 }
 
 pub mod WM {
-    use windows::Win32::UI::WindowsAndMessaging::{WM_ERASEBKGND, WM_PAINT, WM_SIZE, WM_DESTROY, WM_CLOSE, WM_NCPAINT};
+    //! Window Message
+    //! Direct mapping of window message constants from the windows api
+    use windows::Win32::UI::WindowsAndMessaging::{
+        WM_CLOSE, WM_DESTROY, WM_ERASEBKGND, WM_HSCROLL, WM_NCPAINT, WM_PAINT, WM_SIZE, WM_VSCROLL, WM_CREATE,
+    };
 
+    pub const CREATE: u32 = WM_CREATE;
     pub const PAINT: u32 = WM_PAINT;
     pub const NC_PAINT: u32 = WM_NCPAINT;
     pub const SIZE: u32 = WM_SIZE;
@@ -59,9 +66,13 @@ pub mod WM {
     pub const CLOSE: u32 = WM_CLOSE;
     pub const DESTROY: u32 = WM_DESTROY;
     pub const DEFAULT: u32 = 0;
+    pub const VSCROLL: u32 = WM_VSCROLL;
+    pub const HSCROLL: u32 = WM_HSCROLL;
 }
 
 pub mod DT {
+    //! Draw Text
+    //! Direct mapping of draw text format constants from the windows api
     use windows::Win32::Graphics::Gdi::{DRAW_TEXT_FORMAT, DT_CENTER, DT_SINGLELINE, DT_VCENTER};
 
     pub const CENTER: DRAW_TEXT_FORMAT = DT_CENTER;
@@ -71,6 +82,8 @@ pub mod DT {
 }
 
 pub mod SBS {
+    //! Scrollbar style
+    //! Direct mapping of scrollbar style constants from the windows api
     use windows::Win32::UI::WindowsAndMessaging::{SBS_HORZ, SBS_VERT};
 
     pub const HORZ: i32 = SBS_HORZ;
@@ -78,10 +91,31 @@ pub mod SBS {
 }
 
 pub mod SB {
-    use windows::Win32::UI::WindowsAndMessaging::{SB_BOTH, SCROLLBAR_CONSTANTS, SB_HORZ, SB_VERT, SB_CTL};
+    //! Scrollbar Contants
+    //! Direct mapping of scrollbar constants from the windows api
+    use windows::Win32::UI::WindowsAndMessaging::{
+        SB_BOTH, SB_CTL, SB_HORZ, SB_LINEDOWN, SB_LINEUP, SB_THUMBPOSITION, SB_THUMBTRACK, SB_VERT, SB_PAGEUP, SB_PAGEDOWN, SB_LINELEFT, SB_LINERIGHT, SB_TOP, SB_PAGELEFT, SB_PAGERIGHT,
+    };
 
-    pub const BOTH: SCROLLBAR_CONSTANTS = SB_BOTH;
-    pub const HORZ: SCROLLBAR_CONSTANTS = SB_HORZ;
-    pub const VERT: SCROLLBAR_CONSTANTS = SB_VERT;
-    pub const CTL: SCROLLBAR_CONSTANTS = SB_CTL;
+    pub use windows::Win32::UI::WindowsAndMessaging::{
+        SCROLLBAR_COMMAND as COMMAND, SCROLLBAR_CONSTANTS as CONSTANTS,
+    };
+
+    pub const BOTH: CONSTANTS = SB_BOTH;
+    pub const HORZ: CONSTANTS = SB_HORZ;
+    pub const VERT: CONSTANTS = SB_VERT;
+    pub const CTL: CONSTANTS = SB_CTL;
+
+    pub const TOP: COMMAND = SB_TOP;
+    pub const BOTTOM: COMMAND = SB_TOP;
+    pub const THUMBPOSITION: COMMAND = SB_THUMBPOSITION;
+    pub const THUMBTRACK: COMMAND = SB_THUMBTRACK;
+    pub const LINEDOWN: COMMAND = SB_LINEDOWN;
+    pub const LINEUP: COMMAND = SB_LINEUP;
+    pub const LINELEFT: COMMAND = SB_LINELEFT;
+    pub const LINERIGHT: COMMAND = SB_LINERIGHT;
+    pub const PAGEUP: COMMAND = SB_PAGEUP;
+    pub const PAGEDOWN: COMMAND = SB_PAGEDOWN;
+    pub const PAGELEFT: COMMAND = SB_PAGELEFT;
+    pub const PAGERIGHT: COMMAND = SB_PAGERIGHT;
 }

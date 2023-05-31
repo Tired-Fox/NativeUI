@@ -95,7 +95,6 @@ impl Stylesheet {
             styles.insert(rule.key, rule.styles);
         }
 
-        println!("{:?}", styles);
         Stylesheet {
             rules: styles,
             cached: HashMap::new(),

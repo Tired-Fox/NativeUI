@@ -1,36 +1,112 @@
 pub mod constants;
-pub mod errors;
+pub mod error;
 pub mod image;
-use std::{cell::RefCell, rc::Rc};
+pub mod scroll;
+
+use std::fmt::Debug;
 
 use native_core::Rect;
 
-use style::{Appearance, Dimensions};
 use windows::Win32::{
-    Foundation::{HMODULE, HWND, RECT},
-    UI::WindowsAndMessaging::{GetWindowLongPtrW, GWLP_USERDATA},
+    Foundation::{HWND, LPARAM, LRESULT, RECT, WPARAM},
+    Graphics::Gdi::{GetDC, GetTextMetricsW, TEXTMETRICW},
+    UI::WindowsAndMessaging::{
+        DefWindowProcW, GetWindowLongPtrW, SetWindowLongPtrW, CREATESTRUCTW, GWLP_USERDATA,
+    },
 };
 
-use crate::{control::Control, ui::Window};
+use self::constants::WM;
 
-#[deprecated]
-pub trait Renderable {
-    fn update(
-        &mut self,
-        parent: (Rect, (Dimensions, Appearance)),
-        previous: Option<(Rect, (Dimensions, Appearance))>,
-    ) -> Result<(), String>;
-
-    fn show(&self);
-    fn hide(&self);
-    fn rect(&self) -> &Rect;
-    fn style(&self) -> &(Dimensions, Appearance);
-    fn handle(&self) -> &HWND;
+#[inline(always)]
+pub const fn loword(x: u32) -> u16 {
+    (x & 0xFFFF) as u16
 }
 
-#[deprecated]
-pub trait View: Renderable {
-    fn children(&mut self) -> &mut Vec<ChildType>;
+#[inline(always)]
+pub const fn hiword(x: u32) -> u16 {
+    ((x >> 16) & 0xFFFF) as u16
+}
+
+pub struct CharInfo {
+    pub width: i32,
+    pub upper: i32,
+    pub height: i32,
+}
+
+impl CharInfo {
+    pub fn new(handle: HWND) -> Self {
+        let mut tm: TEXTMETRICW = TEXTMETRICW::default();
+        unsafe {
+            GetTextMetricsW(GetDC(handle), &mut tm as *mut TEXTMETRICW);
+        }
+        let width = tm.tmAveCharWidth;
+        let upper = (width / 2)
+            * match tm.tmPitchAndFamily.0 & 1 {
+                1 => 3,
+                _ => 2,
+            };
+
+        CharInfo {
+            width,
+            upper,
+            height: tm.tmHeight + tm.tmExternalLeading,
+        }
+    }
+}
+
+#[derive(Default)]
+pub enum ProcResult {
+    #[default]
+    Default,
+    Success,
+    Fail,
+}
+
+pub trait Proc {
+    fn proc(&mut self, _hwnd: HWND, _msg: u32, _wparam: WPARAM, _lparam: LPARAM) -> ProcResult {
+        ProcResult::Default
+    }
+}
+
+pub extern "system" fn wndproc<'a, T>(
+    handle: HWND,
+    message: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+) -> LRESULT
+where
+    T: Proc + Debug,
+{
+    unsafe {
+        match message {
+            WM::CREATE => {
+                let cs = lparam.0 as *const CREATESTRUCTW;
+                if !cs.is_null() {
+                    let this = (*cs).lpCreateParams as *mut T;
+                    if !this.is_null() {
+                        SetWindowLongPtrW(handle, GWLP_USERDATA, this as _);
+                    }
+                }
+                return LRESULT(0);
+            }
+            _ => {
+                println!("Proc");
+                let this = GetWindowLongPtrW(handle, GWLP_USERDATA) as *mut T;
+
+                if !this.is_null() {
+                    println!("Window Proc");
+                    return match (*this).proc(handle, message, wparam, lparam) {
+                        ProcResult::Success => LRESULT(0),
+                        ProcResult::Fail => LRESULT(1),
+                        ProcResult::Default => DefWindowProcW(handle, message, wparam, lparam),
+                    };
+                } else {
+                    println!("Default Proc");
+                    return DefWindowProcW(handle, message, wparam, lparam);
+                }
+            }
+        }
+    }
 }
 
 pub fn to_RECT(rect: Rect) -> RECT {
@@ -48,31 +124,5 @@ pub fn to_Rect(rect: RECT) -> Rect {
         top: rect.top,
         right: rect.right,
         bottom: rect.bottom,
-    }
-}
-
-// Styling and layout
-
-#[deprecated]
-#[derive(Debug, Clone)]
-pub enum ChildType {
-    Control(Rc<RefCell<dyn Control>>),
-}
-
-#[deprecated]
-#[derive(Debug, Clone)]
-pub enum ViewType {
-    Window(HWND, HMODULE),
-    None,
-}
-
-pub fn get_window<'a>(window: HWND) -> Result<&'a Window, String> {
-    unsafe {
-        let this = GetWindowLongPtrW(window, GWLP_USERDATA) as *mut Window;
-        if !this.is_null() {
-            Ok(&*this)
-        } else {
-            Err("No window assigned to handle".to_owned())
-        }
     }
 }

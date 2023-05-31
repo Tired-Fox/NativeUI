@@ -17,15 +17,13 @@ use windows::{
 
 use crate::core::{
     constants::{DT, WM, WS},
-    to_RECT,
+    error::{Error, WinError},
+    to_RECT, wndproc, Proc, ProcResult,
 };
 
 use native_core::{Component, Rect, Renderable};
 
-use super::{
-    helpers::{padding_rect, text_size},
-    wndproc, Proc, ProcResult,
-};
+use super::helpers::{padding_rect, text_size};
 
 pub struct TextBuilder {
     pub text: HSTRING,
@@ -160,8 +158,8 @@ impl Text {
     }
 }
 
-impl Component<(HWND, HMODULE)> for Text {
-    fn create(&mut self, data: (HWND, HMODULE)) -> Result<(), String> {
+impl Component<(HWND, HMODULE), Error> for Text {
+    fn create(&mut self, data: (HWND, HMODULE)) -> Result<(), Error> {
         if !self.initialized {
             let (handle, instance) = data;
             unsafe {
@@ -178,6 +176,7 @@ impl Component<(HWND, HMODULE)> for Text {
                     None,
                     instance.to_owned(),
                     None,
+                    // Some(self as *mut _ as _),
                 );
 
                 SetWindowLongPtrW(self.handle, GWL_WNDPROC, wndproc::<Text> as isize);
@@ -189,7 +188,9 @@ impl Component<(HWND, HMODULE)> for Text {
                 );
             }
 
-            assert!(self.handle.0 != 0);
+            if handle.0 == 0 || handle != self.handle {
+                return Err("Failed to create new Text".into());
+            }
 
             self.default_rect = text_size(self.handle, self.text.to_string_lossy());
             match self.style.0.width {
@@ -225,7 +226,7 @@ impl Renderable for Text {
         &self.rect
     }
 
-    fn update(&mut self, rect: Rect) {
+    fn update(&mut self, rect: Rect) -> (i32, i32) {
         self.rect = rect;
 
         unsafe {
@@ -239,6 +240,8 @@ impl Renderable for Text {
                 SWP_SHOWWINDOW,
             );
         }
+
+        (self.rect.right.clone(), self.rect.bottom.clone())
     }
 
     fn default_rect(&self) -> &Rect {

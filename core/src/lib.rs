@@ -25,35 +25,35 @@ pub trait Renderable {
 
     fn show(&mut self);
     fn hide(&mut self);
-    fn update(&mut self, rect: Rect);
+    fn update(&mut self, rect: Rect) -> (i32, i32);
 }
 
-pub trait Container<Data>: Renderable + fmt::Debug {
-    fn layout(&mut self) -> &mut Layout<Data>;
-    fn init(&mut self) -> Result<(), String>;
+pub trait Container<Data, Error>: Renderable + fmt::Debug {
+    fn layout(&mut self) -> &mut Layout<Data, Error>;
+    fn init(&mut self) -> Result<(), Error>;
 }
 
-pub trait Component<Data>: Renderable + fmt::Debug {
-    fn create(&mut self, data: Data) -> Result<(), String>;
+pub trait Component<Data, Error>: Renderable + fmt::Debug {
+    fn create(&mut self, data: Data) -> Result<(), Error>;
 }
 
 #[derive(Debug, Clone)]
-pub enum Child<Data> {
-    Component(Arc<RefCell<dyn Component<Data>>>),
-    Container(Arc<RefCell<dyn Container<Data>>>),
+pub enum Child<Data, Error> {
+    Component(Arc<RefCell<dyn Component<Data, Error>>>),
+    Container(Arc<RefCell<dyn Container<Data, Error>>>),
 }
 
-pub struct LayoutBuilder<Data> {
-    children: Vec<Child<Data>>,
+pub struct LayoutBuilder<Data, Error> {
+    children: Vec<Child<Data, Error>>,
 }
 
-impl<Data> LayoutBuilder<Data> {
-    pub fn add(mut self, child: Child<Data>) -> Self {
+impl<Data, Error> LayoutBuilder<Data, Error> {
+    pub fn add(mut self, child: Child<Data, Error>) -> Self {
         self.children.push(child);
         self
     }
 
-    pub fn build(self) -> Layout<Data> {
+    pub fn build(self) -> Layout<Data, Error> {
         Layout {
             children: self.children,
         }
@@ -61,39 +61,42 @@ impl<Data> LayoutBuilder<Data> {
 }
 
 #[derive(Debug, Clone)]
-pub struct Layout<Data> {
-    pub children: Vec<Child<Data>>,
+pub struct Layout<Data, Error> {
+    pub children: Vec<Child<Data, Error>>,
 }
 
-impl<Data> From<Vec<Child<Data>>> for Layout<Data> {
-    fn from(value: Vec<Child<Data>>) -> Self {
+impl<Data, Error> From<Vec<Child<Data, Error>>> for Layout<Data, Error> {
+    fn from(value: Vec<Child<Data, Error>>) -> Self {
        Layout { children: value } 
     }
 }
 
-impl<Data> Layout<Data> {
-    pub fn new() -> Layout<Data> {
+impl<Data, Error> Layout<Data, Error> {
+    pub fn new() -> Layout<Data, Error> {
         Layout {
             children: Vec::new(),
         }
     }
 
-    pub fn builder() -> LayoutBuilder<Data> {
+    pub fn builder() -> LayoutBuilder<Data, Error> {
         LayoutBuilder {
             children: Vec::new(),
         }
     }
 
-    pub fn update(&mut self, parent: &Rect, pstyle: &Dimensions) {
+    pub fn update(&mut self, parent: &Rect, pstyle: &Dimensions) -> (i32, i32) {
         let rect = parent.shift(&pstyle.padding.calc(parent.width(), parent.height()));
 
         let mut previous: Option<(Rect, Size)> = None;
+        // let mut path: Vec<String> = Vec::new();
+
+        let mut largest = (parent.right.clone(), parent.bottom.clone());
         for child in self.children.iter() {
             match child {
                 Child::Component(component) => {
                     let component = &mut *component.borrow_mut();
                     let dimensions = component.get_styles().0;
-                    component.update(self.calc(
+                    let br = component.update(self.calc(
                         component.rect(),
                         component.default_rect(),
                         &dimensions,
@@ -101,7 +104,17 @@ impl<Data> Layout<Data> {
                         &pstyle.padding,
                         previous,
                     ));
+                    let margin = dimensions.margin.calc(parent.width(), parent.height());
+                    let br = (br.0 + margin.3, br.1 + margin.2);
+
                     previous = Some((component.rect().clone(), dimensions.margin));
+
+                    if br.0 > largest.0 {
+                        largest.0 = br.0;
+                    }
+                    if br.1 > largest.1 {
+                        largest.1 = br.1;
+                    }
                 }
                 Child::Container(container) => {
                     let container = &mut *container.borrow_mut();
@@ -117,11 +130,22 @@ impl<Data> Layout<Data> {
                     
                     container.layout().update(&crect, &dimensions);
                     previous = Some((crect.clone(), dimensions.margin));
-                    container.update(crect);
+                    let br = container.update(crect);
+
+                    let margin = dimensions.margin.calc(parent.width(), parent.height());
+                    let br = (br.0 + margin.3, br.1 + margin.2);
+
+                    if br.0 > largest.0 {
+                        largest.0 = br.0;
+                    }
+                    if br.1 > largest.1 {
+                        largest.1 = br.1;
+                    }
                 }
-            }
+            };
         }
-        // Final child size add or remove scrollbar on parent
+
+        largest
     }
 
     fn calc(
@@ -206,7 +230,9 @@ impl<Data> Layout<Data> {
                     let (bottom, pad) = (prect.bottom, pmargin.bottom.as_i32(rect.height(), 0));
                     bottom + pad + margin.0
                 }
-                None => ppadding.0 + margin.0,
+                None => {
+                    ppadding.0 + margin.0
+                },
             },
         };
 

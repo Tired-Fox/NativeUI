@@ -33,6 +33,33 @@ impl Rect {
             left: self.left + amount.3,
         }
     }
+
+    pub fn translate(&self, x: i32, y: i32) -> Rect {
+        Rect {
+            top: self.top + y,
+            left: self.left + x,
+            bottom: self.bottom + y,
+            right: self.right + x
+        }
+    }
+
+    pub fn translate_x(&self, x: i32) -> Rect {
+        Rect {
+            top: self.top,
+            left: self.left + x,
+            bottom: self.bottom,
+            right: self.right + x
+        }
+    }
+
+    pub fn translate_y(&self, y: i32) -> Rect {
+        Rect {
+            top: self.top + y,
+            left: self.left,
+            bottom: self.bottom + y,
+            right: self.right
+        }
+    }
 }
 
 impl Default for Rect {

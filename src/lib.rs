@@ -2,6 +2,8 @@ use native_core::STYLESHEET;
 
 #[cfg(target_os = "windows")]
 pub use skylight;
+#[cfg(target_os = "windows")]
+pub use skylight::core::error::Error;
 
 use style::Stylesheet;
 
@@ -44,7 +46,7 @@ impl AppBuilder {
         }
     }
 
-    pub fn run(self) -> Result<(), String> {
+    pub fn run(self) -> Result<(), Error> {
         let app = App {
             window_count: self.window_count,
             windows: self.windows,
@@ -98,7 +100,7 @@ impl App {
         }
     }
 
-    pub fn run(self) -> Result<(), String> {
+    pub fn run(self) -> Result<(), Error> {
         ui::run(self.windows)
     }
 }

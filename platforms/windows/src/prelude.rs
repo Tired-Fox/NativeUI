@@ -1,15 +1,21 @@
+use crate::core::error::Error;
 use native_core::{Child, Layout};
-use windows::Win32::Foundation::{HWND, HMODULE};
+use windows::Win32::Foundation::{HMODULE, HWND};
 
 pub mod component {
-    use crate::{ui::component::{Text, ScrollBar}, core::constants::SBS};
+    use crate::{core::error::Error, ui::component::Text};
     use native_core::Child;
-    use windows::Win32::Foundation::{HWND, HMODULE};
     use std::{cell::RefCell, sync::Arc};
+    use windows::Win32::Foundation::{HMODULE, HWND};
 
-    pub fn build_text(text: &str, id: Option<&str>, classes: Vec<&str>) -> Child<(HWND, HMODULE)> {
-        let mut text = Text::builder(text).classes(classes.iter().map(|c| format!(".{}", c)).collect());
-        
+    pub fn build_text(
+        text: &str,
+        id: Option<&str>,
+        classes: Vec<&str>,
+    ) -> Child<(HWND, HMODULE), Error> {
+        let mut text =
+            Text::builder(text).classes(classes.iter().map(|c| format!(".{}", c)).collect());
+
         if let Some(id) = id {
             text = text.id(format!("#{}", id).as_str());
         }
@@ -47,38 +53,18 @@ pub mod component {
         };
     }
     pub use text;
-
-    pub fn build_scrollbar_control(size: i32, direction: &str) -> ScrollBar {
-        match direction {
-            "h" => ScrollBar::new(size, SBS::HORZ),
-            "v" => ScrollBar::new(size, SBS::VERT),
-            _ => ScrollBar::default(),
-        }
-    }
-
-    /// Creates a scrollbar Control.
-    ///
-    /// # Args
-    /// The first argument is the size of the scrollbar. The
-    /// second argument is the direction of the scrollbar.
-    #[macro_export]
-    macro_rules! scrollbar {
-        ($size: literal, $direction: literal) => {
-            $crate::prelude::component::build_scrollbar_control($size, $direction)
-        };
-    }
-
-    pub use scrollbar;
 }
 
-pub fn build_layout(children: Vec<Child<(HWND, HMODULE)>>) -> Layout<(HWND, HMODULE)> {
+pub fn build_layout(
+    children: Vec<Child<(HWND, HMODULE), Error>>,
+) -> Layout<(HWND, HMODULE), Error> {
     Layout::from(children)
 }
 
 #[macro_export]
 macro_rules! layout {
     [$($child: expr),*] => {
-       $crate::prelude::build_layout(vec![$($child,)*]) 
+       $crate::prelude::build_layout(vec![$($child,)*])
     };
 }
 

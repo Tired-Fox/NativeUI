@@ -170,7 +170,6 @@ impl<'i> DeclarationParser<'i> for StyleParser {
                 _ => String::new()
             };
             self.variables.insert(name.to_string(), value.to_string());
-            println!("{:?}", self.variables);
             return Ok(Style::Variable);
         }
 

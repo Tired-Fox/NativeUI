@@ -9,23 +9,20 @@ use windows::{
 };
 
 use style::color::hex;
-use style::Overflow;
 pub use windows::{s as pcstr, w as pwstr};
 
 use crate::{
     core::{
         constants::{CS, WM, WS},
+        error::{Error, WinError},
         image::icon,
-        to_RECT, to_Rect,
+        scroll::{hscroll, resize_scrollbars, vscroll},
+        to_RECT, to_Rect, wndproc, Proc, ProcResult,
     },
-    prelude::component,
-    ui::{
-        component::{ProcResult, ScrollBar},
-        Brush,
-    },
+    ui::Brush,
 };
 
-use native_core::{Child, Component, Container, Layout, Rect, Renderable};
+use native_core::{Child, Container, Layout, Rect, Renderable};
 
 pub enum HookType {
     QUIT,
@@ -70,14 +67,20 @@ pub struct Window {
     pub styles: WindowStyles,
     pub rect: Rect,
 
-    pub layout: Layout<(HWND, HMODULE)>,
+    pub layout: Layout<(HWND, HMODULE), Error>,
     hooks: Hooks,
-    scrollbars: (ScrollBar, ScrollBar),
 }
 
-impl Window {
-    fn on_message(&mut self, message: u32, _wparam: WPARAM, _lparam: LPARAM) -> ProcResult {
+impl Proc for Window {
+    fn proc(&mut self, _handle: HWND, message: u32, wparam: WPARAM, _lparam: LPARAM) -> ProcResult {
+        println!("Window Proc");
         match message {
+            WM::VSCROLL => {
+                vscroll(self.handle, wparam);
+            }
+            WM::HSCROLL => {
+                hscroll(self.handle, wparam);
+            }
             WM::SIZE => {
                 let mut rect: RECT = to_RECT(Rect::new(0, 0, 0, 0));
                 unsafe {
@@ -86,8 +89,13 @@ impl Window {
                     InvalidateRect(self.handle, Some(&rect as *const RECT), true);
                 }
 
-                let rect = self.rect().clone();
-                self.update(rect)
+                let rect = to_Rect(rect.into());
+                resize_scrollbars(
+                    self.handle,
+                    &rect,
+                    self.get_styles().0,
+                    self.update(self.rect.clone()),
+                );
             }
             WM::ERASEBKGND | WM::PAINT => unsafe {
                 // Redraw the window background when an erase background event occurs
@@ -117,7 +125,9 @@ impl Window {
         }
         ProcResult::Success
     }
+}
 
+impl Window {
     extern "system" fn wndproc(
         window: HWND,
         message: u32,
@@ -139,7 +149,7 @@ impl Window {
                     let this = GetWindowLongPtrW(window, GWLP_USERDATA) as *mut Self;
 
                     if !this.is_null() {
-                        return match (*this).on_message(message, wparam, lparam) {
+                        return match (*this).proc(window, message, wparam, lparam) {
                             ProcResult::Success => LRESULT(0),
                             ProcResult::Fail => LRESULT(1),
                             ProcResult::Default => DefWindowProcW(window, message, wparam, lparam),
@@ -152,7 +162,7 @@ impl Window {
         }
     }
 
-    fn apply_styles(&mut self) -> Result<(), String> {
+    fn apply_styles(&mut self) -> Result<(), Error> {
         let (dimensions, appearance) = self.get_styles();
         self.rect.right = dimensions.width.as_i32(
             1900,
@@ -188,7 +198,7 @@ pub struct WindowBuilder {
     class: HSTRING,
     styles: WindowStyles,
     icon: Option<&'static str>,
-    layout: Layout<(HWND, HMODULE)>,
+    layout: Layout<(HWND, HMODULE), Error>,
     hooks: Hooks,
 }
 
@@ -264,7 +274,7 @@ impl WindowBuilder {
         self
     }
 
-    pub fn layout(mut self, layout: Layout<(HWND, HMODULE)>) -> Self {
+    pub fn layout(mut self, layout: Layout<(HWND, HMODULE), Error>) -> Self {
         self.layout = layout;
         self
     }
@@ -273,13 +283,12 @@ impl WindowBuilder {
         self.id = match id.starts_with("#") {
             true => id.to_string(),
             false if id.trim() != "" => format!("#{}", id),
-            _ => String::new()
+            _ => String::new(),
         };
         self
     }
 
     pub fn build(self) -> Window {
-        println!("{:?}", self.rect);
         Window {
             index: self.index,
             initialized: false,
@@ -297,11 +306,10 @@ impl WindowBuilder {
             rect: self.rect,
             layout: self.layout,
             hooks: self.hooks,
-            scrollbars: (ScrollBar::default(), ScrollBar::default()),
         }
     }
 
-    pub fn open(self) -> Result<(), String> {
+    pub fn open(self) -> Result<(), Error> {
         self.build().open()
     }
 }
@@ -329,14 +337,13 @@ impl Window {
             icon: None,
             rect: Rect::new(0, 0, 400, 300),
             layout: Layout::new(),
-            scrollbars: (ScrollBar::default(), ScrollBar::default()),
         }
     }
 
-    pub fn build(&mut self) -> Result<(), String> {
+    pub fn build(&mut self) -> Result<(), Error> {
         if !self.initialized {
-            self.apply_styles()?;
-            self.init()?;
+            self.apply_styles().unwrap();
+            self.init().unwrap();
             self.show();
             self.initialized = true;
         }
@@ -347,7 +354,7 @@ impl Window {
         WindowBuilder::new()
     }
 
-    pub fn open(&mut self) -> Result<(), String> {
+    pub fn open(&mut self) -> Result<(), Error> {
         self.alive = true;
         self.build()?;
 
@@ -363,23 +370,23 @@ impl Window {
     }
 }
 
-impl Container<(HWND, HMODULE)> for Window {
-    fn layout(&mut self) -> &mut Layout<(HWND, HMODULE)> {
+impl Container<(HWND, HMODULE), Error> for Window {
+    fn layout(&mut self) -> &mut Layout<(HWND, HMODULE), Error> {
         &mut self.layout
     }
 
-    fn init(&mut self) -> Result<(), String> {
+    fn init(&mut self) -> Result<(), Error> {
         self.class = HSTRING::from(format!("NativeUi.rs-{}", self.index).as_str());
 
         unsafe {
             self.instance = match GetModuleHandleW(None) {
                 Ok(module) => {
                     if module.0 == 0 {
-                        return Err("Invalid module handle".to_owned());
+                        return Err("Invalid module handle".into());
                     }
                     module
                 }
-                Err(_) => return Err("Failed to generate module handle".to_owned()),
+                Err(_) => return Err("Failed to generate module handle".into()),
             };
 
             let icon = match self.icon {
@@ -388,7 +395,7 @@ impl Container<(HWND, HMODULE)> for Window {
             };
 
             let wc = WNDCLASSW {
-                hCursor: LoadCursorW(None, IDC_ARROW).unwrap(),
+                hCursor: LoadCursorW(None, IDC_ARROW).or::<Error>(Err(WinError::last().into()))?,
                 hInstance: self.instance,
                 lpszClassName: PCWSTR::from_raw(self.class.as_ptr()),
                 style: self.styles.class,
@@ -399,7 +406,7 @@ impl Container<(HWND, HMODULE)> for Window {
 
             let atom = RegisterClassW(&wc);
             if atom == 0 {
-                return Err("Failed to register window class".to_owned());
+                return Err("Failed to register window class".into());
             }
 
             let handle = CreateWindowExW(
@@ -418,7 +425,7 @@ impl Container<(HWND, HMODULE)> for Window {
             );
 
             if handle.0 == 0 || handle != self.handle {
-                return Err("Failed to create new window".to_owned());
+                return Err("Failed to create new window".into());
             }
 
             for child in self.layout.children.iter() {
@@ -434,32 +441,15 @@ impl Container<(HWND, HMODULE)> for Window {
             }
         }
 
-        // PERF: Scrollbars pull in styles for width and height
-        self.scrollbars = (
-            component::scrollbar!(12, "h"),
-            component::scrollbar!(12, "v"),
-        );
-
-        self.scrollbars.0.create((self.handle, self.instance))?;
-        self.scrollbars.1.create((self.handle, self.instance))?;
-
-        let dimensions = self.get_styles().0;
-        if dimensions.overflow_x == Overflow::Scroll {
-            self.scrollbars.0.show();
-        }
-
-        if dimensions.overflow_y == Overflow::Scroll {
-            self.scrollbars.1.show();
-        }
-
+        self.max_point = (self.rect.width(), self.rect.height());
         Ok(())
     }
 }
 
 impl Renderable for Window {
-    fn update(&mut self, rect: Rect) {
+    fn update(&mut self, rect: Rect) -> (i32, i32) {
         let dimensions = self.get_styles().0.clone();
-        self.layout.update(&rect, &dimensions);
+        self.layout.update(&rect, &dimensions)
     }
 
     fn id(&self) -> &String {

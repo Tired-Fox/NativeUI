@@ -8,7 +8,9 @@ pub mod popup;
 pub use window::{Window, HookType};
 pub use brush::Brush;
 
-pub fn run(mut windows: Vec<Window>) -> Result<(), String> {
+use crate::core::error::Error;
+
+pub fn run(mut windows: Vec<Window>) -> Result<(), Error> {
     for win in windows.iter_mut() {
         win.build()?;
         win.alive = true;
