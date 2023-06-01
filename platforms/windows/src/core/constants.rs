@@ -68,6 +68,21 @@ pub mod WM {
     pub const DEFAULT: u32 = 0;
     pub const VSCROLL: u32 = WM_VSCROLL;
     pub const HSCROLL: u32 = WM_HSCROLL;
+
+    pub fn preview(message: u32) -> &'static str {
+        match message {
+            CREATE => "CREATE",
+            PAINT => "PAINT",
+            NC_PAINT => "NC_PAINT",
+            SIZE => "SIZE",
+            ERASEBKGND => "ERASEBKGND",
+            CLOSE => "CLOSE",
+            DESTROY => "DESTROY",
+            VSCROLL => "VSCROLL",
+            HSCROLL => "HSCROLL",
+            _ => "UNKOWN"
+        }
+    }
 }
 
 pub mod DT {

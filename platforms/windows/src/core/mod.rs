@@ -81,28 +81,22 @@ where
         match message {
             WM::CREATE => {
                 let cs = lparam.0 as *const CREATESTRUCTW;
-                if !cs.is_null() {
-                    let this = (*cs).lpCreateParams as *mut T;
-                    if !this.is_null() {
-                        SetWindowLongPtrW(handle, GWLP_USERDATA, this as _);
-                    }
-                }
-                return LRESULT(0);
+                let this = (*cs).lpCreateParams as *mut T;
+                
+                SetWindowLongPtrW(handle, GWLP_USERDATA, this as _);
+                LRESULT(0)
             }
             _ => {
-                println!("Proc");
                 let this = GetWindowLongPtrW(handle, GWLP_USERDATA) as *mut T;
 
                 if !this.is_null() {
-                    println!("Window Proc");
-                    return match (*this).proc(handle, message, wparam, lparam) {
+                    match (*this).proc(handle, message, wparam, lparam) {
                         ProcResult::Success => LRESULT(0),
                         ProcResult::Fail => LRESULT(1),
                         ProcResult::Default => DefWindowProcW(handle, message, wparam, lparam),
-                    };
+                    }
                 } else {
-                    println!("Default Proc");
-                    return DefWindowProcW(handle, message, wparam, lparam);
+                    DefWindowProcW(handle, message, wparam, lparam)
                 }
             }
         }

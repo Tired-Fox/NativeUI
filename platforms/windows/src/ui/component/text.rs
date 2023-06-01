@@ -9,15 +9,15 @@ use windows::{
             BeginPaint, DrawTextW, EndPaint, GetDC, SetBkMode, PAINTSTRUCT, TRANSPARENT,
         },
         UI::WindowsAndMessaging::{
-            CreateWindowExW, GetClientRect, SendMessageW, SetWindowLongPtrW, SetWindowPos,
-            ShowWindow, GWL_WNDPROC, SWP_SHOWWINDOW, SW_HIDE, SW_SHOW, WM_CREATE,
+            CreateWindowExW, GetClientRect, SetWindowLongPtrW, SetWindowPos, ShowWindow,
+            GWL_WNDPROC, SWP_SHOWWINDOW, SW_HIDE, SW_SHOW, SendMessageW,
         },
     },
 };
 
 use crate::core::{
     constants::{DT, WM, WS},
-    error::{Error, WinError},
+    error::Error,
     to_RECT, wndproc, Proc, ProcResult,
 };
 
@@ -176,19 +176,18 @@ impl Component<(HWND, HMODULE), Error> for Text {
                     None,
                     instance.to_owned(),
                     None,
-                    // Some(self as *mut _ as _),
                 );
 
                 SetWindowLongPtrW(self.handle, GWL_WNDPROC, wndproc::<Text> as isize);
                 SendMessageW(
                     self.handle,
-                    WM_CREATE,
+                    WM::CREATE,
                     WPARAM(0),
                     LPARAM(&self as *const _ as isize),
                 );
             }
 
-            if handle.0 == 0 || handle != self.handle {
+            if self.handle.0 == 0 {
                 return Err("Failed to create new Text".into());
             }
 

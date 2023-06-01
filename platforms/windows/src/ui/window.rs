@@ -73,7 +73,6 @@ pub struct Window {
 
 impl Proc for Window {
     fn proc(&mut self, _handle: HWND, message: u32, wparam: WPARAM, _lparam: LPARAM) -> ProcResult {
-        println!("Window Proc");
         match message {
             WM::VSCROLL => {
                 vscroll(self.handle, wparam);
@@ -128,40 +127,6 @@ impl Proc for Window {
 }
 
 impl Window {
-    extern "system" fn wndproc(
-        window: HWND,
-        message: u32,
-        wparam: WPARAM,
-        lparam: LPARAM,
-    ) -> LRESULT {
-        unsafe {
-            match message {
-                WM_CREATE => {
-                    let cs = lparam.0 as *const CREATESTRUCTA;
-                    let this = (*cs).lpCreateParams as *mut Self;
-                    (*this).handle = window;
-
-                    SetWindowLongPtrW(window, GWLP_USERDATA, this as _);
-                    // (*this).on_create().ok();
-                    return LRESULT(0);
-                }
-                _ => {
-                    let this = GetWindowLongPtrW(window, GWLP_USERDATA) as *mut Self;
-
-                    if !this.is_null() {
-                        return match (*this).proc(window, message, wparam, lparam) {
-                            ProcResult::Success => LRESULT(0),
-                            ProcResult::Fail => LRESULT(1),
-                            ProcResult::Default => DefWindowProcW(window, message, wparam, lparam),
-                        };
-                    } else {
-                        DefWindowProcW(window, message, wparam, lparam)
-                    }
-                }
-            }
-        }
-    }
-
     fn apply_styles(&mut self) -> Result<(), Error> {
         let (dimensions, appearance) = self.get_styles();
         self.rect.right = dimensions.width.as_i32(
@@ -399,7 +364,7 @@ impl Container<(HWND, HMODULE), Error> for Window {
                 hInstance: self.instance,
                 lpszClassName: PCWSTR::from_raw(self.class.as_ptr()),
                 style: self.styles.class,
-                lpfnWndProc: Some(Self::wndproc),
+                lpfnWndProc: Some(wndproc::<Window>),
                 hIcon: HICON(icon),
                 ..Default::default()
             };
@@ -409,7 +374,7 @@ impl Container<(HWND, HMODULE), Error> for Window {
                 return Err("Failed to register window class".into());
             }
 
-            let handle = CreateWindowExW(
+            self.handle = CreateWindowExW(
                 WINDOW_EX_STYLE::default(),
                 PCWSTR::from_raw(self.class.as_ptr()),
                 PCWSTR::from_raw(self.title.as_ptr()),
@@ -424,7 +389,7 @@ impl Container<(HWND, HMODULE), Error> for Window {
                 Some(self as *mut _ as _),
             );
 
-            if handle.0 == 0 || handle != self.handle {
+            if self.handle.0 == 0 {
                 return Err("Failed to create new window".into());
             }
 
