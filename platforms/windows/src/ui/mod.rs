@@ -1,4 +1,4 @@
-use native_core::Renderable;
+use native_core::prelude::Renderable;
 use windows::Win32::UI::WindowsAndMessaging::{DispatchMessageA, GetMessageA, MSG};
 mod window;
 mod brush;

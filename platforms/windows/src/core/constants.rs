@@ -14,7 +14,7 @@ pub mod WS {
     //! Window Styles
     //! Direct mapping of window style constants from the windows api
     use windows::Win32::UI::WindowsAndMessaging::{
-        WINDOW_STYLE, WS_BORDER, WS_CHILD, WS_TILEDWINDOW, WS_VISIBLE,
+        WINDOW_STYLE, WS_BORDER, WS_CHILD, WS_TILEDWINDOW, WS_VISIBLE, WS_VSCROLL, WS_HSCROLL,
     };
 
     pub const TILED_WINDOW: WINDOW_STYLE = WS_TILEDWINDOW;
@@ -22,6 +22,8 @@ pub mod WS {
     pub const CHILD: WINDOW_STYLE = WS_CHILD;
     pub const BORDER: WINDOW_STYLE = WS_BORDER;
     pub const DEFAULT: WINDOW_STYLE = WINDOW_STYLE(0);
+    pub const VSCROLL: WINDOW_STYLE = WS_VSCROLL;
+    pub const HSCROLL: WINDOW_STYLE = WS_HSCROLL;
 
     pub mod EX {
         use windows::Win32::UI::WindowsAndMessaging::{WINDOW_EX_STYLE, WS_EX_LAYERED};
@@ -55,7 +57,8 @@ pub mod WM {
     //! Window Message
     //! Direct mapping of window message constants from the windows api
     use windows::Win32::UI::WindowsAndMessaging::{
-        WM_CLOSE, WM_DESTROY, WM_ERASEBKGND, WM_HSCROLL, WM_NCPAINT, WM_PAINT, WM_SIZE, WM_VSCROLL, WM_CREATE,
+        WM_CLOSE, WM_CREATE, WM_DESTROY, WM_ERASEBKGND, WM_HSCROLL, WM_MOUSEHWHEEL, WM_MOUSEWHEEL,
+        WM_NCPAINT, WM_PAINT, WM_SIZE, WM_VSCROLL,
     };
 
     pub const CREATE: u32 = WM_CREATE;
@@ -68,6 +71,8 @@ pub mod WM {
     pub const DEFAULT: u32 = 0;
     pub const VSCROLL: u32 = WM_VSCROLL;
     pub const HSCROLL: u32 = WM_HSCROLL;
+    pub const MOUSEWHEEL: u32 = WM_MOUSEWHEEL;
+    pub const MOUSEHWHEEL: u32 = WM_MOUSEHWHEEL;
 
     pub fn preview(message: u32) -> &'static str {
         match message {
@@ -80,7 +85,7 @@ pub mod WM {
             DESTROY => "DESTROY",
             VSCROLL => "VSCROLL",
             HSCROLL => "HSCROLL",
-            _ => "UNKOWN"
+            _ => "UNKOWN",
         }
     }
 }
@@ -96,6 +101,23 @@ pub mod DT {
     pub const SINGLELINE: DRAW_TEXT_FORMAT = DT_SINGLELINE;
 }
 
+pub mod MK {
+    //! Modifier Keys
+    use windows::Win32::System::SystemServices::{
+        MK_CONTROL, MK_LBUTTON, MK_MBUTTON, MK_RBUTTON, MK_SHIFT, MK_XBUTTON1, MK_XBUTTON2,
+        
+   };
+    pub use windows::Win32::System::SystemServices::MODIFIERKEYS_FLAGS as MODIFIERKEY;
+
+    pub const SHIFT: MODIFIERKEY = MK_SHIFT;
+    pub const CTRL: MODIFIERKEY = MK_CONTROL;
+    pub const LBUTTON: MODIFIERKEY = MK_LBUTTON;
+    pub const RBUTTON: MODIFIERKEY = MK_RBUTTON;
+    pub const MBUTTON: MODIFIERKEY = MK_MBUTTON;
+    pub const XBUTTON1: MODIFIERKEY = MK_XBUTTON1;
+    pub const XBUTTON2: MODIFIERKEY = MK_XBUTTON2;
+}
+
 pub mod SBS {
     //! Scrollbar style
     //! Direct mapping of scrollbar style constants from the windows api
@@ -109,7 +131,8 @@ pub mod SB {
     //! Scrollbar Contants
     //! Direct mapping of scrollbar constants from the windows api
     use windows::Win32::UI::WindowsAndMessaging::{
-        SB_BOTH, SB_CTL, SB_HORZ, SB_LINEDOWN, SB_LINEUP, SB_THUMBPOSITION, SB_THUMBTRACK, SB_VERT, SB_PAGEUP, SB_PAGEDOWN, SB_LINELEFT, SB_LINERIGHT, SB_TOP, SB_PAGELEFT, SB_PAGERIGHT,
+        SB_BOTH, SB_CTL, SB_HORZ, SB_LINEDOWN, SB_LINELEFT, SB_LINERIGHT, SB_LINEUP, SB_PAGEDOWN,
+        SB_PAGELEFT, SB_PAGERIGHT, SB_PAGEUP, SB_THUMBPOSITION, SB_THUMBTRACK, SB_TOP, SB_VERT,
     };
 
     pub use windows::Win32::UI::WindowsAndMessaging::{

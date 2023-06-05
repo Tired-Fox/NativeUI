@@ -31,6 +31,9 @@ fn main() {
             //     .build(),
         ])
         .set_style(styles!(
+            window {
+                overflow: scroll;
+            }
             .window1 {
                 background-color: green;
             }

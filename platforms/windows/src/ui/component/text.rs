@@ -9,8 +9,8 @@ use windows::{
             BeginPaint, DrawTextW, EndPaint, GetDC, SetBkMode, PAINTSTRUCT, TRANSPARENT,
         },
         UI::WindowsAndMessaging::{
-            CreateWindowExW, GetClientRect, SetWindowLongPtrW, SetWindowPos, ShowWindow,
-            GWL_WNDPROC, SWP_SHOWWINDOW, SW_HIDE, SW_SHOW, SendMessageW,
+            CreateWindowExW, GetClientRect, SendMessageW, SetWindowLongPtrW, SetWindowPos,
+            ShowWindow, GWL_WNDPROC, SWP_SHOWWINDOW, SW_HIDE, SW_SHOW,
         },
     },
 };
@@ -18,10 +18,14 @@ use windows::{
 use crate::core::{
     constants::{DT, WM, WS},
     error::Error,
+    scroll::{init_scroll, resize_scrollbars},
     to_RECT, wndproc, Proc, ProcResult,
 };
 
-use native_core::{Component, Rect, Renderable};
+use native_core::{
+    prelude::{Component, Renderable},
+    Rect,
+};
 
 use super::helpers::{padding_rect, text_size};
 
@@ -79,7 +83,6 @@ impl TextBuilder {
             text: self.text,
             rect: self.rect,
             default_rect: Rect::default(),
-            style: (Dimensions::default(), Appearance::default()),
             id: self.id,
             classes: self.classes,
             initialized: false,
@@ -93,14 +96,17 @@ pub struct Text {
     pub text: HSTRING,
     pub rect: Rect,
     pub default_rect: Rect,
-    pub style: (Dimensions, Appearance),
     pub id: String,
     pub classes: HashSet<String>,
     pub initialized: bool,
 }
 
 impl Proc for Text {
-    fn proc(&mut self, hwnd: HWND, msg: u32, _wparam: WPARAM, _lparam: LPARAM) -> ProcResult {
+    fn proc(&mut self, hwnd: HWND, msg: u32, wparam: WPARAM, _lparam: LPARAM) -> ProcResult {
+        if self.scroll(self.handle, msg, wparam) {
+            return ProcResult::Success;
+        }
+
         match msg {
             WM::PAINT => unsafe {
                 let mut rect: RECT = to_RECT(self.rect);
@@ -146,7 +152,6 @@ impl Text {
             text: HSTRING::from(text),
             rect: Rect::default(),
             default_rect: Rect::default(),
-            style: (Dimensions::default(), Appearance::default()),
             id: String::new(),
             classes: HashSet::from(["text".to_string()]),
             initialized: false,
@@ -192,11 +197,12 @@ impl Component<(HWND, HMODULE), Error> for Text {
             }
 
             self.default_rect = text_size(self.handle, self.text.to_string_lossy());
-            match self.style.0.width {
+            let (dimensions, appearance) = self.get_styles();
+            match dimensions.width {
                 Unit::PX(width) => self.rect.right = width as i32,
                 _ => self.rect.right = self.default_rect.right,
             }
-            match self.style.0.width {
+            match dimensions.width {
                 Unit::PX(height) => self.rect.bottom = height as i32,
                 _ => self.rect.bottom = self.default_rect.bottom,
             }

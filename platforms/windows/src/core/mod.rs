@@ -10,21 +10,30 @@ use native_core::Rect;
 use windows::Win32::{
     Foundation::{HWND, LPARAM, LRESULT, RECT, WPARAM},
     Graphics::Gdi::{GetDC, GetTextMetricsW, TEXTMETRICW},
-    UI::WindowsAndMessaging::{
-        DefWindowProcW, GetWindowLongPtrW, SetWindowLongPtrW, CREATESTRUCTW, GWLP_USERDATA,
+    UI::{
+        Controls::STATE_SYSTEM_INVISIBLE,
+        WindowsAndMessaging::{
+            DefWindowProcW, GetWindowLongPtrW, GetWindowLongW, SetWindowLongPtrW, CREATESTRUCTW,
+            GWLP_USERDATA, GWL_STYLE,
+        },
     },
 };
 
-use self::constants::WM;
+use crate::core::constants::WS;
+
+use self::{
+    constants::{MK, SB, WM},
+    scroll::{hscroll, mouse_scroll, vscroll},
+};
 
 #[inline(always)]
-pub const fn loword(x: u32) -> u16 {
-    (x & 0xFFFF) as u16
+pub const fn loword(x: u32) -> u32 {
+    x & 0xFFFF
 }
 
 #[inline(always)]
-pub const fn hiword(x: u32) -> u16 {
-    ((x >> 16) & 0xFFFF) as u16
+pub const fn hiword(x: u32) -> u32 {
+    (x >> 16) & 0xFFFF
 }
 
 pub struct CharInfo {
@@ -63,6 +72,62 @@ pub enum ProcResult {
 }
 
 pub trait Proc {
+    fn scroll(&mut self, hwnd: HWND, msg: u32, wparam: WPARAM) -> bool {
+        let mut hs= false;
+        let mut vs= false;
+        unsafe {
+            let style = GetWindowLongW(hwnd, GWL_STYLE);
+            hs = (style & WS::HSCROLL.0 as i32) == WS::HSCROLL.0 as i32;
+            vs = (style & WS::VSCROLL.0 as i32) == WS::VSCROLL.0 as i32;
+        }
+        match msg {
+            WM::VSCROLL if vs => {
+                vscroll(hwnd, wparam);
+            }
+            WM::HSCROLL if hs => {
+                hscroll(hwnd, wparam);
+            }
+            WM::MOUSEHWHEEL if hs => {
+                let distance = hiword(wparam.0 as u32);
+
+                mouse_scroll(
+                    hwnd,
+                    SB::HORZ,
+                    match distance {
+                        _ if distance == 120 => 1,
+                        _ => -1,
+                    },
+                );
+            }
+            WM::MOUSEWHEEL if vs || hs => {
+                let distance = hiword(wparam.0 as u32);
+                let modifier = MK::MODIFIERKEY(loword(wparam.0 as u32) as u32);
+
+                if modifier == MK::SHIFT {
+                    mouse_scroll(
+                        hwnd,
+                        SB::HORZ,
+                        match distance {
+                            _ if distance == 120 => -1,
+                            _ => 1,
+                        },
+                    );
+                } else {
+                    mouse_scroll(
+                        hwnd,
+                        SB::VERT,
+                        match distance {
+                            _ if distance == 120 => -1,
+                            _ => 1,
+                        },
+                    );
+                }
+            }
+            _ => return false,
+        }
+        true        
+    }
+
     fn proc(&mut self, _hwnd: HWND, _msg: u32, _wparam: WPARAM, _lparam: LPARAM) -> ProcResult {
         ProcResult::Default
     }
@@ -82,7 +147,7 @@ where
             WM::CREATE => {
                 let cs = lparam.0 as *const CREATESTRUCTW;
                 let this = (*cs).lpCreateParams as *mut T;
-                
+
                 SetWindowLongPtrW(handle, GWLP_USERDATA, this as _);
                 LRESULT(0)
             }

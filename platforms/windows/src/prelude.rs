@@ -1,10 +1,10 @@
 use crate::core::error::Error;
-use native_core::{Child, Layout};
+use native_core::layout::{Child, Layout};
 use windows::Win32::Foundation::{HMODULE, HWND};
 
 pub mod component {
     use crate::{core::error::Error, ui::component::Text};
-    use native_core::Child;
+    use native_core::layout::Child;
     use std::{cell::RefCell, sync::Arc};
     use windows::Win32::Foundation::{HMODULE, HWND};
 

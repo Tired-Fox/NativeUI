@@ -16,13 +16,17 @@ use crate::{
         constants::{CS, WM, WS},
         error::{Error, WinError},
         image::icon,
-        scroll::{hscroll, resize_scrollbars, vscroll},
+        scroll::{init_scroll, resize_scrollbars},
         to_RECT, to_Rect, wndproc, Proc, ProcResult,
     },
     ui::Brush,
 };
 
-use native_core::{Child, Container, Layout, Rect, Renderable};
+use native_core::{
+    layout::{Child, Layout},
+    prelude::{Renderable, Container},
+    Rect,
+};
 
 pub enum HookType {
     QUIT,
@@ -72,14 +76,13 @@ pub struct Window {
 }
 
 impl Proc for Window {
-    fn proc(&mut self, _handle: HWND, message: u32, wparam: WPARAM, _lparam: LPARAM) -> ProcResult {
-        match message {
-            WM::VSCROLL => {
-                vscroll(self.handle, wparam);
-            }
-            WM::HSCROLL => {
-                hscroll(self.handle, wparam);
-            }
+    fn proc(&mut self, _handle: HWND, msg: u32, wparam: WPARAM, _lparam: LPARAM) -> ProcResult {
+        if self.scroll(self.handle, msg, wparam) {
+            return ProcResult::Success;
+        }
+
+        match msg {
+            // Resize Window
             WM::SIZE => {
                 let mut rect: RECT = to_RECT(Rect::new(0, 0, 0, 0));
                 unsafe {
@@ -93,16 +96,22 @@ impl Proc for Window {
                     self.handle,
                     &rect,
                     self.get_styles().0,
-                    self.update(self.rect.clone()),
+                    &self.update(self.rect.clone()),
                 );
+                ProcResult::Success
             }
+
+            // Redraw base window. This is just redrawing the background color
             WM::ERASEBKGND | WM::PAINT => unsafe {
                 // Redraw the window background when an erase background event occurs
                 let mut ps = PAINTSTRUCT::default();
                 let hdc = BeginPaint(self.handle, &mut ps);
                 FillRect(hdc, &ps.rcPaint, self.background);
                 EndPaint(self.handle, &ps);
+                ProcResult::Success
             },
+
+            // On window close hook
             WM::CLOSE => unsafe {
                 // If quit hook is set execute the hook
                 match self.hooks.quit {
@@ -115,14 +124,16 @@ impl Proc for Window {
                         DestroyWindow(self.handle);
                     }
                 }
+                ProcResult::Success
             },
+
+            // Window destroy cleanup
             WM::DESTROY => {
-                // Mark the window as no longer alive for message loop
                 self.alive = false;
+                ProcResult::Success
             }
             _ => return ProcResult::Default,
         }
-        ProcResult::Success
     }
 }
 
@@ -149,6 +160,7 @@ impl Window {
             None => self.background,
         };
 
+        init_scroll(self.handle, dimensions.overflow_x, dimensions.overflow_y);
         Ok(())
     }
 }

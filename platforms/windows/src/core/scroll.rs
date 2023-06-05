@@ -7,7 +7,9 @@ use windows::Win32::{
     Foundation::{HWND, WPARAM},
     UI::{
         Controls::{SetScrollInfo, ShowScrollBar},
-        WindowsAndMessaging::{GetScrollInfo, ScrollWindow, SCROLLINFO, SIF_ALL, SIF_POS, SIF_PAGE, SIF_RANGE},
+        WindowsAndMessaging::{
+            GetScrollInfo, ScrollWindow, SCROLLINFO, SIF_ALL, SIF_PAGE, SIF_POS, SIF_RANGE,
+        },
     },
 };
 
@@ -21,6 +23,29 @@ pub fn get_scroll_info(handle: HWND, direction: SB::CONSTANTS) -> SCROLLINFO {
         GetScrollInfo(handle, direction, &mut si as *mut SCROLLINFO);
     }
     si
+}
+
+pub fn mouse_scroll(handle: HWND, direction: SB::CONSTANTS, multiplier: i32) {
+    let ci = CharInfo::new(handle);
+
+    let mut si = get_scroll_info(handle, direction);
+    let pos = si.nPos.clone();
+    si.nPos += multiplier;
+
+    si.fMask = SIF_POS;
+    update_scroll_info(handle, direction, &mut si);
+
+    if si.nPos != pos {
+        match direction {
+            SB::VERT => unsafe {
+                ScrollWindow(handle, 0, ci.height * (pos - si.nPos), None, None);
+            },
+            SB::HORZ => unsafe {
+                ScrollWindow(handle, ci.width * (pos - si.nPos), 0, None, None);
+            },
+            _ => (),
+        }
+    }
 }
 
 pub fn update_scroll_info(handle: HWND, direction: SB::CONSTANTS, si: &mut SCROLLINFO) {
@@ -96,17 +121,14 @@ pub fn hscroll(handle: HWND, wparam: WPARAM) {
     }
 }
 
-pub fn resize_scrollbars(handle: HWND, rect: &Rect, dimensions: Dimensions, point: (i32, i32)) {
+pub fn resize_scrollbars(handle: HWND, rect: &Rect, dimensions: Dimensions, point: &(i32, i32)) {
     let ci = CharInfo::new(handle);
-    let padding = dimensions
-        .padding
-        .calc(rect.width(), rect.height());
+    let padding = dimensions.padding.calc(rect.width(), rect.height());
 
     let point = (point.0 + padding.3, point.1 + padding.2);
 
-    // Show or hide scrollbar based on scrollbar state
-    if dimensions.overflow_x == Overflow::Auto {
-        if point.0 > rect.right {
+    match dimensions.overflow_x {
+        Overflow::Scroll => {
             let mut si = get_scroll_info(handle, SB::HORZ);
 
             si.fMask = SIF_RANGE | SIF_PAGE;
@@ -118,15 +140,25 @@ pub fn resize_scrollbars(handle: HWND, rect: &Rect, dimensions: Dimensions, poin
             unsafe {
                 ShowScrollBar(handle, SB::HORZ, true);
             }
-        } else {
+        }
+        Overflow::Auto if point.0 > rect.right => {
+            let mut si = get_scroll_info(handle, SB::HORZ);
+
+            si.fMask = SIF_RANGE | SIF_PAGE;
+            si.nMin = 0;
+            si.nMax = point.0 / ci.width;
+            si.nPage = (rect.width() / ci.width) as u32;
+            unsafe { SetScrollInfo(handle, SB::HORZ, &si, true) };
+
             unsafe {
-                ShowScrollBar(handle, SB::HORZ, false);
+                ShowScrollBar(handle, SB::HORZ, true);
             }
         }
+        _ => unsafe {ShowScrollBar(handle, SB::HORZ, false);}
     }
 
-    if dimensions.overflow_y == Overflow::Auto {
-        if point.1 > rect.bottom {
+    match dimensions.overflow_y {
+        Overflow::Auto if point.1 > rect.bottom => {
             let mut si = get_scroll_info(handle, SB::VERT);
 
             si.fMask = SIF_RANGE | SIF_PAGE;
@@ -138,10 +170,36 @@ pub fn resize_scrollbars(handle: HWND, rect: &Rect, dimensions: Dimensions, poin
             unsafe {
                 ShowScrollBar(handle, SB::VERT, true);
             }
-        } else {
+        }
+        Overflow::Scroll => {
+            let mut si = get_scroll_info(handle, SB::VERT);
+
+            si.fMask = SIF_RANGE | SIF_PAGE;
+            si.nMin = 0;
+            si.nMax = point.1 / ci.height;
+            si.nPage = (rect.height() / ci.height) as u32;
+            unsafe { SetScrollInfo(handle, SB::VERT, &si, true) };
+
             unsafe {
-                ShowScrollBar(handle, SB::VERT, false);
+                ShowScrollBar(handle, SB::VERT, true);
             }
+        }
+        _ => unsafe {
+            ShowScrollBar(handle, SB::VERT, false);
+        },
+    }
+}
+
+pub fn init_scroll(hwnd: HWND, scroll_x: Overflow, scroll_y: Overflow) {
+    if scroll_x == Overflow::Scroll {
+        unsafe {
+            ShowScrollBar(hwnd, SB::HORZ, true);
+        }
+    }
+
+    if scroll_y == Overflow::Scroll {
+        unsafe {
+            ShowScrollBar(hwnd, SB::VERT, true);
         }
     }
 }

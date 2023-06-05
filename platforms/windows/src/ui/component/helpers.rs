@@ -3,7 +3,7 @@ use windows::Win32::{
     Graphics::Gdi::{DrawTextW, GetDC, DT_CALCRECT},
 };
 
-use native_core::{Rect, Renderable};
+use native_core::{Rect, prelude::Renderable};
 
 use crate::core::to_Rect;
 
