@@ -79,6 +79,12 @@
 
 // Adaptors for web frameworks?
 
+## Graphics API's
+- [Vulkan](https://gpuopen.com/learn/hellovulkan-introductory-vulkan-sample/)
+- [DirectX12](https://www.nvidia.com/en-us/geforce/technologies/dx12/)
+- [Metal](https://developer.apple.com/metal/)
+- [OpenGL](https://www.opengl.org/)
++ Vulkan (AMD), DirectX12 (NVIDIA), Metal (Apple), OpenGL(Legacy & Mobile)
 ___
 
 ## Resources

@@ -1,13 +1,34 @@
 # Native UI TODO
 
-## Skylight
-- [x] Width and Height `fit-content`
-- [x] Min and max widths and heights
-- [ ] Component `transform` css property
-- [ ] Window elements get vertical and horizontal scrollbars by default
-  - [ ] Update calls return the greatest x and y position
-- [ ] Scroll bars work and move around the view
-- [ ] Scroll bars automatically appear when content goes outside of the bounds
-  - Add size of scrollbar to the amount to scroll
-- [ ] Abstract Text control to general calculation method for all controls
-- [ ] Way of updating stylesheet
+- [ ] Core API Strucuture
+  - [ ] Top Level API
+    - [ ] Windows API
+    - [ ] MacOS API
+    - [ ] Linux API
+    - [ ] ?? Android API
+    - [ ] ?? IOS API
+
+Win   (https://microsoft.github.io/windows-docs-rs/doc/windows/)
+Linux ()
+MacOs (https://sasheldon.com/rust-objc/objc/)
+- [ ] Window
+  - [ ] Create
+  - [ ] Quit/Destroy
+  - [ ] Handle Event 
+  - [ ] Size 
+  - [ ] Title
+  - [ ] Scroll 
+
+- [ ] Multiple Windows
+- [ ] Nested Windows?
+
+- [ ] Generic drawable
+  - Scroll
+  - Children
+  - Styling
+    - Border
+    - Background
+    - Border radius
+
+- [ ] OpenGL
+- [ ] Vulkan
