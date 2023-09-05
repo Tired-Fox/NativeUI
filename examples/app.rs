@@ -22,7 +22,10 @@ fn main() {
                 .size(400, 200)
                 .class("window1")
                 .class("window1")
-                .layout(layout![component::text!("Some text here", "dog"), component::text!("Second Line")])
+                .layout(layout![
+                    component::text!("Some text here", "dog"),
+                    component::text!("Second Line")
+                ])
                 .build(),
             // Window::builder()
             //     .title("Rust Window 2")

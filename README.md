@@ -21,48 +21,73 @@
 
 <!-- End Header -->
 
-## Names
-  - Apple API > Braeburn
-  - Linux API > Humboldt
-  - Windows > Skylight
+## Code Names
+  - Apple API  : Braeburn
+  - Linux API  : Humboldt
+  - Windows API: Skylight
 
 ## Core
-- Wrapper around objects to allow for styling and events
-  - This includes methods for toggling visibility and custom drawing
-  - Wrapper has handlers for events to provide interactivity
-  - Constructors and destructors
-- Container objects have automatic support for scrolling
+- Each sub crate wraps the corresponding API's to the best of it's ability. This allows for these sub crates to be used independantly from the overall projec.
+
+> Note: Win32 already has bindings for it's API, The wrapper would be re-exporting and renaming most of the API along with making functionality easier to use.
+
+- The high level library will then define an API for how it can style, structure, and render applications and the translation layer fills in the functionality based on the platform.
+
+- **Structure:**
++ Framework 
+  + HTML
+    + Parser
+    + DOM
+      + Access
+      + Manipulation
+    + Ruleset
+  + CSS Parser
+    + Parser
+    + L3 Ruleset
+    + Query
+    + Get
+  + JS Runtime???
+    + API for interaction
+    + WASM Runtime
++ API Library
+  + Translation Layer
+    + WinAPI
+    + MacAPI
+    + LinuxAPI
+
 
 ## Rendering
-- Containers to create tree like structure
-- Layout system
-- Can manipulate core elements into a layout
-- renders the system and provides style updates
+- Canvas (Window)
+- Meta
+- Body
+- Syntax tree, node tree, or object tree
+- Dynamic and robust layout system
+- Occurs on update or on frame tick
 
 ## Styling
-- CSS at it's core using the same styles and shorthands
-- Styles are passed to elements on update/draw
+- Full web spec of CSS (L3), but only certain styles are used.
 
-## Elements
-  - Scroll Bar
-  - Rich Edit
-  - Combo Box
-  - List Box
-  - Edit control
-  - Button
-  - Text
-  - List
-  - Dropdown
-  - Menu
-  - Window
+## Tools
+- CSS Parser:
+  + Custom
+  + [cssparser (Servo)](https://docs.rs/cssparser/latest/cssparser/) with similar spec structure as Servo
+- HTML Parser:
+  + Custom
+  + [html5ever (Servo)](https://github.com/servo/html5ever)
+- JS Runtime:
+  + [Deno](https://deno.com/blog/roll-your-own-javascript-runtime)
+
+// Adaptors for web frameworks?
+
+___
 
 ## Resources
 - [windows-rs](https://github.com/microsoft/windows-rs)
 - [windows-rs docs](https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/System/LibraryLoader/fn.GetModuleHandleA.html)
 - [learn win32](https://learn.microsoft.com/en-us/windows/win32/learnwin32/)
 - windows-rs [samples](https://github.com/microsoft/windows-rs/blob/master/crates/samples/readme.md)
-- [rust-cssparser](https://github.com/servo/rust-cssparser)
-  - [Sample Parser](https://github.com/servo/servo/blob/master/components/style/stylesheets/rule_parser.rs)
+- CSS Parsers:
+  - [Sample CSS Parser](https://github.com/servo/servo/blob/master/components/style/stylesheets/rule_parser.rs)
   - [Alchemy Parser](https://github.com/ryanmcgrath/alchemy/blob/trunk/styles/src/styles_parser.rs)
 
 ## Insperation

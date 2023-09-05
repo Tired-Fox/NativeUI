@@ -7,5 +7,5 @@ edition = "2021"
 
 [dependencies]
 proc-macro-hack = "0.5"
-cssparser = "0.31.0"
+cssparser = "0.30.0"
 itertools = "0.10.5"
