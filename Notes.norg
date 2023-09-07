@@ -1,0 +1,34 @@
+* Idea 
+  - {https://www.chromium.org/Home/}[Chromium] and {https://www.rust-lang.org/}[Rust] based web browser for all platforms
+  -- Chromium {https://www.chromium.org/developers/}[How to's]
+  -- Using C libraries in Rust; {https://medium.com/dwelo-r-d/using-c-libraries-in-rust-13961948c72a}[Medium post], {https://docs.rust-embedded.org/book/interoperability/c-with-rust.html}[Book], 
+  - From scratch modern browser engine + browser ~ {* scratchengine}[Scratch Engine]
+
+* Scratch Engine
+** Tools
+   ~ Rust
+   - Language Support
+   ~~ {https://github.com/servo/html5ever}[html5ever] ~ For html support ~ still needs custom rules
+   ~~ {https://github.com/servo/rust-cssparser}[cssparser] ~ For css support ~ still needs custom rules
+   ~~ {https://github.com/denoland/deno}[Deno] /or/ {https://docs.rs/v8/latest/v8/}[V8] ~ For javascript support
+   - Web rendering support
+   ~~ {https://get.webgl.org/}[WebGL] ~ For OpenGL support
+   ~~ {https://gpuweb.github.io/gpuweb/}[WebGPU] ~ For Vulkan, Metal, and Direct3D12 support
+   --- {https://developer.chrome.com/blog/webgpu-io2023/}[Google shipping WebGPU]
+
+   - Rendering
+   ~~ {https://github.com/vulkano-rs/vulkano}[Vulkano] - Rust vulkan wrapper
+   ~~ {https://github.com/gfx-rs/metal-rs}[metal-rs] - Rust Metal wrapper
+   ~~ {https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/Graphics/Direct3D12/index.html#}[windows-rs/Win32/Graphics/Direct3D12] - Rust MS Direct3D 12 wrapper (Custom wrapper)
+   ~~ {https://github.com/glium/glium}[Glium] - Rust OpenGL wrapper
+   --- {https://glium.github.io/glium/book/README.html}[Glium Tutorial]
+   --- {https://rust-tutorials.github.io/learn-opengl/}[OpenGl Learn]
+
+** Research
+   - {https://www.mozilla.org/en-US/firefox/browsers/what-is-a-browser/}[What is a browser] ~ mozilla
+   - {https://web.dev/howbrowserswork/}[How browsers work] ~ web.dev
+   - {https://www.browserstack.com/guide/what-is-browser#:~:text=The%20browser%27s%20rendering%20engine%20interprets,add%20interactivity%20and%20dynamic%20behavior.}[How does a browser work?] ~ browserstack
+   - WGSL
+   -- {https://google.github.io/tour-of-wgsl/}[Tour of wgsl]
+   -- {https://www.w3.org/TR/WGSL/}[W3 spec]
+
