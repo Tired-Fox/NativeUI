@@ -18,12 +18,13 @@
 
    - Rendering
    ~~ {https://github.com/rust-windowing/winit}[winit] - Windows and native events ~ (Maybe custom?)
-   ~~ {https://github.com/vulkano-rs/vulkano}[Vulkano] - Rust vulkan wrapper
-   ~~ {https://github.com/gfx-rs/metal-rs}[metal-rs] - Rust Metal wrapper
-   ~~ {https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/Graphics/Direct3D12/index.html#}[windows-rs/Win32/Graphics/Direct3D12] - Rust MS Direct3D 12 wrapper (Custom wrapper)
-   ~~ {https://github.com/glium/glium}[Glium] - Rust OpenGL wrapper
+   ~~ {https://github.com/vulkano-rs/vulkano}[Vulkano] - Rust vulkan wrapper (Primary)
+   ~~ {https://github.com/glium/glium}[Glium] - Rust OpenGL wrapper (Fallback)
    --- {https://glium.github.io/glium/book/README.html}[Glium Tutorial]
    --- {https://rust-tutorials.github.io/learn-opengl/}[OpenGl Learn]
+   -- Optinal support
+   ~~~ {https://github.com/gfx-rs/metal-rs}[metal-rs] - Rust Metal wrapper
+   ~~~ {https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/Graphics/Direct3D12/index.html#}[windows-rs/Win32/Graphics/Direct3D12] - Rust MS Direct3D 12 wrapper (Custom wrapper)
 
 ** Research
    - {https://www.mozilla.org/en-US/firefox/browsers/what-is-a-browser/}[What is a browser] ~ mozilla
