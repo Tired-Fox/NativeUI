@@ -1,0 +1,13 @@
+[package]
+name = "cypress-render"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# vk_interop
+glium = { version = "0.33.0" }
+metal-rs = { version = "0.10.6" }
+vulkano = { version = "0.33.0", features = ["serde"] }
+windows = { version = "0.51.1" }

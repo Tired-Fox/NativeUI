@@ -19,71 +19,62 @@
   
 </div>
 
+sequoia
+cypress
+
+arbol del tule
+socotra dragon tree
+methuselah
 <!-- End Header -->
 
-## Code Names
-  - Apple API  : Braeburn
-  - Linux API  : Humboldt
-  - Windows API: Skylight
+The goal of this project is to create building blocks for a modern web browser from scratch. The efforts of this project is also to be completely
+open source and community driven.
 
-## Core
-- Each sub crate wraps the corresponding API's to the best of it's ability. This allows for these sub crates to be used independantly from the overall projec.
+Hopefully the results of the subprojects of this larger project will be foundations for other libraries such as game engines, desktop applicaton libraries
+and much more.
 
-> Note: Win32 already has bindings for it's API, The wrapper would be re-exporting and renaming most of the API along with making functionality easier to use.
+**Subprojects**
++ Cross-platform rendering abstraction to use the best native OS rendering libraries.
++ Native cross-platform UI libraries to create customize and manage windows. This would also include IO events.
++ A generic low level, easy to use CSSParser, on par with CSS L3 and allows for custom rule sets.
++ A generic low level, easy to use HTML parser with DOM manipulation and functionality.
++ A generic low level, easy to use Javascript runtime that is fast and customizable.
++ Web protocols and interactions that are abstracted and independent.
 
-- The high level library will then define an API for how it can style, structure, and render applications and the translation layer fills in the functionality based on the platform.
+## Modules 
++ HTML
+  + DOM
+    + Access
+    + Manipulation
+  + AST
+  + Hooks and customization
++ CSS Parser
+  + Parser
+  + Query
+  + L3 Ruleset
+  + Get
++ JS Runtime
+  + WASM
+  + WebGPU
+  + WebGL
++ Rendering
+  + Metal
+  + OpenGL
+  + Vulkan
+  + DirectX12
 
-- **Structure:**
-+ Framework 
-  + HTML
-    + Parser
-    + DOM
-      + Access
-      + Manipulation
-    + Ruleset
-  + CSS Parser
-    + Parser
-    + L3 Ruleset
-    + Query
-    + Get
-  + JS Runtime???
-    + API for interaction
-    + WASM Runtime
-+ API Library
-  + Translation Layer
-    + WinAPI
-    + MacAPI
-    + LinuxAPI
+## Module Goals
++ HTML
+  + Full DOM specs
++ CSS
+  + L3+
++ JS
+  + Full runtime plus customizable to add custom hooks.
 
-```
-UI
-  - Native platform components
-HTML
-  - Parser
-  - DOM
-CSS
-  - Parser
-  - Getter
-```
-
-
-## Rendering
-- Canvas (Window)
-- Meta
-- Body
-- Syntax tree, node tree, or object tree
-- Dynamic and robust layout system
-- Occurs on update or on frame tick
-
-## Styling
-- Full web spec of CSS (L3), but only certain styles are used.
-
-## Tools
+## References
 - CSS Parser:
-  + Custom
   + [cssparser (Servo)](https://docs.rs/cssparser/latest/cssparser/) with similar spec structure as Servo
 - HTML Parser:
-  + Custom
   + [html5ever (Servo)](https://github.com/servo/html5ever)
 - JS Runtime:
   + [Deno](https://deno.com/blog/roll-your-own-javascript-runtime)
@@ -95,7 +86,12 @@ CSS
 - [DirectX12](https://www.nvidia.com/en-us/geforce/technologies/dx12/)
 - [Metal](https://developer.apple.com/metal/)
 - [OpenGL](https://www.opengl.org/)
-+ Vulkan (AMD), DirectX12 (NVIDIA), Metal (Apple), OpenGL(Legacy & Mobile)
+
++ > Note: The following is how the API's will most likely be used.
+  > - Vulkan (Linux)
+  > - DirectX12 (Windows)
+  > - Metal (Apple)
+  > - OpenGL(Legacy & Mobile)
 ___
 
 ## Resources
@@ -105,12 +101,12 @@ ___
 - windows-rs [samples](https://github.com/microsoft/windows-rs/blob/master/crates/samples/readme.md)
 - CSS Parsers:
   - [Sample CSS Parser](https://github.com/servo/servo/blob/master/components/style/stylesheets/rule_parser.rs)
-  - [Alchemy Parser](https://github.com/ryanmcgrath/alchemy/blob/trunk/styles/src/styles_parser.rs)
 
 ## Insperation
 - [Alchemy](https://github.com/ryanmcgrath/alchemy)
   - [Example](https://github.com/ryanmcgrath/alchemy/blob/trunk/examples/layout/src/main.rs)
   - [Cocoa](https://github.com/ryanmcgrath/alchemy/tree/trunk/cocoa)
+- [Servo](https://github.com/servo/servo)
 
 ## References
 - [c_void and casting](https://stackoverflow.com/questions/24191249/working-with-c-void-in-an-ffi)
@@ -119,7 +115,7 @@ ___
 ## Win32 References:
 - [Window Styles](https://learn.microsoft.com/en-us/windows/win32/winmsg/window-styles)
 
-<!-- Footer Badges --!>
+<!-- Footer Badges -->
 
 <br>
 <div align="center">
