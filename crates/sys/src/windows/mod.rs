@@ -56,3 +56,15 @@ pub fn is_light_theme() -> bool {
 pub fn is_dark_theme() -> bool {
     !is_light_theme()
 }
+
+pub fn hiword(v: usize) -> u16 {
+    (v >> 16) as u16
+}
+
+pub fn loword(v: usize) -> u16 {
+    v as u16
+}
+
+pub fn get_wheel_delta_wparam(wparam: usize) -> i16 {
+    hiword(wparam) as i16
+}

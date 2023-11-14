@@ -4,6 +4,18 @@
     <content url="file://$MODULE_DIR$">
       <sourceFolder url="file://$MODULE_DIR$/examples" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/css/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/html/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/js/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/render/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/render/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/sys/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/sys/src" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/crates/css/target" />
+      <excludeFolder url="file://$MODULE_DIR$/crates/html/target" />
+      <excludeFolder url="file://$MODULE_DIR$/crates/js/target" />
+      <excludeFolder url="file://$MODULE_DIR$/crates/render/target" />
+      <excludeFolder url="file://$MODULE_DIR$/crates/sys/target" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

@@ -1,36 +1,35 @@
-use cypress_sys::windows::event::run;
-use cypress_sys::windows::window::{Theme, Window};
-use windows::core::w;
+use windows::Win32::Foundation::HWND;
 use windows::Win32::Graphics::Gdi::ValidateRect;
-use windows::Win32::UI::WindowsAndMessaging::{DefWindowProcW, DestroyWindow, MB_OKCANCEL, MessageBoxW, PostQuitMessage};
-use windows::Win32::UI::WindowsAndMessaging::{WM_PAINT, WM_DESTROY, WM_CLOSE};
+use windows::Win32::UI::WindowsAndMessaging::PostQuitMessage;
+
+use cypress_sys::event::{Event, InputEvent};
+use cypress_sys::event::keyboard::{Key, KeyboardEvent, VirtualKey};
+use cypress_sys::windows::event::run;
+use cypress_sys::windows::window::Window;
 
 fn main() {
     let window = Window::builder()
         .title("Window from Rust")
-        .theme(Theme::Dark)
-        .proc(|handle, message, lparam, wparam| {
-            match message {
-                WM_CLOSE => unsafe {
-                    if MessageBoxW(None, w!("Ansi"), w!("Cypress"), MB_OKCANCEL).0 == 1 {
-                        DestroyWindow(handle);
-                    }
-                    true
-                },
-                WM_DESTROY => unsafe {
-                    PostQuitMessage(0);
-                    true
-                },
-                WM_PAINT => unsafe {
-                    println!("User def pain");
-                    ValidateRect(handle, None);
-                    true
-                }
-                _ => false,
-            }
-        })
+        .show()
         .create()
         .unwrap();
-    window.show();
-    run();
+
+    run(move |event| {
+        match event {
+            Event::Paint { id } => unsafe {
+                ValidateRect(HWND(id), None);
+            },
+            Event::Input { value: InputEvent::Keyboard(ke), .. } => {
+                match ke {
+                    KeyboardEvent::KeyDown(v) => {
+                        if v == Key::Virtual(VirtualKey::Escape) {
+                            unsafe { PostQuitMessage(0) }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
+    });
 }

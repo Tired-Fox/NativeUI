@@ -1,21 +1,16 @@
 use std::ffi::c_void;
 use std::fmt::Debug;
 use std::sync::Arc;
-use std::thread::JoinHandle;
 
 use windows::core::HSTRING;
 use windows::Foundation::{EventRegistrationToken, TypedEventHandler};
-use windows::Win32::Foundation::{BOOL, HANDLE, HMODULE, HWND, LPARAM, LRESULT, WPARAM};
+use windows::UI::Color;
+use windows::UI::ViewManagement::{UIColorType, UISettings};
+use windows::Win32::Foundation::{BOOL, HMODULE, HWND, LPARAM, WPARAM};
 use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWINDOWATTRIBUTE};
 use windows::Win32::Graphics::Gdi::UpdateWindow;
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
-use windows::Win32::UI::WindowsAndMessaging::{
-    CloseWindow, CreateWindowExW, LoadCursorW, RegisterClassW, ShowWindow, CS_HREDRAW, CS_VREDRAW,
-    CW_USEDEFAULT, IDC_ARROW, SW_HIDE, SW_MAXIMIZE, SW_MINIMIZE, SW_RESTORE, SW_SHOW,
-    WINDOW_EX_STYLE, WNDCLASSW, WS_OVERLAPPEDWINDOW,
-};
-use windows::UI::Color;
-use windows::UI::ViewManagement::{UIColorType, UISettings};
+use windows::Win32::UI::WindowsAndMessaging::{CloseWindow, CreateWindowExW, CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT, IDC_ARROW, LoadCursorW, RegisterClassW, ShowWindow, SW_HIDE, SW_MAXIMIZE, SW_MINIMIZE, SW_RESTORE, SW_SHOWNORMAL, WINDOW_EX_STYLE, WNDCLASSW, WS_OVERLAPPEDWINDOW, WS_SIZEBOX};
 
 use super::{event::wnd_proc, IntoPCWSTR, UI_SETTINGS};
 
@@ -42,23 +37,28 @@ pub type Handler = Arc<dyn Fn(HWND, u32, WPARAM, LPARAM) -> bool + Send + Sync +
 
 #[derive(Default)]
 pub struct Builder {
-    title: &'static str,
-    theme: Theme,
-    proc: Option<Handler>,
+    options: WindowOptions,
 }
 
 impl Builder {
     pub fn new() -> Builder {
-        Builder::default()
+        Builder {
+            options: WindowOptions::default(),
+        }
     }
 
-    pub fn title(mut self, title: &'static str) -> Self {
-        self.title = title;
+    pub fn title(mut self, title: &str) -> Self {
+        self.options.title = HSTRING::from(title);
         self
     }
 
     pub fn theme(mut self, theme: Theme) -> Self {
-        self.theme = theme;
+        self.options.theme = theme;
+        self
+    }
+
+    pub fn show(mut self) -> Self {
+        self.options.show = true;
         self
     }
 
@@ -66,26 +66,33 @@ impl Builder {
         mut self,
         proc: F,
     ) -> Self {
-        self.proc = Some(Arc::new(proc));
+        self.options.proc = Some(Arc::new(proc));
         self
     }
 
     pub fn create(self) -> windows::core::Result<Box<Window>> {
-        Window::create(WindowOptions {
-            title: HSTRING::from(self.title),
-            theme: self.theme,
-            proc: self.proc,
-            class: HSTRING::from("Cypress-Sys"),
-        })
+        Window::create(self.options)
     }
 }
 
-#[derive(Default)]
 pub struct WindowOptions {
     pub title: HSTRING,
     pub theme: Theme,
     pub proc: Option<Handler>,
     pub class: HSTRING,
+    pub show: bool,
+}
+
+impl Default for WindowOptions {
+    fn default() -> Self {
+        Self {
+            title: HSTRING::from(""),
+            theme: Theme::Auto,
+            proc: None,
+            class: HSTRING::from(format!("Cypress-Window-{}", uuid::Uuid::new_v4())),
+            show: false,
+        }
+    }
 }
 
 impl Debug for WindowOptions {
@@ -100,7 +107,6 @@ impl Debug for WindowOptions {
 
 pub struct Window {
     handle: HWND,
-    instance: HMODULE,
     options: WindowOptions,
 
     theme_cookie: Option<EventRegistrationToken>,
@@ -114,17 +120,17 @@ impl Window {
     pub fn create(options: WindowOptions) -> windows::core::Result<Box<Self>> {
         let mut window = Box::new(Window {
             handle: HWND(0),
-            instance: HMODULE(0),
             options,
             theme_cookie: None,
         });
+
         unsafe {
-            window.instance = GetModuleHandleW(None)?;
-            debug_assert!(window.instance.0 != 0);
+            let instance = GetModuleHandleW(None)?;
+            debug_assert!(instance.0 != 0);
 
             let wc = WNDCLASSW {
                 hCursor: LoadCursorW(None, IDC_ARROW)?,
-                hInstance: window.instance.into(),
+                hInstance: instance.into(),
                 lpszClassName: window.class().as_pcwstr(),
 
                 style: CS_HREDRAW | CS_VREDRAW,
@@ -146,12 +152,15 @@ impl Window {
                 CW_USEDEFAULT,
                 None,
                 None,
-                window.instance,
+                instance,
                 Some(&window.options as *const _ as *const _),
             );
         };
 
         window.set_theme(window.options.theme)?;
+        if window.options.show {
+            window.show();
+        }
         Ok(window)
     }
 
@@ -178,16 +187,16 @@ impl Window {
                 self.theme_cookie = Some(UI_SETTINGS.ColorValuesChanged(
                     &TypedEventHandler::new(move |settings: &Option<UISettings>, _| {
                         if settings.is_some() {
-                            let forground =
-                                UI_SETTINGS.GetColorValue(UIColorType::Foreground).unwrap();
-                            let dark_mode = BOOL((is_dark(forground)) as i32);
+                            let dark_mode = BOOL((
+                                is_dark(UI_SETTINGS.GetColorValue(UIColorType::Foreground).unwrap())
+                            ) as i32);
                             DwmSetWindowAttribute(
                                 handle,
                                 ColorMode::Dark.into(),
-                                &dark_mode as *const _ as *const c_void,
+                                &dark_mode as *const _ as *const _,
                                 4,
                             )
-                            .unwrap();
+                                .unwrap();
                         }
                         Ok(())
                     }),
@@ -212,56 +221,56 @@ impl Window {
     }
 
     pub fn builder() -> Builder {
-        Builder::default()
+        Builder::new()
     }
 
     /// Show the window
     pub fn show(&self) {
         unsafe {
-            ShowWindow(self.handle, SW_SHOW);
+            ShowWindow(self.handle(), SW_SHOWNORMAL);
         }
     }
 
     /// Hide the window
     pub fn hide(&self) {
         unsafe {
-            ShowWindow(self.handle, SW_HIDE);
+            ShowWindow(self.handle(), SW_HIDE);
         }
     }
 
     /// Minimize the window
     pub fn minimize(&self) {
         unsafe {
-            ShowWindow(self.handle, SW_MINIMIZE);
+            ShowWindow(self.handle(), SW_MINIMIZE);
         }
     }
 
     /// Restore the window
     pub fn restore(&self) {
         unsafe {
-            ShowWindow(self.handle, SW_RESTORE);
+            ShowWindow(self.handle(), SW_RESTORE);
         }
     }
 
     /// Maximize the window
     pub fn maximize(&self) {
         unsafe {
-            ShowWindow(self.handle, SW_MAXIMIZE);
+            ShowWindow(self.handle(), SW_MAXIMIZE);
         }
     }
 
     pub fn update(&self) {
         unsafe {
-            UpdateWindow(self.handle);
+            UpdateWindow(self.handle());
         }
     }
 
     pub fn close(&self) -> windows::core::Result<()> {
-        unsafe { CloseWindow(self.handle) }
+        unsafe { CloseWindow(self.handle()) }
     }
 
     pub fn handle(&self) -> HWND {
-        self.handle
+        HWND(self.handle.0)
     }
 
     pub fn class(&self) -> HSTRING {
