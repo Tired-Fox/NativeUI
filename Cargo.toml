@@ -7,6 +7,6 @@ edition = "2021"
 [dependencies]
 cypress-sys = { path = "crates/sys" }
 cypress-html = { path = "crates/html" }
-cypress-css = { path = "crates/html" }
+cypress-css = { path = "crates/css" }
 cypress-js = { path = "crates/js" }
 cypress-render = { path = "crates/render" }

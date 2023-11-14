@@ -1,8 +1,13 @@
 use windows::core::{HSTRING, PCSTR, PCWSTR};
 use windows::Win32::System::Registry::{RegGetValueW, HKEY_CURRENT_USER, RRF_RT_REG_DWORD};
+use windows::UI::ViewManagement::UISettings;
 
 pub mod event;
 pub mod window;
+
+lazy_static::lazy_static! {
+    pub static ref UI_SETTINGS: UISettings = UISettings::new().unwrap();
+}
 
 pub trait IntoPCSTR {
     fn as_pcstr(&self) -> PCSTR;
