@@ -18,14 +18,11 @@ fn main() {
         .create()
         .unwrap();
 
-    run(move |event| match event {
-        Event::Repaint { id } => unsafe {
+    run(move |id, event| match event {
+        Event::Repaint => unsafe {
             ValidateRect(HWND(id), None);
         },
-        Event::Input {
-            value: InputEvent::Keyboard(ke),
-            ..
-        } => match ke {
+        Event::Input(InputEvent::Keyboard(ke)) => match ke {
             KeyboardEvent::KeyDown(v) => {
                 if v == Key::Virtual(VirtualKey::Escape) {
                     unsafe { PostQuitMessage(0) }

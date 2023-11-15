@@ -32,29 +32,29 @@ pub struct PaintEvent{ pub handle: isize }
 
 #[derive(Debug, Clone)]
 pub enum Event {
-    Close { id: isize },
-    Repaint { id: isize },
-    Input { id: isize, value: InputEvent },
+    Close,
+    Repaint,
+    Input(InputEvent),
 }
 
 impl Event {
-    pub fn keyboard(&self) -> Option<(&isize, &KeyboardEvent)> {
+    pub fn keyboard(&self) -> Option<&KeyboardEvent> {
         match self {
-            Event::Input { id, value: InputEvent::Keyboard(ke) } => Some((id, ke)),
+            Event::Input(InputEvent::Keyboard(ke)) => Some(ke),
             _ => None,
         }
     }
 
-    pub fn input(&self) -> Option<(&isize, &InputEvent)> {
+    pub fn input(&self) -> Option<&InputEvent> {
         match self {
-            Event::Input { id, value: ie} => Some((id, ie)),
+            Event::Input(ie) => Some(ie),
             _ => None,
         }
     }
 
-    pub fn mouse(&self) -> Option<(&isize, &MouseEvent)> {
+    pub fn mouse(&self) -> Option<&MouseEvent> {
         match self {
-            Event::Input{ id, value: InputEvent::Mouse(me) } => Some((id, me)),
+            Event::Input(InputEvent::Mouse(me)) => Some(me),
             _ => None,
         }
     }
