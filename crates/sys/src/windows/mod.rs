@@ -2,8 +2,6 @@ use windows::core::{HSTRING, PCSTR, PCWSTR};
 use windows::Win32::Foundation::BOOL;
 use windows::UI::ViewManagement::{UIColorType, UISettings};
 
-use clap::Parser;
-
 pub mod event;
 pub mod win_error;
 pub mod window;
@@ -62,7 +60,10 @@ pub struct Background {
 
 impl Background {
     pub fn new(light: u32, dark: u32) -> Self {
-        Self { light: reorder_u32(light), dark: reorder_u32(dark) }
+        Self {
+            light: reorder_u32(light),
+            dark: reorder_u32(dark),
+        }
     }
     pub fn with_light(color: u32) -> Self {
         Self {

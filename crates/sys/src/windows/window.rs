@@ -19,18 +19,7 @@ use windows::UI::ViewManagement::UISettings;
 
 use crate::windows::win_error::WinError;
 
-use super::{event::wnd_proc, is_dark_mode, IntoPCWSTR, UI_SETTINGS, Background};
-
-enum ColorMode {
-    Light = 0,
-    Dark = 20,
-}
-
-impl From<ColorMode> for DWMWINDOWATTRIBUTE {
-    fn from(color_mode: ColorMode) -> Self {
-        DWMWINDOWATTRIBUTE(color_mode as i32)
-    }
-}
+use super::{event::wnd_proc, is_dark_mode, Background, IntoPCWSTR, UI_SETTINGS};
 
 #[derive(Default, Clone, Copy, Debug)]
 pub enum Theme {
@@ -137,23 +126,23 @@ impl Window {
             theme_cookie: None,
         });
 
+        window.instance = unsafe { GetModuleHandleW(None)? };
+        debug_assert!(window.instance.0 != 0);
+
+        let wc = WNDCLASSW {
+            hCursor: unsafe { LoadCursorW(None, IDC_ARROW)? },
+            hInstance: window.instance.into(),
+            lpszClassName: window.class().as_pcwstr(),
+            hIcon: icon(window.options.icon.as_ref()),
+            style: CS_HREDRAW | CS_VREDRAW,
+            lpfnWndProc: Some(wnd_proc),
+            ..Default::default()
+        };
+
+        let atom = unsafe { RegisterClassW(&wc) };
+        debug_assert!(atom != 0);
+
         unsafe {
-            window.instance = GetModuleHandleW(None)?;
-            debug_assert!(window.instance.0 != 0);
-
-            let wc = WNDCLASSW {
-                hCursor: LoadCursorW(None, IDC_ARROW)?,
-                hInstance: window.instance.into(),
-                lpszClassName: window.class().as_pcwstr(),
-                hIcon: icon(window.options.icon.as_ref()),
-                style: CS_HREDRAW | CS_VREDRAW,
-                lpfnWndProc: Some(wnd_proc),
-                ..Default::default()
-            };
-
-            let atom = RegisterClassW(&wc);
-            debug_assert!(atom != 0);
-
             window.handle = CreateWindowExW(
                 WINDOW_EX_STYLE::default(),
                 window.class().as_pcwstr(),
@@ -168,7 +157,7 @@ impl Window {
                 window.instance.clone(),
                 Some(&window.options as *const _ as *const _),
             );
-        };
+        }
 
         window.set_theme(window.options.theme)?;
         if window.options.show {
@@ -191,26 +180,28 @@ impl Window {
                 }
                 BOOL(1)
             }
-            Theme::Auto => unsafe {
+            Theme::Auto => {
                 let handle = self.handle;
                 self.theme_cookie = Some(UI_SETTINGS.ColorValuesChanged(
                     &TypedEventHandler::new(move |settings: &Option<UISettings>, _| {
                         if settings.is_some() {
-                            DwmSetWindowAttribute(
-                                handle,
-                                ColorMode::Dark.into(),
-                                &is_dark_mode() as *const _ as *const _,
-                                4,
-                            )
-                            .unwrap();
-                            CallWindowProcW(
-                                Some(wnd_proc),
-                                handle,
-                                WM_ERASEBKGND,
-                                WPARAM(GetDC(handle).0 as usize),
-                                LPARAM(0),
-                            );
-                            CallWindowProcW(Some(wnd_proc), handle, WM_PAINT, WPARAM(0), LPARAM(0));
+                            unsafe {
+                                DwmSetWindowAttribute(
+                                    handle,
+                                    DWMWINDOWATTRIBUTE(20),
+                                    &is_dark_mode() as *const _ as *const _,
+                                    4,
+                                )
+                                    .unwrap();
+                                CallWindowProcW(
+                                    Some(wnd_proc),
+                                    handle,
+                                    WM_ERASEBKGND,
+                                    WPARAM(GetDC(handle).0 as usize),
+                                    LPARAM(0),
+                                );
+                                CallWindowProcW(Some(wnd_proc), handle, WM_PAINT, WPARAM(0), LPARAM(0));
+                            }
                         }
                         Ok(())
                     }),
@@ -223,7 +214,7 @@ impl Window {
         unsafe {
             DwmSetWindowAttribute(
                 self.handle(),
-                ColorMode::Dark.into(),
+                DWMWINDOWATTRIBUTE(20),
                 &state as *const _ as *const c_void,
                 4,
             )?;
@@ -296,15 +287,15 @@ impl Window {
 
 /// TODO: Automatic loading of other file formats?
 pub fn icon(path: Option<&HSTRING>) -> HICON {
-    let result = HICON(path.map_or(0, |icon| unsafe {
-        match LoadImageW(
+    let result = HICON(path.map_or(0, |icon| {
+        match unsafe { LoadImageW(
             None,
             icon.as_pcwstr(),
             IMAGE_ICON,
             0,
             0,
             LR_DEFAULTSIZE | LR_LOADFROMFILE | LR_SHARED | LR_LOADTRANSPARENT,
-        ) {
+        )} {
             Ok(hicon) => hicon,
             Err(err) => {
                 println!("{}", WinError::from(err));
