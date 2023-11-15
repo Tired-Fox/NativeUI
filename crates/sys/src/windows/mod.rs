@@ -1,8 +1,11 @@
 use windows::core::{HSTRING, PCSTR, PCWSTR};
-use windows::Win32::System::Registry::{RegGetValueW, HKEY_CURRENT_USER, RRF_RT_REG_DWORD};
-use windows::UI::ViewManagement::UISettings;
+use windows::Win32::Foundation::BOOL;
+use windows::UI::ViewManagement::{UIColorType, UISettings};
+
+use clap::Parser;
 
 pub mod event;
+pub mod win_error;
 pub mod window;
 
 lazy_static::lazy_static! {
@@ -27,35 +30,6 @@ impl IntoPCWSTR for HSTRING {
         PCWSTR::from_raw(self.as_ptr() as _)
     }
 }
-pub fn is_light_theme() -> bool {
-    // based on https://stackoverflow.com/a/51336913/709884
-    let mut buffer: [u8; 4] = [0; 4];
-    let mut cb_data: u32 = (buffer.len()).try_into().unwrap();
-    let res = unsafe {
-        RegGetValueW(
-            HKEY_CURRENT_USER,
-            HSTRING::from(r#"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"#)
-                .as_pcwstr(),
-            HSTRING::from("AppsUseLightTheme").as_pcwstr(),
-            RRF_RT_REG_DWORD,
-            None,
-            Some(buffer.as_mut_ptr() as _),
-            Some(&mut cb_data as *mut _),
-        )
-    };
-
-    if let Err(err) = res {
-        panic!("failed to read key from registry: err_code={:?}", unsafe { err.info().as_ref().unwrap().GetReference().unwrap().as_wide() });
-    }
-
-    // REG_DWORD is signed 32-bit, using little endian
-    let light_mode = i32::from_le_bytes(buffer) == 1;
-    light_mode
-}
-
-pub fn is_dark_theme() -> bool {
-    !is_light_theme()
-}
 
 pub fn hiword(v: usize) -> u16 {
     (v >> 16) as u16
@@ -67,4 +41,69 @@ pub fn loword(v: usize) -> u16 {
 
 pub fn get_wheel_delta_wparam(wparam: usize) -> i16 {
     hiword(wparam) as i16
+}
+
+pub fn is_dark_mode() -> BOOL {
+    let color = UI_SETTINGS.GetColorValue(UIColorType::Foreground).unwrap();
+    BOOL((((5 * color.G as u32) + (2 * color.R as u32) + color.B as u32) > (8u32 * 128u32)) as i32)
+}
+
+/// Windows uses Alpha, Blue, Green, Red for the order of colors but this struct keep things
+/// as Alpha, Red, Green, Blue to make copy pasting hex values into u32 literals easier. Alpha is not
+/// moved to the end of the hex as having at the start makes it easier to make it optional. Ex: instead
+/// of writing 0x00282828 you can just write 0x282828.
+///
+/// All u32 values in constructor methods should be the format 0xAARRGGBB for alpha, red, green, and blue respectively.
+#[derive(Debug, Clone, Copy, PartialEq, Hash, PartialOrd)]
+pub struct Background {
+    light: u32,
+    dark: u32,
+}
+
+impl Background {
+    pub fn new(light: u32, dark: u32) -> Self {
+        Self { light: reorder_u32(light), dark: reorder_u32(dark) }
+    }
+    pub fn with_light(color: u32) -> Self {
+        Self {
+            light: reorder_u32(color),
+            ..Default::default()
+        }
+    }
+
+    pub fn with_dark(color: u32) -> Self {
+        Self {
+            dark: reorder_u32(color),
+            ..Default::default()
+        }
+    }
+
+    pub fn color(&self) -> u32 {
+        if is_dark_mode().into() {
+            self.dark
+        } else {
+            self.light
+        }
+    }
+}
+
+impl Default for Background {
+    fn default() -> Self {
+        Self {
+            light: 0x00FFFFFF,
+            dark: 0x00282828,
+        }
+    }
+}
+
+impl From<u32> for Background {
+    fn from(v: u32) -> Self {
+        let v = reorder_u32(v);
+        Self { light: v, dark: v }
+    }
+}
+
+fn reorder_u32(value: u32) -> u32 {
+    let values = u32::to_be_bytes(value);
+    u32::from_be_bytes([values[0], values[3], values[2], values[1]])
 }

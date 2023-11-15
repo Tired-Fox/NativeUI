@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 lazy_static = "1.4.0"
 uuid = { version = "1.5.0", features = ["v8", "v4"] }
+clap = { version = "4.4.8", features = ["derive"] }
 
 [dependencies.windows]
 version = "0.51.1"
@@ -17,6 +18,7 @@ features = [
     "Win32_Graphics_Gdi",
     "Win32_UI_WindowsAndMessaging",
     "Win32_System_LibraryLoader",
+    "Win32_System_Diagnostics_Debug",
     "Win32_Graphics_Dwm",
     "Win32_System_Registry",
     "UI_ViewManagement",

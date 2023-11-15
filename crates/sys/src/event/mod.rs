@@ -33,7 +33,7 @@ pub struct PaintEvent{ pub handle: isize }
 #[derive(Debug, Clone)]
 pub enum Event {
     Close { id: isize },
-    Paint { id: isize },
+    Repaint { id: isize },
     Input { id: isize, value: InputEvent },
 }
 

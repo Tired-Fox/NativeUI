@@ -4,15 +4,22 @@ use std::sync::Arc;
 
 use windows::core::HSTRING;
 use windows::Foundation::{EventRegistrationToken, TypedEventHandler};
-use windows::UI::Color;
-use windows::UI::ViewManagement::{UIColorType, UISettings};
-use windows::Win32::Foundation::{BOOL, HMODULE, HWND, LPARAM, WPARAM};
+use windows::Win32::Foundation::{BOOL, HANDLE, HMODULE, HWND, LPARAM, WPARAM};
 use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWINDOWATTRIBUTE};
-use windows::Win32::Graphics::Gdi::UpdateWindow;
+use windows::Win32::Graphics::Gdi::{GetDC, UpdateWindow};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
-use windows::Win32::UI::WindowsAndMessaging::{CloseWindow, CreateWindowExW, CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT, IDC_ARROW, LoadCursorW, RegisterClassW, ShowWindow, SW_HIDE, SW_MAXIMIZE, SW_MINIMIZE, SW_RESTORE, SW_SHOWNORMAL, WINDOW_EX_STYLE, WNDCLASSW, WS_OVERLAPPEDWINDOW, WS_SIZEBOX};
+use windows::Win32::UI::WindowsAndMessaging::{
+    CallWindowProcW, CloseWindow, CreateWindowExW, LoadCursorW, LoadImageW, RegisterClassW,
+    ShowWindow, CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT, HICON, IDC_ARROW, IMAGE_ICON,
+    LR_DEFAULTSIZE, LR_LOADFROMFILE, LR_LOADTRANSPARENT, LR_SHARED, SW_HIDE, SW_MAXIMIZE,
+    SW_MINIMIZE, SW_RESTORE, SW_SHOWNORMAL, WINDOW_EX_STYLE, WM_ERASEBKGND, WM_PAINT, WNDCLASSW,
+    WS_OVERLAPPEDWINDOW, WS_VISIBLE,
+};
+use windows::UI::ViewManagement::UISettings;
 
-use super::{event::wnd_proc, IntoPCWSTR, UI_SETTINGS};
+use crate::windows::win_error::WinError;
+
+use super::{event::wnd_proc, is_dark_mode, IntoPCWSTR, UI_SETTINGS, Background};
 
 enum ColorMode {
     Light = 0,
@@ -57,16 +64,18 @@ impl Builder {
         self
     }
 
+    pub fn background(mut self, background: Background) -> Self {
+        self.options.background = background;
+        self
+    }
+
     pub fn show(mut self) -> Self {
         self.options.show = true;
         self
     }
 
-    pub fn proc<F: Fn(HWND, u32, WPARAM, LPARAM) -> bool + Send + Sync + 'static>(
-        mut self,
-        proc: F,
-    ) -> Self {
-        self.options.proc = Some(Arc::new(proc));
+    pub fn icon(mut self, icon: &str) -> Self {
+        self.options.icon = Some(HSTRING::from(icon));
         self
     }
 
@@ -77,9 +86,12 @@ impl Builder {
 
 pub struct WindowOptions {
     pub title: HSTRING,
-    pub theme: Theme,
-    pub proc: Option<Handler>,
     pub class: HSTRING,
+    pub icon: Option<HSTRING>,
+
+    pub theme: Theme,
+    pub background: Background,
+
     pub show: bool,
 }
 
@@ -87,9 +99,12 @@ impl Default for WindowOptions {
     fn default() -> Self {
         Self {
             title: HSTRING::from(""),
+            class: HSTRING::from(format!("Window-Cypress-{}", uuid::Uuid::new_v4())),
+            icon: None,
+
             theme: Theme::Auto,
-            proc: None,
-            class: HSTRING::from(format!("Cypress-Window-{}", uuid::Uuid::new_v4())),
+            background: Background::default(),
+
             show: false,
         }
     }
@@ -107,32 +122,30 @@ impl Debug for WindowOptions {
 
 pub struct Window {
     handle: HWND,
+    instance: HMODULE,
     options: WindowOptions,
 
     theme_cookie: Option<EventRegistrationToken>,
-}
-
-pub fn is_dark(color: Color) -> bool {
-    ((5 * color.G as u32) + (2 * color.R as u32) + color.B as u32) > (8u32 * 128u32)
 }
 
 impl Window {
     pub fn create(options: WindowOptions) -> windows::core::Result<Box<Self>> {
         let mut window = Box::new(Window {
             handle: HWND(0),
+            instance: HMODULE(0),
             options,
             theme_cookie: None,
         });
 
         unsafe {
-            let instance = GetModuleHandleW(None)?;
-            debug_assert!(instance.0 != 0);
+            window.instance = GetModuleHandleW(None)?;
+            debug_assert!(window.instance.0 != 0);
 
             let wc = WNDCLASSW {
                 hCursor: LoadCursorW(None, IDC_ARROW)?,
-                hInstance: instance.into(),
+                hInstance: window.instance.into(),
                 lpszClassName: window.class().as_pcwstr(),
-
+                hIcon: icon(window.options.icon.as_ref()),
                 style: CS_HREDRAW | CS_VREDRAW,
                 lpfnWndProc: Some(wnd_proc),
                 ..Default::default()
@@ -145,14 +158,14 @@ impl Window {
                 WINDOW_EX_STYLE::default(),
                 window.class().as_pcwstr(),
                 window.title().as_pcwstr(),
-                WS_OVERLAPPEDWINDOW,
+                WS_OVERLAPPEDWINDOW | WS_VISIBLE,
                 CW_USEDEFAULT,
                 CW_USEDEFAULT,
                 CW_USEDEFAULT,
                 CW_USEDEFAULT,
                 None,
                 None,
-                instance,
+                window.instance.clone(),
                 Some(&window.options as *const _ as *const _),
             );
         };
@@ -162,10 +175,6 @@ impl Window {
             window.show();
         }
         Ok(window)
-    }
-
-    pub fn proc(&self) -> Option<&Handler> {
-        self.options.proc.as_ref()
     }
 
     pub fn set_theme(&mut self, theme: Theme) -> ::windows::core::Result<()> {
@@ -187,30 +196,33 @@ impl Window {
                 self.theme_cookie = Some(UI_SETTINGS.ColorValuesChanged(
                     &TypedEventHandler::new(move |settings: &Option<UISettings>, _| {
                         if settings.is_some() {
-                            let dark_mode = BOOL((
-                                is_dark(UI_SETTINGS.GetColorValue(UIColorType::Foreground).unwrap())
-                            ) as i32);
                             DwmSetWindowAttribute(
                                 handle,
                                 ColorMode::Dark.into(),
-                                &dark_mode as *const _ as *const _,
+                                &is_dark_mode() as *const _ as *const _,
                                 4,
                             )
-                                .unwrap();
+                            .unwrap();
+                            CallWindowProcW(
+                                Some(wnd_proc),
+                                handle,
+                                WM_ERASEBKGND,
+                                WPARAM(GetDC(handle).0 as usize),
+                                LPARAM(0),
+                            );
+                            CallWindowProcW(Some(wnd_proc), handle, WM_PAINT, WPARAM(0), LPARAM(0));
                         }
                         Ok(())
                     }),
                 )?);
 
-                let dark_mode =
-                    is_dark(UI_SETTINGS.GetColorValue(UIColorType::Foreground).unwrap());
-                BOOL(dark_mode as i32)
+                is_dark_mode()
             },
         };
 
         unsafe {
             DwmSetWindowAttribute(
-                self.handle,
+                self.handle(),
                 ColorMode::Dark.into(),
                 &state as *const _ as *const c_void,
                 4,
@@ -280,4 +292,26 @@ impl Window {
     pub fn title(&self) -> HSTRING {
         self.options.title.clone()
     }
+}
+
+/// TODO: Automatic loading of other file formats?
+pub fn icon(path: Option<&HSTRING>) -> HICON {
+    let result = HICON(path.map_or(0, |icon| unsafe {
+        match LoadImageW(
+            None,
+            icon.as_pcwstr(),
+            IMAGE_ICON,
+            0,
+            0,
+            LR_DEFAULTSIZE | LR_LOADFROMFILE | LR_SHARED | LR_LOADTRANSPARENT,
+        ) {
+            Ok(hicon) => hicon,
+            Err(err) => {
+                println!("{}", WinError::from(err));
+                HANDLE(0)
+            }
+        }
+        .0
+    }));
+    result
 }

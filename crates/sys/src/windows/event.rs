@@ -1,11 +1,12 @@
 use std::mem::transmute;
-use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
-use windows::Win32::Graphics::Gdi::ValidateRect;
-use windows::Win32::UI::WindowsAndMessaging::{DefWindowProcW, DispatchMessageW, GetMessageW, MSG, PostQuitMessage, WM_DESTROY, WM_PAINT, WM_CREATE, CREATESTRUCTW, SetWindowLongPtrW, GWLP_USERDATA, GetWindowLongPtrW, TranslateMessage};
-use crate::windows::window::{Handler, WindowOptions};
-use ::windows::Win32::UI::WindowsAndMessaging::{WM_CHAR, WM_KEYDOWN, WM_KEYUP};
-use crate::event::{Event, InputEvent, PaintEvent};
-use crate::event::keyboard::KeyboardEvent;
+
+use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, LRESULT, RECT, WPARAM};
+use windows::Win32::Graphics::Gdi::{CreateSolidBrush, FillRect, HDC};
+use windows::Win32::UI::WindowsAndMessaging::{DefWindowProcW, DispatchMessageW, GetClientRect, GetMessageW, PostQuitMessage, SetWindowLongPtrW, CREATESTRUCTW, GWLP_USERDATA, MSG, WM_CREATE, WM_DESTROY, WM_ERASEBKGND, WM_PAINT, GetWindowLongPtrW};
+
+use crate::event::{Event, InputEvent};
+use crate::windows::{Background, is_dark_mode};
+use crate::windows::window::WindowOptions;
 
 pub fn run<F: Fn(Event) + 'static>(callback: F) {
     unsafe {
@@ -14,10 +15,17 @@ pub fn run<F: Fn(Event) + 'static>(callback: F) {
             DispatchMessageW(&message);
             match message.message {
                 _ if InputEvent::message(message.message) => {
-                    callback(Event::Input{ id: message.hwnd.0, value: InputEvent::from((message.message, message.wParam.0, message.lParam.0)) });
+                    callback(Event::Input {
+                        id: message.hwnd.0,
+                        value: InputEvent::from((
+                            message.message,
+                            message.wParam.0,
+                            message.lParam.0,
+                        )),
+                    });
                 }
                 WM_PAINT => {
-                    callback(Event::Paint{ id: message.hwnd.0 });
+                    callback(Event::Repaint { id: message.hwnd.0 });
                 }
                 _ => {}
             }
@@ -36,27 +44,28 @@ pub extern "system" fn wnd_proc(
             WM_CREATE => unsafe {
                 let create_struct: &CREATESTRUCTW = transmute(lparam);
                 SetWindowLongPtrW(window, GWLP_USERDATA, create_struct.lpCreateParams as _);
-                LRESULT::default()
+                LRESULT(0)
             },
             WM_DESTROY => {
                 PostQuitMessage(0);
-                LRESULT::default()
-            },
-            _ => {
-                let user_data = unsafe { GetWindowLongPtrW(window, GWLP_USERDATA)};
-                let options = std::ptr::NonNull::<WindowOptions>::new(user_data as _);
-                let mut result = options.map_or(false, |options| {
-                    if options.as_ref().proc.is_some() {
-                        (options.as_ref().proc.clone().unwrap())(window, message, wparam, lparam)
-                    } else {
-                        false
-                    }
+                LRESULT(0)
+            }
+            WM_ERASEBKGND => unsafe {
+                // Auto fill background with window theme color
+                let user_data = unsafe { GetWindowLongPtrW(window, GWLP_USERDATA) };
+                let sample = std::ptr::NonNull::<WindowOptions>::new(user_data as _);
+                let background = sample.map_or(Background::default(), |mut s| {
+                    s.as_ref().background.clone()
                 });
-                if !result {
-                    result = DefWindowProcW(window, message, wparam, lparam).0 == 0;
-                }
-                LRESULT(!result as _)
+
+                let mut rect = RECT::default();
+                GetClientRect(window, &mut rect).unwrap();
+
+                let brush = CreateSolidBrush(COLORREF(background.color()));
+                FillRect(HDC(wparam.0 as isize), &rect, brush);
+                LRESULT(0)
             },
+            _ => DefWindowProcW(window, message, wparam, lparam),
         }
     }
 }
