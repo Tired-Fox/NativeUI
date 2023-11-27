@@ -63,3 +63,15 @@ impl Event {
 pub trait IntoEvent {
     fn into_event(self) -> Event;
 }
+
+pub fn quit() {
+    #[cfg(target_os = "windows")]
+    unsafe {
+        ::windows::Win32::UI::WindowsAndMessaging::PostQuitMessage(0);
+    }
+}
+
+pub fn run<F: Fn(isize, Event) + 'static>(callback: F) {
+    #[cfg(target_os = "windows")]
+    crate::windows::event::run(callback);
+}

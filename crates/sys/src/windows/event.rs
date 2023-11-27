@@ -9,8 +9,9 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 
 use crate::event::{Event, InputEvent};
-use crate::windows::window::WindowOptions;
-use crate::windows::Background;
+use crate::window::WindowOptions;
+use crate::style::Background;
+use crate::windows::is_dark_mode;
 
 pub fn run<F: Fn(isize, Event) + 'static>(callback: F) {
     let mut message = MSG::default();
@@ -61,7 +62,7 @@ pub extern "system" fn wnd_proc(
             let mut rect = RECT::default();
             unsafe { GetClientRect(window, &mut rect).unwrap() };
 
-            let brush = unsafe { CreateSolidBrush(COLORREF(background.color())) };
+            let brush = unsafe { CreateSolidBrush(COLORREF(background.color(is_dark_mode().into()))) };
             unsafe { FillRect(HDC(wparam.0 as isize), &rect, brush) };
             LRESULT(0)
         },

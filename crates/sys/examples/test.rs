@@ -1,31 +1,28 @@
-use cypress_sys::event::keyboard::{Key, KeyboardEvent, VirtualKey};
-use cypress_sys::event::{Event, InputEvent};
-use cypress_sys::windows::Background;
-use cypress_sys::windows::event::run;
-use cypress_sys::windows::window::Window;
-use windows::Win32::Foundation::HWND;
-use windows::Win32::Graphics::Gdi::ValidateRect;
-use windows::Win32::UI::WindowsAndMessaging::PostQuitMessage;
+use std::thread::sleep;
+use std::time::Duration;
+use cypress_sys::{
+    prelude::*,
+    event::{Event, InputEvent, keyboard::{Key, KeyboardEvent, VirtualKey}, quit, run},
+    style::{Background, rgb},
+    window::Window
+};
 
-/*
- */
 fn main() {
-    Window::builder()
+    let window = Window::builder()
         .title("Rust Window")
         .icon("../../assets/images/NativeUI.ico")
-        .background(Background::new(0xF3CB87, 0xC09954))
+        .background(Background::new(0xF3CB87, rgb!(192, 153, 84)))
         .show()
-        .create()
         .unwrap();
 
     run(move |id, event| match event {
         Event::Repaint => unsafe {
-            ValidateRect(HWND(id), None);
+            println!("Repaint");
         },
         Event::Input(InputEvent::Keyboard(ke)) => match ke {
             KeyboardEvent::KeyDown(v) => {
                 if v == Key::Virtual(VirtualKey::Escape) {
-                    unsafe { PostQuitMessage(0) }
+                    quit();
                 }
             }
             _ => {}

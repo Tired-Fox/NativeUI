@@ -4,108 +4,80 @@ use std::sync::Arc;
 
 use windows::core::HSTRING;
 use windows::Foundation::{EventRegistrationToken, TypedEventHandler};
+use windows::UI::ViewManagement::UISettings;
 use windows::Win32::Foundation::{BOOL, HANDLE, HMODULE, HWND, LPARAM, WPARAM};
 use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWINDOWATTRIBUTE};
 use windows::Win32::Graphics::Gdi::{GetDC, UpdateWindow};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::WindowsAndMessaging::{
-    CallWindowProcW, CloseWindow, CreateWindowExW, LoadCursorW, LoadImageW, RegisterClassW,
-    ShowWindow, CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT, HICON, IDC_ARROW, IMAGE_ICON,
-    LR_DEFAULTSIZE, LR_LOADFROMFILE, LR_LOADTRANSPARENT, LR_SHARED, SW_HIDE, SW_MAXIMIZE,
+    CallWindowProcW, CloseWindow, CreateWindowExW, CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT,
+    HICON, IDC_ARROW, IMAGE_ICON, LoadCursorW, LoadImageW, LR_DEFAULTSIZE, LR_LOADFROMFILE,
+    LR_LOADTRANSPARENT, LR_SHARED, RegisterClassW, ShowWindow, SW_HIDE, SW_MAXIMIZE,
     SW_MINIMIZE, SW_RESTORE, SW_SHOWNORMAL, WINDOW_EX_STYLE, WM_ERASEBKGND, WM_PAINT, WNDCLASSW,
-    WS_OVERLAPPEDWINDOW, WS_VISIBLE,
+    WS_OVERLAPPEDWINDOW,
 };
-use windows::UI::ViewManagement::UISettings;
+use crate::error::Error;
 
+use crate::style::{Background, Theme};
+use crate::window::{WindowBuilder, WindowContext, WindowOptions};
 use crate::windows::win_error::WinError;
 
-use super::{event::wnd_proc, is_dark_mode, Background, IntoPCWSTR, UI_SETTINGS};
-
-#[derive(Default, Clone, Copy, Debug)]
-pub enum Theme {
-    Light,
-    Dark,
-    #[default]
-    Auto,
-}
+use super::{event::wnd_proc, IntoPCWSTR, is_dark_mode, UI_SETTINGS};
 
 pub type Handler = Arc<dyn Fn(HWND, u32, WPARAM, LPARAM) -> bool + Send + Sync + 'static>;
+
+macro_rules! boxed_unwrap {
+    ($e:expr) => {
+        match $e {
+            Ok(v) => v,
+            Err(e) => return Err(Error::from(e)),
+        }
+    }
+}
 
 #[derive(Default)]
 pub struct Builder {
     options: WindowOptions,
 }
 
-impl Builder {
-    pub fn new() -> Builder {
+impl WindowBuilder<Window> for Builder {
+    fn new() -> Self {
         Builder {
             options: WindowOptions::default(),
         }
     }
 
-    pub fn title(mut self, title: &str) -> Self {
-        self.options.title = HSTRING::from(title);
+    fn title(mut self, title: &'static str) -> Self {
+        self.options.title = title;
         self
     }
 
-    pub fn theme(mut self, theme: Theme) -> Self {
+    fn theme(mut self, theme: Theme) -> Self {
         self.options.theme = theme;
         self
     }
 
-    pub fn background(mut self, background: Background) -> Self {
+    fn background(mut self, background: Background) -> Self {
         self.options.background = background;
         self
     }
 
-    pub fn show(mut self) -> Self {
-        self.options.show = true;
-        self
-    }
-
-    pub fn icon(mut self, icon: &str) -> Self {
-        self.options.icon = Some(HSTRING::from(icon));
-        self
-    }
-
-    pub fn create(self) -> windows::core::Result<Box<Window>> {
-        Window::create(self.options)
-    }
-}
-
-pub struct WindowOptions {
-    pub title: HSTRING,
-    pub class: HSTRING,
-    pub icon: Option<HSTRING>,
-
-    pub theme: Theme,
-    pub background: Background,
-
-    pub show: bool,
-}
-
-impl Default for WindowOptions {
-    fn default() -> Self {
-        Self {
-            title: HSTRING::from(""),
-            class: HSTRING::from(format!("Window-Cypress-{}", uuid::Uuid::new_v4())),
-            icon: None,
-
-            theme: Theme::Auto,
-            background: Background::default(),
-
-            show: false,
+    fn icon(mut self, icon: &'static str) -> Self {
+        if !icon.ends_with(".ico") {
+            panic!("Icon must be an ico file");
         }
-    }
-}
 
-impl Debug for WindowOptions {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("WindowOptions")
-            .field("title", &self.title)
-            .field("class", &self.class)
-            .field("theme", &self.theme)
-            .finish()
+        self.options.icon = Some(icon);
+        self
+    }
+
+    fn create(self) -> Result<Box<Window>, Error> {
+        Ok(boxed_unwrap!(Window::create(self.options)))
+    }
+
+    fn show(mut self) -> Result<Box<Window>, Error> {
+        self.options.show = true;
+        self.create()
     }
 }
 
@@ -117,23 +89,26 @@ pub struct Window {
     theme_cookie: Option<EventRegistrationToken>,
 }
 
-impl Window {
-    pub fn create(options: WindowOptions) -> windows::core::Result<Box<Self>> {
+impl WindowContext for Window {
+    type Builder = Builder;
+
+    fn create(options: WindowOptions) -> Result<Box<Self>, Error> {
         let mut window = Box::new(Window {
             handle: HWND(0),
             instance: HMODULE(0),
             options,
             theme_cookie: None,
         });
+        let class: HSTRING = HSTRING::from(format!("Window-Cypress-{}", uuid::Uuid::new_v4()));
 
-        window.instance = unsafe { GetModuleHandleW(None)? };
+        window.instance = boxed_unwrap!(unsafe { GetModuleHandleW(None) });
         debug_assert!(window.instance.0 != 0);
 
         let wc = WNDCLASSW {
-            hCursor: unsafe { LoadCursorW(None, IDC_ARROW)? },
+            hCursor: boxed_unwrap!(unsafe { LoadCursorW(None, IDC_ARROW) }),
             hInstance: window.instance.into(),
-            lpszClassName: window.class().as_pcwstr(),
-            hIcon: icon(window.options.icon.as_ref()),
+            lpszClassName: class.as_pcwstr(),
+            hIcon: icon(window.options.icon.map(|i| HSTRING::from(i))),
             style: CS_HREDRAW | CS_VREDRAW,
             lpfnWndProc: Some(wnd_proc),
             ..Default::default()
@@ -145,9 +120,9 @@ impl Window {
         unsafe {
             window.handle = CreateWindowExW(
                 WINDOW_EX_STYLE::default(),
-                window.class().as_pcwstr(),
-                window.title().as_pcwstr(),
-                WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+                class.as_pcwstr(),
+                HSTRING::from(window.title()).as_pcwstr(),
+                WS_OVERLAPPEDWINDOW,
                 CW_USEDEFAULT,
                 CW_USEDEFAULT,
                 CW_USEDEFAULT,
@@ -166,17 +141,17 @@ impl Window {
         Ok(window)
     }
 
-    pub fn set_theme(&mut self, theme: Theme) -> ::windows::core::Result<()> {
+    fn set_theme(&mut self, theme: Theme) -> Result<(), Error> {
         let state = match theme {
             Theme::Light => {
                 if let Some(cookie) = self.theme_cookie {
-                    UI_SETTINGS.RemoveColorValuesChanged(cookie)?;
+                    boxed_unwrap!(UI_SETTINGS.RemoveColorValuesChanged(cookie));
                 }
                 BOOL(0)
             }
             Theme::Dark => {
                 if let Some(cookie) = self.theme_cookie {
-                    UI_SETTINGS.RemoveColorValuesChanged(cookie)?;
+                    boxed_unwrap!(UI_SETTINGS.RemoveColorValuesChanged(cookie));
                 }
                 BOOL(1)
             }
@@ -208,12 +183,12 @@ impl Window {
                 )?);
 
                 is_dark_mode()
-            },
+            }
         };
 
         unsafe {
             DwmSetWindowAttribute(
-                self.handle(),
+                HWND(self.id()),
                 DWMWINDOWATTRIBUTE(20),
                 &state as *const _ as *const c_void,
                 4,
@@ -223,86 +198,83 @@ impl Window {
         Ok(())
     }
 
-    pub fn builder() -> Builder {
-        Builder::new()
+    fn builder() -> Box<Self::Builder> {
+        Box::new(Builder::new())
     }
 
     /// Show the window
-    pub fn show(&self) {
+    fn show(&self) {
         unsafe {
-            ShowWindow(self.handle(), SW_SHOWNORMAL);
+            ShowWindow(HWND(self.id()), SW_SHOWNORMAL);
         }
     }
 
     /// Hide the window
-    pub fn hide(&self) {
+    fn hide(&self) {
         unsafe {
-            ShowWindow(self.handle(), SW_HIDE);
+            ShowWindow(HWND(self.id()), SW_HIDE);
         }
     }
 
     /// Minimize the window
-    pub fn minimize(&self) {
+    fn minimize(&self) {
         unsafe {
-            ShowWindow(self.handle(), SW_MINIMIZE);
+            ShowWindow(HWND(self.id()), SW_MINIMIZE);
         }
     }
 
     /// Restore the window
-    pub fn restore(&self) {
+    fn restore(&self) {
         unsafe {
-            ShowWindow(self.handle(), SW_RESTORE);
+            ShowWindow(HWND(self.id()), SW_RESTORE);
         }
     }
 
     /// Maximize the window
-    pub fn maximize(&self) {
+    fn maximize(&self) {
         unsafe {
-            ShowWindow(self.handle(), SW_MAXIMIZE);
+            ShowWindow(HWND(self.id()), SW_MAXIMIZE);
         }
     }
 
-    pub fn update(&self) {
+    fn update(&self) {
         unsafe {
-            UpdateWindow(self.handle());
+            UpdateWindow(HWND(self.id()));
         }
     }
 
-    pub fn close(&self) -> windows::core::Result<()> {
-        unsafe { CloseWindow(self.handle()) }
+    fn close(&self) -> Result<(), Error> {
+        Ok(boxed_unwrap!(unsafe { CloseWindow(HWND(self.id())) }))
+    }
+    fn id(&self) -> isize {
+        self.handle.0
     }
 
-    pub fn handle(&self) -> HWND {
-        HWND(self.handle.0)
-    }
-
-    pub fn class(&self) -> HSTRING {
-        self.options.class.clone()
-    }
-
-    pub fn title(&self) -> HSTRING {
-        self.options.title.clone()
+    fn title(&self) -> String {
+        self.options.title.to_string()
     }
 }
 
 /// TODO: Automatic loading of other file formats?
-pub fn icon(path: Option<&HSTRING>) -> HICON {
+pub fn icon(path: Option<HSTRING>) -> HICON {
     let result = HICON(path.map_or(0, |icon| {
-        match unsafe { LoadImageW(
-            None,
-            icon.as_pcwstr(),
-            IMAGE_ICON,
-            0,
-            0,
-            LR_DEFAULTSIZE | LR_LOADFROMFILE | LR_SHARED | LR_LOADTRANSPARENT,
-        )} {
+        match unsafe {
+            LoadImageW(
+                None,
+                icon.as_pcwstr(),
+                IMAGE_ICON,
+                0,
+                0,
+                LR_DEFAULTSIZE | LR_LOADFROMFILE | LR_SHARED | LR_LOADTRANSPARENT,
+            )
+        } {
             Ok(hicon) => hicon,
             Err(err) => {
                 println!("{}", WinError::from(err));
                 HANDLE(0)
             }
         }
-        .0
+            .0
     }));
     result
 }
