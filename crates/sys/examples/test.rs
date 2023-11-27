@@ -6,6 +6,7 @@ use cypress_sys::{
     style::{Background, rgb},
     window::Window
 };
+use cypress_sys::event::close;
 
 fn main() {
     let window = Window::builder()
@@ -15,14 +16,16 @@ fn main() {
         .show()
         .unwrap();
 
+    println!("{}", window.id());
+
     run(move |id, event| match event {
-        Event::Repaint => unsafe {
-            println!("Repaint");
+        Event::Close => {
+            println!("Close");
         },
         Event::Input(InputEvent::Keyboard(ke)) => match ke {
             KeyboardEvent::KeyDown(v) => {
                 if v == Key::Virtual(VirtualKey::Escape) {
-                    quit();
+                    close(id);
                 }
             }
             _ => {}

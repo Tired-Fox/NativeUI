@@ -1,3 +1,4 @@
+use windows::Win32::Foundation::{LPARAM, WPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{
     WM_LBUTTONDBLCLK, WM_LBUTTONDOWN, WM_LBUTTONUP,
     WM_MBUTTONDBLCLK, WM_MBUTTONDOWN, WM_MBUTTONUP,
@@ -115,12 +116,12 @@ impl MouseEvent {
     }
 }
 
-impl From<(u32, usize, isize)> for MouseEvent {
-    fn from(value: (u32, usize, isize)) -> Self {
+impl From<(u32, WPARAM, LPARAM)> for MouseEvent {
+    fn from(value: (u32, WPARAM, LPARAM)) -> Self {
         MouseEvent {
-            x: loword(value.2 as usize),
-            y: hiword(value.2 as usize),
-            etype: MouseEventType::from((value.0, value.1)),
+            x: loword(value.2.0 as usize),
+            y: hiword(value.2.0 as usize),
+            etype: MouseEventType::from((value.0, value.1.0)),
         }
     }
 }

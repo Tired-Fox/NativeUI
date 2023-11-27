@@ -1,3 +1,4 @@
+use windows::Win32::Foundation::{LPARAM, WPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{WM_KEYUP, WM_KEYDOWN, WM_SYSKEYDOWN, WM_SYSKEYUP};
 
 #[derive(Debug, Clone)]
@@ -7,11 +8,11 @@ pub enum KeyboardEvent {
     KeyHold(Key),
 }
 
-impl From<(u32, usize, isize)> for KeyboardEvent {
-    fn from(v: (u32, usize, isize)) -> Self {
+impl From<(u32, WPARAM, LPARAM)> for KeyboardEvent {
+    fn from(v: (u32, WPARAM, LPARAM)) -> Self {
         match v.0 {
             WM_KEYDOWN | WM_SYSKEYDOWN => {
-                if v.2 & 1 << 30 == 0 {
+                if v.2.0 & 1 << 30 == 0 {
                     KeyboardEvent::KeyDown(Key::from(v.1))
                 } else {
                     KeyboardEvent::KeyHold(Key::from(v.1))
@@ -56,11 +57,11 @@ pub enum Key {
     Char(char),
 }
 
-impl From<usize> for Key {
-    fn from(v: usize) -> Self {
-        VirtualKey::from_usize(v)
+impl From<WPARAM> for Key {
+    fn from(v: WPARAM) -> Self {
+        VirtualKey::from_usize(v.0)
             .map_or(
-                Key::Char(v as u8 as char),
+                Key::Char(v.0 as u8 as char),
                 |v| {
                     Key::Virtual(v)
                 },
