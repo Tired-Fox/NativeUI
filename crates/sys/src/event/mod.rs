@@ -4,7 +4,7 @@ use windows::Win32::UI::WindowsAndMessaging::{CallWindowProcW, WM_CLOSE};
 use keyboard::KeyboardEvent;
 use mouse::MouseEvent;
 
-use crate::windows::event::wnd_proc;
+use crate::windows::event::{IntoEventResult, wnd_proc};
 
 pub mod keyboard;
 pub mod mouse;
@@ -95,7 +95,7 @@ pub fn quit() {
     }
 }
 
-pub fn run<F: Fn(isize, Event) + 'static>(callback: F) {
+pub fn run<R: IntoEventResult, F: Fn(isize, Event) -> R + 'static + Sync + Send>(callback: F) {
     #[cfg(target_os = "windows")]
     crate::windows::event::run(callback);
 }

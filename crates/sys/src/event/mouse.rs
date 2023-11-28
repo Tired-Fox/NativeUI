@@ -58,6 +58,7 @@ impl MouseButton {
 
 #[derive(Debug, Clone)]
 pub enum MouseEventType {
+    None,
     Down(MouseButton),
     Up(MouseButton),
     Double(MouseButton),
@@ -90,7 +91,10 @@ impl From<(u32, usize)> for MouseEventType {
 
             WM_MOUSEMOVE => MouseEventType::Move,
             WM_MOUSEHOVER => MouseEventType::Hover,
-            _ => panic!("Unknown mouse event message: {}", value.0),
+            _ => {
+                eprintln!("Unknown mouse event message: {}", value.0);
+                MouseEventType::None
+            },
         }
     }
 }

@@ -6,4 +6,5 @@ pub mod event;
 pub mod style;
 pub mod window;
 pub mod prelude;
-mod error;
+pub mod modal;
+pub mod error;
