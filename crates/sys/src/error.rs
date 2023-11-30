@@ -1,4 +1,5 @@
 use std::fmt::Display;
+use std::io;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd)]
 pub struct Error {
@@ -19,6 +20,15 @@ impl From<windows::core::Error> for Error {
         Self {
             code: error.code().0 as isize,
             message: error.message().to_string_lossy(),
+        }
+    }
+}
+
+impl From<io::Error> for Error {
+    fn from(error: io::Error) -> Self {
+        Self {
+            code: error.raw_os_error().unwrap_or(0) as isize,
+            message: error.to_string(),
         }
     }
 }

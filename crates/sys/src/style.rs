@@ -80,6 +80,7 @@ impl From<u32> for Background {
     }
 }
 
+// TODO: Needed for other platforms?
 fn reorder_u32(value: u32) -> u32 {
     let values = u32::to_be_bytes(value);
     u32::from_be_bytes([values[0], values[3], values[2], values[1]])

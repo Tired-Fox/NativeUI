@@ -1,31 +1,13 @@
-use std::collections::HashSet;
-use windows::Win32::System::Com::CoCreateInstance;
+use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 
-#[cfg(target_os = "windows")]
-use windows::Win32::UI::{
-    Shell::{FILEOPENDIALOGOPTIONS, FOS_FILEMUSTEXIST},
-    WindowsAndMessaging::{
-        IDOK, MB_DEFAULT_DESKTOP_ONLY, MB_ICONEXCLAMATION, MB_ICONINFORMATION, MB_ICONQUESTION,
-        MB_ICONWARNING, MB_OKCANCEL, MESSAGEBOX_STYLE,
-    },
-};
-#[cfg(target_os = "windows")]
-use crate::windows::IntoPCWSTR;
+use crate::error::Error;
 
 #[derive(Default, Debug, Clone, Copy)]
 pub enum Buttons {
     #[default]
     Ok,
     OkCancel,
-}
-
-impl From<Buttons> for MESSAGEBOX_STYLE {
-    fn from(v: Buttons) -> Self {
-        match v {
-            Buttons::OkCancel => MB_OKCANCEL,
-            Buttons::Ok => MB_OKCANCEL,
-        }
-    }
 }
 
 #[derive(Default, Debug, Clone, Copy)]
@@ -38,35 +20,19 @@ pub enum Icon {
     None,
 }
 
-impl From<Icon> for MESSAGEBOX_STYLE {
-    fn from(v: Icon) -> Self {
-        match v {
-            Icon::Exclamation => MB_ICONEXCLAMATION,
-            Icon::Information => MB_ICONINFORMATION,
-            Icon::Question => MB_ICONQUESTION,
-            Icon::Warning => MB_ICONWARNING,
-            Icon::None => MESSAGEBOX_STYLE(0),
-        }
-    }
-}
-
 pub struct Dialog;
 impl Dialog {
     pub fn prompt() -> Prompt {
         Prompt::default()
     }
 
-    pub fn open_file() -> OpenFile {
-        OpenFile::default()
-    }
-
-    pub fn save_file() -> SaveFile {
-        SaveFile::default()
+    pub fn file() -> FileDialog {
+        FileDialog::default()
     }
 }
 
 /// [Win32 Reference](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/ne-shobjidl_core-_fileopendialogoptions)
-#[derive(Default, Debug, Clone, Copy, Hash)]
+#[derive(Debug, Clone, Copy, Hash, PartialOrd, PartialEq, Ord, Eq)]
 pub enum FileDialogOption {
     /// User can only choose a file with the extension provided through `file_types`
     StrictFileTypes,
@@ -87,28 +53,11 @@ pub enum FileDialogOption {
     OkButtonNeedsInteraction,
 }
 
-impl From<FileDialogOption> for FILEOPENDIALOGOPTIONS {
-    fn from(v: FileDialogOption) -> Self {
-        match v {
-            FileDialogOption::StrictFileTypes => FOS_FILEMUSTEXIST,
-            FileDialogOption::NoChangeDir => FOS_FILEMUSTEXIST,
-            FileDialogOption::PickFolders => FOS_FILEMUSTEXIST,
-            FileDialogOption::NoValidate => FOS_FILEMUSTEXIST,
-            FileDialogOption::AllowMultiSelect => FOS_FILEMUSTEXIST,
-            FileDialogOption::CreatePrompt => FOS_FILEMUSTEXIST,
-            FileDialogOption::NoReadOnlyReturn => FOS_FILEMUSTEXIST,
-            FileDialogOption::NoTestFileCreate => FOS_FILEMUSTEXIST,
-            FileDialogOption::HidePinnedPlaces => FOS_FILEMUSTEXIST,
-            FileDialogOption::NoDereferenceLinks => FOS_FILEMUSTEXIST,
-            FileDialogOption::OkButtonNeedsInteraction => FOS_FILEMUSTEXIST,
-            FileDialogOption::ForceShowHidden => FOS_FILEMUSTEXIST,
-        }
-    }
-}
-
 #[derive(Default, Debug, Clone)]
 pub struct SaveFile {
     pub title: &'static str,
+    pub filters: Option<Vec<(&'static str, &'static str)>>,
+    pub directory: Option<&'static str>,
     pub options: HashSet<FileDialogOption>,
 }
 
@@ -134,18 +83,61 @@ impl SaveFile {
 
     pub fn show_hidden(mut self) -> Self {
         self.options.insert(FileDialogOption::ForceShowHidden);
+        self
+    }
+
+    pub fn directory(mut self, directory: &'static str) -> Self {
+        self.directory = Some(directory);
+        self
+    }
+
+    pub fn filters(mut self, filters: Vec<(&'static str, &'static str)>) -> Self {
+        self.filters = Some(filters);
+        self
     }
 }
 
-#[derive(Default, Debug, Clone)]
-pub struct OpenFile {
-    pub title: &'static str,
+pub trait ToPath {
+    fn to_path(&self) -> PathBuf;
+}
+
+#[derive(Debug, Clone)]
+pub enum FileDialogAction {
+    File(PathBuf),
+    Files(Vec<PathBuf>),
+    Canceled,
+}
+
+#[derive(Debug, Clone)]
+pub struct FileDialog {
+    pub title: Option<&'static str>,
+    pub filters: Vec<(&'static str, Vec<&'static str>)>,
+    pub filter_index: u32,
+    pub filename: Option<&'static str>,
+    pub default_extension: Option<&'static str>,
+    pub default_folder: Option<&'static str>,
+    pub folder: Option<&'static str>,
     pub options: HashSet<FileDialogOption>,
 }
 
-impl OpenFile {
+impl Default for FileDialog {
+    fn default() -> Self {
+        Self {
+            title: None,
+            filters: Vec::new(),
+            filter_index: 1,
+            filename: None,
+            default_extension: None,
+            default_folder: None,
+            folder: None,
+            options: HashSet::new(),
+        }
+    }
+}
+
+impl FileDialog {
     pub fn title(mut self, title: &'static str) -> Self {
-        self.title = title;
+        self.title = Some(title);
         self
     }
 
@@ -161,10 +153,51 @@ impl OpenFile {
 
     pub fn show_hidden(mut self) -> Self {
         self.options.insert(FileDialogOption::ForceShowHidden);
+        self
     }
 
-    pub fn build(self) -> Vec<String> {
-        Vec::new()
+    pub fn folder(mut self, directory: &'static str) -> Self {
+        self.folder = Some(directory);
+        self
+    }
+
+    pub fn filename(mut self, filename: &'static str) -> Self {
+        self.filename = Some(filename);
+        self
+    }
+
+    pub fn default_extension(mut self, extension: &'static str) -> Self {
+        self.default_extension = Some(extension);
+        self
+    }
+
+    pub fn default_folder(mut self, directory: &'static str) -> Self {
+        self.default_folder = Some(directory);
+        self
+    }
+
+    pub fn filter<const SIZE: usize>(
+        mut self,
+        name: &'static str,
+        extensions: [&'static str; SIZE],
+    ) -> Self {
+        self.filters.push((name, Vec::from(extensions)));
+        self
+    }
+
+    pub fn filter_index(mut self, filter_index: u32) -> Self {
+        self.filter_index = filter_index;
+        self
+    }
+
+    pub fn open(&self) -> Result<FileDialogAction, Error> {
+        #[cfg(target_os = "windows")]
+        crate::windows::modal::FileOpenDialog::new(&self)?.open()
+    }
+
+    pub fn save(&self) -> Result<FileDialogAction, Error> {
+        #[cfg(target_os = "windows")]
+        crate::windows::modal::FileSaveDialog::new(&self)?.save()
     }
 }
 
@@ -187,31 +220,20 @@ impl Prompt {
         self
     }
 
-    pub fn title(mut self, title: &str) -> Self {
+    pub fn title(mut self, title: &'static str) -> Self {
         self.title = title;
         self
     }
 
-    pub fn message(mut self, message: &str) -> Self {
+    pub fn message(mut self, message: &'static str) -> Self {
         self.message = message;
         self
     }
 
-    pub fn build(self) -> bool {
+    pub fn run(&self) -> bool {
         #[cfg(target_os = "windows")]
-        unsafe {
-            use crate::windows::IntoPCWSTR;
-            use windows::core::HSTRING;
-            use windows::Win32::UI::WindowsAndMessaging::MessageBoxW;
-
-            MessageBoxW(
-                None,
-                HSTRING::from(self.message).as_pcwstr(),
-                HSTRING::from(self.title).as_pcwstr(),
-                MB_DEFAULT_DESKTOP_ONLY
-                    | MESSAGEBOX_STYLE::from(self.icon)
-                    | MESSAGEBOX_STYLE::from(self.buttons),
-            ) == IDOK
+        {
+            crate::windows::modal::MsgBox::new(self).show().unwrap()
         }
         // TODO: Linux and MacOS support
         #[cfg(not(target_os = "windows"))]

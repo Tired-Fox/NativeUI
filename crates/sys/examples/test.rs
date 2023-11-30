@@ -1,10 +1,7 @@
 use windows::core::w;
-use windows::Win32::UI::WindowsAndMessaging::{
-    MessageBoxW, IDOK, MB_DEFAULT_DESKTOP_ONLY, MB_ICONEXCLAMATION, MB_OKCANCEL,
-};
-
 use cypress_sys::event::close;
-use cypress_sys::modal::{Icon, Dialog};
+use cypress_sys::modal::{Dialog, Icon};
+use cypress_sys::style::Theme;
 use cypress_sys::{
     event::{
         keyboard::{Key, KeyboardEvent, VirtualKey},
@@ -19,25 +16,31 @@ fn main() {
     let window = Window::builder()
         .title("Rust Window")
         .icon("../../assets/images/NativeUI.ico")
+        .theme(Theme::Light)
         .background(Background::new(0xF3CB87, rgb!(192, 153, 84)))
         .show()
         .unwrap();
 
-    println!("{}", window.id());
+    let file_picker = Dialog::file()
+        .title("Cypress")
+        .multi_select()
+        .filter("All Files", ["*"])
+        .filter("Text Files", ["txt"])
+        .filter_index(2)
+        .filename("test")
+        .default_extension("txt");
 
-    run(|id, event| -> bool {
+    let prompt = Dialog::prompt()
+        .title("Cypress")
+        .message("Are you sure?")
+        .icon(Icon::Exclamation);
+
+    run(move |id, event| -> bool {
         match event {
-            Event::Close => unsafe {
-                let files = Dialog::open_file()
-                    .title("Cypress")
-                    .multiple(true)
-                    .build();
-
-                return Dialog::prompt()
-                    .title("Cypress")
-                    .message("Are you sure?")
-                    .icon(Icon::Exclamation)
-                    .build();
+            Event::Close => {
+                let files = file_picker.save();
+                println!("{:?}", files);
+                return prompt.run();
             },
             Event::Input(InputEvent::Keyboard(ke)) => match ke {
                 KeyboardEvent::KeyDown(v) => {

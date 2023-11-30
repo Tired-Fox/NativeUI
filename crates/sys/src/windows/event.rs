@@ -7,7 +7,9 @@ use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, LRESULT, RECT, WPARAM};
 use windows::Win32::Graphics::Gdi::{CreateSolidBrush, FillRect, HDC};
 use windows::Win32::UI::WindowsAndMessaging::{DefWindowProcW, DispatchMessageW, GetClientRect, GetMessageW, GetWindowLongPtrW, PostQuitMessage, SetWindowLongPtrW, CREATESTRUCTW, GWLP_USERDATA, MSG, WM_CREATE, WM_DESTROY, WM_ERASEBKGND, WM_PAINT, WM_CLOSE, DestroyWindow, CallWindowProcW};
 
-use crate::event::{Event, InputEvent};
+use crate::event::{Event, InputEvent, IntoEventResult, keyboard, mouse};
+use crate::event::keyboard::KeyboardEvent;
+use crate::event::mouse::MouseEvent;
 use crate::window::WindowOptions;
 use crate::style::Background;
 use crate::windows::is_dark_mode;
@@ -35,19 +37,17 @@ thread_local! {
     static HANDLER: RefCell<Handler> = RefCell::new(Handler::default());
 }
 
-pub trait IntoEventResult {
-    fn into_event_result(self) -> bool;
-}
-
-impl IntoEventResult for () {
-    fn into_event_result(self) -> bool {
-        true
-    }
-}
-
-impl IntoEventResult for bool {
-    fn into_event_result(self) -> bool {
-        self
+/// Converts (u32, usize, isize) to InputEvent
+/// Message
+/// wparam
+/// lparam
+impl From<(u32, WPARAM, LPARAM)> for InputEvent {
+    fn from(v: (u32, WPARAM, LPARAM)) -> Self {
+        match v.0 {
+            _ if keyboard::KeyboardEvent::message(v.0) => InputEvent::Keyboard(KeyboardEvent::from(v)),
+            _ if mouse::MouseEvent::message(v.0) => InputEvent::Mouse(MouseEvent::from(v)),
+            _ => panic!("Unknown keyboard event message: {}", v.0),
+        }
     }
 }
 

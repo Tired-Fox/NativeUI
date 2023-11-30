@@ -3,8 +3,8 @@ use windows::Win32::Foundation::BOOL;
 use windows::UI::ViewManagement::{UIColorType, UISettings};
 
 pub mod event;
-pub mod win_error;
 pub mod window;
+pub mod modal;
 
 lazy_static::lazy_static! {
     pub static ref UI_SETTINGS: UISettings = UISettings::new().unwrap();

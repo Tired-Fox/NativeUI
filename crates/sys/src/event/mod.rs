@@ -1,13 +1,24 @@
-use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
-use windows::Win32::UI::WindowsAndMessaging::{CallWindowProcW, WM_CLOSE};
-
 use keyboard::KeyboardEvent;
 use mouse::MouseEvent;
 
-use crate::windows::event::{IntoEventResult, wnd_proc};
-
 pub mod keyboard;
 pub mod mouse;
+
+pub trait IntoEventResult {
+    fn into_event_result(self) -> bool;
+}
+
+impl IntoEventResult for () {
+    fn into_event_result(self) -> bool {
+        true
+    }
+}
+
+impl IntoEventResult for bool {
+    fn into_event_result(self) -> bool {
+        self
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum InputEvent {
@@ -19,20 +30,6 @@ pub enum InputEvent {
 impl InputEvent {
     pub fn message(m: u32) -> bool {
         keyboard::KeyboardEvent::message(m) || mouse::MouseEvent::message(m)
-    }
-}
-
-/// Converts (u32, usize, isize) to InputEvent
-/// Message
-/// wparam
-/// lparam
-impl From<(u32, WPARAM, LPARAM)> for InputEvent {
-    fn from(v: (u32, WPARAM, LPARAM)) -> Self {
-        match v.0 {
-            _ if keyboard::KeyboardEvent::message(v.0) => InputEvent::Keyboard(KeyboardEvent::from(v)),
-            _ if mouse::MouseEvent::message(v.0) => InputEvent::Mouse(MouseEvent::from(v)),
-            _ => panic!("Unknown keyboard event message: {}", v.0),
-        }
     }
 }
 
@@ -78,6 +75,10 @@ pub trait IntoEvent {
 pub fn close(id: isize) {
     #[cfg(target_os = "windows")]
     unsafe {
+        use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
+        use crate::windows::event::{wnd_proc};
+        use windows::Win32::UI::WindowsAndMessaging::{CallWindowProcW, WM_CLOSE};
+
         CallWindowProcW(
             Some(wnd_proc),
             HWND(id),

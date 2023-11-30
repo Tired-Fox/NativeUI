@@ -1,6 +1,4 @@
 use std::ffi::c_void;
-use std::fmt::Debug;
-use std::sync::Arc;
 
 use windows::core::HSTRING;
 use windows::Foundation::{EventRegistrationToken, TypedEventHandler};
@@ -16,15 +14,12 @@ use windows::Win32::UI::WindowsAndMessaging::{
     SW_MINIMIZE, SW_RESTORE, SW_SHOWNORMAL, WINDOW_EX_STYLE, WM_ERASEBKGND, WM_PAINT, WNDCLASSW,
     WS_OVERLAPPEDWINDOW,
 };
-use crate::error::Error;
 
+use crate::error::Error;
 use crate::style::{Background, Theme};
 use crate::window::{WindowBuilder, WindowContext, WindowOptions};
-use crate::windows::win_error::WinError;
 
 use super::{event::wnd_proc, IntoPCWSTR, is_dark_mode, UI_SETTINGS};
-
-pub type Handler = Arc<dyn Fn(HWND, u32, WPARAM, LPARAM) -> bool + Send + Sync + 'static>;
 
 macro_rules! boxed_unwrap {
     ($e:expr) => {
@@ -32,7 +27,7 @@ macro_rules! boxed_unwrap {
             Ok(v) => v,
             Err(e) => return Err(Error::from(e)),
         }
-    }
+    };
 }
 
 #[derive(Default)]
@@ -167,7 +162,7 @@ impl WindowContext for Window {
                                     &is_dark_mode() as *const _ as *const _,
                                     4,
                                 )
-                                    .unwrap();
+                                .unwrap();
                                 CallWindowProcW(
                                     Some(wnd_proc),
                                     handle,
@@ -175,7 +170,13 @@ impl WindowContext for Window {
                                     WPARAM(GetDC(handle).0 as usize),
                                     LPARAM(0),
                                 );
-                                CallWindowProcW(Some(wnd_proc), handle, WM_PAINT, WPARAM(0), LPARAM(0));
+                                CallWindowProcW(
+                                    Some(wnd_proc),
+                                    handle,
+                                    WM_PAINT,
+                                    WPARAM(0),
+                                    LPARAM(0),
+                                );
                             }
                         }
                         Ok(())
@@ -270,11 +271,11 @@ pub fn icon(path: Option<HSTRING>) -> HICON {
         } {
             Ok(hicon) => hicon,
             Err(err) => {
-                println!("{}", WinError::from(err));
+                eprintln!("{}", Error::from(err));
                 HANDLE(0)
             }
         }
-            .0
+        .0
     }));
     result
 }
