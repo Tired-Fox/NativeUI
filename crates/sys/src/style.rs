@@ -14,12 +14,10 @@ macro_rules! rgb {
 }
 pub use crate::rgb;
 
-/// Windows uses Alpha, Blue, Green, Red for the order of colors but this struct keep things
-/// as Alpha, Red, Green, Blue to make copy pasting hex values into u32 literals easier. Alpha is not
-/// moved to the end of the hex as having at the start makes it easier to make it optional. Ex: instead
-/// of writing 0x00282828 you can just write 0x282828.
-///
-/// All u32 values in constructor methods should be the format 0xAARRGGBB for alpha, red, green, and blue respectively.
+/// Store light and dark theme colors as Alpha, Red, Green, Blue u32 numbers.
+/// This allows the rust syntax of `0xAARRGGBB` for hex values. This means that `AA` can be omited as
+/// it isn't used in most cases. The `rgb!` macro can be used to pack the rgb equivalent into a
+/// single u32, `rgb!(255, 255, 255)`.
 #[derive(Debug, Clone, Copy, PartialEq, Hash, PartialOrd)]
 pub struct Background {
     light: u32,
@@ -29,20 +27,20 @@ pub struct Background {
 impl Background {
     pub fn new(light: u32, dark: u32) -> Self {
         Self {
-            light: reorder_u32(light),
-            dark: reorder_u32(dark),
+            light,
+            dark,
         }
     }
     pub fn with_light(color: u32) -> Self {
         Self {
-            light: reorder_u32(color),
+            light: color,
             ..Default::default()
         }
     }
 
     pub fn with_dark(color: u32) -> Self {
         Self {
-            dark: reorder_u32(color),
+            dark: color,
             ..Default::default()
         }
     }
@@ -75,13 +73,6 @@ impl Default for Background {
 
 impl From<u32> for Background {
     fn from(v: u32) -> Self {
-        let v = reorder_u32(v);
         Self { light: v, dark: v }
     }
-}
-
-// TODO: Needed for other platforms?
-fn reorder_u32(value: u32) -> u32 {
-    let values = u32::to_be_bytes(value);
-    u32::from_be_bytes([values[0], values[3], values[2], values[1]])
 }

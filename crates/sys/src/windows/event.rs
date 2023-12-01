@@ -12,7 +12,7 @@ use crate::event::keyboard::KeyboardEvent;
 use crate::event::mouse::MouseEvent;
 use crate::window::WindowOptions;
 use crate::style::Background;
-use crate::windows::is_dark_mode;
+use crate::windows::{is_dark_mode, swap_rb};
 
 #[derive(Default)]
 struct Handler {
@@ -74,6 +74,7 @@ pub fn run<R: IntoEventResult, F: (Fn(isize, Event) -> R) + 'static + Sync + Sen
                         }
                     }
                     WM_PAINT => {
+                        unsafe { DefWindowProcW(hwnd, message, wparam, lparam) };
                         callback(hwnd.0, Event::Repaint);
                     }
                     _ => { return false }
@@ -117,7 +118,7 @@ pub extern "system" fn wnd_proc(
                     let mut rect = RECT::default();
                     unsafe { GetClientRect(window, &mut rect).unwrap() };
 
-                    let brush = unsafe { CreateSolidBrush(COLORREF(background.color(is_dark_mode().into()))) };
+                    let brush = unsafe { CreateSolidBrush(COLORREF(swap_rb(background.color(is_dark_mode().into())))) };
                     unsafe { FillRect(HDC(wparam.0 as isize), &rect, brush) };
                     LRESULT(0)
                 },

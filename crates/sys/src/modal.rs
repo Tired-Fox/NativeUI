@@ -3,14 +3,21 @@ use std::path::PathBuf;
 
 use crate::error::Error;
 
-#[derive(Default, Debug, Clone, Copy)]
+// TODO: Add more button combinations
+#[derive(Default, Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum Buttons {
     #[default]
     Ok,
     OkCancel,
 }
 
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+pub enum Button {
+    Ok,
+    Cancel
+}
+
+#[derive(Default, Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum Icon {
     Exclamation,
     Information,
@@ -25,9 +32,36 @@ impl Dialog {
     pub fn prompt() -> Prompt {
         Prompt::default()
     }
-
     pub fn file() -> FileDialog {
         FileDialog::default()
+    }
+    pub fn color() -> ColorDialog { ColorDialog::default() }
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct ColorDialog {
+    initial_color: Option<u32>,
+}
+
+impl ColorDialog {
+    pub fn initial(mut self, initial_color: u32) -> Self {
+        self.initial_color = Some(initial_color);
+        self
+    }
+
+    pub fn show(&self) -> Result<DialogAction, Error> {
+        #[cfg(target_os = "windows")]
+        crate::windows::modal::ColorPicker::new(self.initial_color).show()
+    }
+
+    pub fn get_custom_colors() -> Vec<u32> {
+        #[cfg(target_os = "windows")]
+        crate::windows::modal::ColorPicker::get_custom_colors()
+    }
+
+    pub fn set_custom_colors(colors: Vec<u32>) {
+        #[cfg(target_os = "windows")]
+        crate::windows::modal::ColorPicker::set_custom_colors(colors)
     }
 }
 
@@ -61,50 +95,15 @@ pub struct SaveFile {
     pub options: HashSet<FileDialogOption>,
 }
 
-impl SaveFile {
-    pub fn title(mut self, title: &'static str) -> Self {
-        self.title = title;
-        self
-    }
-
-    pub fn build(self) -> Vec<String> {
-        Vec::new()
-    }
-
-    pub fn strict_file_types(mut self) -> Self {
-        self.options.insert(FileDialogOption::StrictFileTypes);
-        self
-    }
-
-    pub fn pick_folders(mut self) -> Self {
-        self.options.insert(FileDialogOption::PickFolders);
-        self
-    }
-
-    pub fn show_hidden(mut self) -> Self {
-        self.options.insert(FileDialogOption::ForceShowHidden);
-        self
-    }
-
-    pub fn directory(mut self, directory: &'static str) -> Self {
-        self.directory = Some(directory);
-        self
-    }
-
-    pub fn filters(mut self, filters: Vec<(&'static str, &'static str)>) -> Self {
-        self.filters = Some(filters);
-        self
-    }
-}
-
 pub trait ToPath {
     fn to_path(&self) -> PathBuf;
 }
 
 #[derive(Debug, Clone)]
-pub enum FileDialogAction {
+pub enum DialogAction {
     File(PathBuf),
     Files(Vec<PathBuf>),
+    Color(u32),
     Canceled,
 }
 
@@ -116,7 +115,7 @@ pub struct FileDialog {
     pub filename: Option<&'static str>,
     pub default_extension: Option<&'static str>,
     pub default_folder: Option<&'static str>,
-    pub folder: Option<&'static str>,
+    pub directory: Option<&'static str>,
     pub options: HashSet<FileDialogOption>,
 }
 
@@ -129,7 +128,7 @@ impl Default for FileDialog {
             filename: None,
             default_extension: None,
             default_folder: None,
-            folder: None,
+            directory: None,
             options: HashSet::new(),
         }
     }
@@ -138,11 +137,6 @@ impl Default for FileDialog {
 impl FileDialog {
     pub fn title(mut self, title: &'static str) -> Self {
         self.title = Some(title);
-        self
-    }
-
-    pub fn pick_folders(mut self) -> Self {
-        self.options.insert(FileDialogOption::PickFolders);
         self
     }
 
@@ -156,8 +150,8 @@ impl FileDialog {
         self
     }
 
-    pub fn folder(mut self, directory: &'static str) -> Self {
-        self.folder = Some(directory);
+    pub fn directory(mut self, directory: &'static str) -> Self {
+        self.directory = Some(directory);
         self
     }
 
@@ -190,14 +184,19 @@ impl FileDialog {
         self
     }
 
-    pub fn open(&self) -> Result<FileDialogAction, Error> {
+    pub fn open_file(&self) -> Result<DialogAction, Error> {
         #[cfg(target_os = "windows")]
-        crate::windows::modal::FileOpenDialog::new(&self)?.open()
+        crate::windows::modal::CommonFileDialog::new(&self)?.pick_file()
     }
 
-    pub fn save(&self) -> Result<FileDialogAction, Error> {
+    pub fn save_file(&self) -> Result<DialogAction, Error> {
         #[cfg(target_os = "windows")]
-        crate::windows::modal::FileSaveDialog::new(&self)?.save()
+        crate::windows::modal::CommonFileDialog::new(&self)?.save_file()
+    }
+
+    pub fn open_folder(&self) -> Result<DialogAction, Error> {
+        #[cfg(target_os = "windows")]
+        crate::windows::modal::CommonFileDialog::new(&self)?.pick_folder()
     }
 }
 
@@ -230,15 +229,15 @@ impl Prompt {
         self
     }
 
-    pub fn run(&self) -> bool {
+    pub fn show(&self) -> Result<Button, Error> {
         #[cfg(target_os = "windows")]
         {
-            crate::windows::modal::MsgBox::new(self).show().unwrap()
+            crate::windows::modal::MsgBox::new(self).show()
         }
         // TODO: Linux and MacOS support
         #[cfg(not(target_os = "windows"))]
         {
-            false
+            Err(Error { code: -1, message: "Not implemented".into() })
         }
     }
 }
