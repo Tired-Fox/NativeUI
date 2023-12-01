@@ -23,12 +23,12 @@ fn main() {
 
     let file_picker = Dialog::file()
         .title("Cypress")
-        .multi_select()
-        .filter("All Files", ["*"])
-        .filter("Text Files", ["txt"])
-        .filter_index(2)
-        .filename("test")
-        .default_extension("txt");
+        .filters(2, &[
+            ("All Files", &["*"]),
+            ("Text Files", &["*.txt"]),
+        ])
+        .multiple()
+        .filename("test", "txt");
 
     let prompt = Dialog::prompt()
         .title("Cypress")
@@ -41,10 +41,10 @@ fn main() {
     run(move |id, event| -> bool {
         match event {
             Event::Close => {
-                return prompt.show().unwrap_or(Button::Cancel) == Button::Ok;
+                return prompt.show() == Button::Ok;
             }
             // Keydown events
-            Event::Input(InputEvent::Keyboard(KeyboardEvent::KeyDown(v))) => match v {
+            Event::Input(InputEvent::Keyboard(KeyboardEvent::KeyDown(key))) => match key {
                 Key::Virtual(VirtualKey::Escape) => {
                     close(id);
                 }

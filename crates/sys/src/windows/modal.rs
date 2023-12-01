@@ -4,13 +4,16 @@ use std::path::PathBuf;
 use std::ptr::null_mut;
 use std::sync::{Arc, Mutex};
 
-use windows::core::{GUID, HSTRING, w};
+use windows::core::{w, GUID, HSTRING};
 use windows::Win32::Foundation::{COLORREF, ERROR_CANCELLED, HWND, LPARAM};
 use windows::Win32::System::Com::{
     CoCreateInstance, CoInitialize, CoUninitialize, CLSCTX_ALL, CLSCTX_INPROC_SERVER,
 };
 use windows::Win32::System::Diagnostics::Debug::FACILITY_WIN32;
-use windows::Win32::UI::Controls::Dialogs::{ChooseColorW, CommDlgExtendedError, CC_ANYCOLOR, CC_PREVENTFULLOPEN, CC_FULLOPEN, CC_RGBINIT, CHOOSECOLORW, CHOOSECOLOR_FLAGS, COMMON_DLG_ERRORS, CDERR_GENERALCODES};
+use windows::Win32::UI::Controls::Dialogs::{
+    ChooseColorW, CommDlgExtendedError, CC_ANYCOLOR, CC_FULLOPEN, CC_PREVENTFULLOPEN, CC_RGBINIT,
+    CDERR_GENERALCODES, CHOOSECOLORW, CHOOSECOLOR_FLAGS, COMMON_DLG_ERRORS,
+};
 use windows::Win32::UI::Shell::Common::COMDLG_FILTERSPEC;
 use windows::Win32::UI::Shell::{
     IFileOpenDialog, IFileSaveDialog, IShellItem, FILEOPENDIALOGOPTIONS, FOS_ALLOWMULTISELECT,
@@ -26,7 +29,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 
 use crate::error::Error;
 use crate::modal::{
-    Button, Buttons, FileDialog, DialogAction, FileDialogOption, Icon, Prompt, ToPath,
+    Button, Buttons, DialogAction, FileDialog, FileDialogOption, Icon, Prompt, ToPath,
 };
 use crate::windows::{swap_rb, IntoPCWSTR};
 
@@ -180,177 +183,334 @@ impl<'a> MsgBox<'a> {
     }
 }
 
+enum IFileDialog {
+    Open(IFileOpenDialog),
+    Save(IFileSaveDialog),
+}
+
+impl IFileDialog {
+    fn open() -> Result<Self, Error> {
+        Ok(IFileDialog::Open(unsafe {
+            CoCreateInstance(&CLSID_FILEOPENDIALOG, None, CLSCTX_INPROC_SERVER)?
+        }))
+    }
+
+    fn save() -> Result<Self, Error> {
+        Ok(IFileDialog::Save(unsafe {
+            CoCreateInstance(&CLSID_FILESAVEDIALOG, None, CLSCTX_INPROC_SERVER)?
+        }))
+    }
+
+    fn set_options(
+        &self,
+        add: Option<FILEOPENDIALOGOPTIONS>,
+        remove: Option<FILEOPENDIALOGOPTIONS>,
+    ) -> Result<(), Error> {
+        let (get, set): (Box<dyn Fn() -> windows::core::Result<FILEOPENDIALOGOPTIONS>>, Box<dyn Fn(FILEOPENDIALOGOPTIONS) -> windows::core::Result<()>>)
+            = match self {
+                IFileDialog::Open(dialog) => (
+                    Box::new(|| unsafe { dialog.GetOptions() }),
+                    Box::new(|options: FILEOPENDIALOGOPTIONS| unsafe {
+                        dialog.SetOptions(options)
+                    }),
+                ),
+                IFileDialog::Save(dialog) => (
+                    Box::new(|| unsafe { dialog.GetOptions() }),
+                    Box::new(|options: FILEOPENDIALOGOPTIONS| unsafe {
+                        dialog.SetOptions(options)
+                    }),
+                ),
+            };
+
+        let mut options = get()?;
+        if let Some(add) = add {
+            options |= add
+        }
+        if let Some(remove) = remove {
+            options &= !remove
+        }
+        set(options)?;
+        Ok(())
+    }
+
+    fn set_file_types(&self, filters: &[(HSTRING, HSTRING)]) -> Result<(), Error> {
+        let filters: Vec<COMDLG_FILTERSPEC> = filters
+            .iter()
+            .map(|(k, v)| COMDLG_FILTERSPEC {
+                pszName: k.as_pcwstr(),
+                pszSpec: v.as_pcwstr(),
+            })
+            .collect();
+
+        match self {
+            IFileDialog::Open(dialog) => {
+                unsafe {
+                    e!(dialog.SetFileTypes(&filters.as_slice()))
+                }
+            },
+            IFileDialog::Save(dialog) => {
+                unsafe {
+                    e!(dialog.SetFileTypes(&filters.as_slice()))
+                }
+            },
+        }
+    }
+
+    fn set_title(&self, title: &str) -> Result<(), Error> {
+        match self {
+            IFileDialog::Open(dialog) => {
+                unsafe {
+                    e!(dialog.SetTitle(HSTRING::from(title).as_pcwstr()))
+                }
+            },
+            IFileDialog::Save(dialog) => {
+                unsafe {
+                    e!(dialog.SetTitle(HSTRING::from(title).as_pcwstr()))
+                }
+            },
+        }
+    }
+
+    fn set_folder(&self, path: &str) -> Result<(), Error> {
+        match self {
+            IFileDialog::Open(dialog) => {
+                unsafe {
+                    e!(dialog.SetFolder(&shell_item!(path)?))
+                }
+            },
+            IFileDialog::Save(dialog) => {
+                unsafe {
+                    e!(dialog.SetFolder(&shell_item!(path)?))
+                }
+            },
+        }
+    }
+
+    fn set_default_folder(&self, path: &str) -> Result<(), Error> {
+        match self {
+            IFileDialog::Open(dialog) => {
+                unsafe {
+                    e!(dialog.SetDefaultFolder(&shell_item!(path)?))
+                }
+            },
+            IFileDialog::Save(dialog) => {
+                unsafe {
+                    e!(dialog.SetDefaultFolder(&shell_item!(path)?))
+                }
+            },
+        }
+    }
+
+    fn set_filename(&self, name: &str) -> Result<(), Error> {
+        match self {
+            IFileDialog::Open(dialog) => {
+                unsafe {
+                    e!(dialog.SetFileName(HSTRING::from(name).as_pcwstr()))
+                }
+            },
+            IFileDialog::Save(dialog) => {
+                unsafe {
+                    e!(dialog.SetFileName(HSTRING::from(name).as_pcwstr()))
+                }
+            },
+        }
+    }
+
+    fn set_default_extension(&self, extension: &str) -> Result<(), Error> {
+        match self {
+            IFileDialog::Open(dialog) => {
+                unsafe {
+                    e!(dialog.SetDefaultExtension(HSTRING::from(extension).as_pcwstr()))
+                }
+            },
+            IFileDialog::Save(dialog) => {
+                unsafe {
+                    e!(dialog.SetDefaultExtension(HSTRING::from(extension).as_pcwstr()))
+                }
+            },
+        }
+    }
+
+    fn set_file_type_index(&self, index: u32) -> Result<(), Error> {
+        match self {
+            IFileDialog::Open(dialog) => {
+                unsafe {
+                    e!(dialog.SetFileTypeIndex(index))
+                }
+            },
+            IFileDialog::Save(dialog) => {
+                unsafe {
+                    e!(dialog.SetFileTypeIndex(index))
+                }
+            },
+        }
+    }
+
+    fn get_result(&self) -> Result<PathBuf, Error> {
+        match self {
+            IFileDialog::Open(dialog) => {
+                unsafe {
+                    Ok(e!(dialog.GetResult())?.to_path())
+                }
+            },
+            IFileDialog::Save(dialog) => {
+                unsafe {
+                    Ok(e!(dialog.GetResult())?.to_path())
+                }
+            },
+        }
+    }
+
+    fn get_results(&self) -> Result<DialogAction, Error> {
+        match self {
+            IFileDialog::Open(dialog) => {
+                unsafe {
+                    let shell_items = e!(dialog.GetResults())?;
+                    let capacity = unsafe { e!(shell_items.GetCount())? };
+                    let mut paths = Vec::with_capacity(capacity as usize);
+                    for i in 0..capacity {
+                        paths.push(unsafe { e!(shell_items.GetItemAt(i))?.to_path() });
+                    }
+                    Ok(DialogAction::Files(paths))
+                }
+            },
+            IFileDialog::Save(dialog) => {
+                unsafe {
+                    Ok(DialogAction::File(e!(dialog.GetResult())?.to_path()))
+                }
+            },
+        }
+    }
+
+    fn show(&self, parent: isize) -> Result<DialogAction, Error> {
+        match self {
+            IFileDialog::Open(dialog) => {
+                unsafe {
+                    match dialog.Show(HWND(parent)) {
+                        Ok(_) => self.get_results(),
+                        Err(e) => {
+                            if e.code() == hresult_from_win!(ERROR_CANCELLED) {
+                                Ok(DialogAction::Canceled)
+                            } else {
+                                Err(Error::from(e))
+                            }
+                        },
+                    }
+                }
+            },
+            IFileDialog::Save(dialog) => {
+                unsafe {
+                    match dialog.Show(HWND(parent)) {
+                        Ok(_) => self.get_results(),
+                        Err(e) => {
+                            if e.code() == hresult_from_win!(ERROR_CANCELLED) {
+                                Ok(DialogAction::Canceled)
+                            } else {
+                                Err(Error::from(e))
+                            }
+                        },
+                    }
+                }
+            }
+        }
+    }
+}
+
 pub struct CommonFileDialog<'a> {
     context: &'a FileDialog,
     filters: Vec<(HSTRING, HSTRING)>,
-    dialog: IFileOpenDialog,
+}
+
+impl From<&FileDialog> for FILEOPENDIALOGOPTIONS {
+    fn from(v: &FileDialog) -> Self {
+        v.options.iter().fold(FILEOPENDIALOGOPTIONS(0), |acc, v| {
+            acc | (*v).into()
+        })
+    }
 }
 
 /// [Win32 Example](https://github.com/microsoft/Windows-classic-samples/blob/main/Samples/Win7Samples/winui/shell/appplatform/commonfiledialog/CommonFileDialogApp.cpp)
 impl<'a> CommonFileDialog<'a> {
-    pub fn new(context: &'a FileDialog) -> Result<Self, Error> {
-        let dialog: ::windows::core::Result<IFileOpenDialog> =
-            unsafe { CoCreateInstance(&CLSID_FILEOPENDIALOG, None, CLSCTX_INPROC_SERVER) };
-
-        match dialog {
-            Ok(dialog) => Ok(Self {
-                context,
-                // Filter strings need to have a static memory location while the dialog is open
-                // so create the HSTRINGS here so they live longer than the modal.
-                filters: context
-                    .filters
-                    .iter()
-                    .map(|(k, v)| {
-                        (
-                            HSTRING::from(*k),
-                            HSTRING::from(
-                                v.iter()
-                                    .map(|v| format!("*.{}", v))
-                                    .collect::<Vec<String>>()
-                                    .join(";"),
-                            ),
-                        )
-                    })
-                    .collect(),
-                dialog: dialog,
-            }),
-            Err(e) => Err(e.into()),
-        }
-    }
-
-    fn set_options(&self, add: Option<FILEOPENDIALOGOPTIONS>, remove: Option<FILEOPENDIALOGOPTIONS>) -> Result<(), Error> {
-        let mut options = unsafe { e!(self.dialog.GetOptions())? };
-        options |= self
-            .context
-            .options
-            .iter()
-            .fold(FILEOPENDIALOGOPTIONS(0), |acc, v| acc | (*v).into());
-        if let Some(add) = add {
-            options |= add;
-        }
-        if let Some(remove) = remove {
-            options &= !remove;
-        }
-        unsafe { e!(self.dialog.SetOptions(options))? };
-        Ok(())
-    }
-
-    fn set_filters(&self) -> Result<(), Error> {
-        if !self.context.filters.is_empty() {
-            let filters: Vec<COMDLG_FILTERSPEC> = self
+    pub fn new(context: &'a FileDialog) -> Self {
+        Self {
+            context,
+            // Filter strings need to have a static memory location while the dialog is open
+            // so create the HSTRINGS here so they live longer than the modal.
+            filters: context
                 .filters
                 .iter()
-                .map(|(k, v)| COMDLG_FILTERSPEC {
-                    pszName: k.as_pcwstr(),
-                    pszSpec: v.as_pcwstr(),
+                .map(|(k, v)| {
+                    (
+                        HSTRING::from(*k),
+                        HSTRING::from(
+                            v.iter()
+                                .map(|v| format!("*.{}", v))
+                                .collect::<Vec<String>>()
+                                .join(";"),
+                        ),
+                    )
                 })
-                .collect();
-            unsafe { e!(self.dialog.SetFileTypes(&filters.as_slice()))? };
-        }
-        Ok(())
-    }
-
-    pub fn set_title(&self) -> Result<(), Error> {
-        if let Some(title) = self.context.title {
-            unsafe { e!(self.dialog.SetTitle(HSTRING::from(title).as_pcwstr()))? };
-        }
-        Ok(())
-    }
-
-    pub fn get_result(&self, save: bool) -> Result<DialogAction, Error> {
-        if save || self
-            .context
-            .options
-            .contains(&FileDialogOption::AllowMultiSelect)
-        {
-            let mut values: Vec<_> = Vec::new();
-            for i in 0..unsafe { e!(e!(self.dialog.GetResults())?.GetCount())? } {
-                values.push(unsafe { e!(e!(self.dialog.GetResults())?.GetItemAt(i))?.to_path() });
-            }
-            Ok(DialogAction::Files(values))
-        } else {
-            Ok(DialogAction::File(unsafe {
-                e!(e!(self.dialog.GetResults())?.GetItemAt(0))?.to_path()
-            }))
+                .collect(),
         }
     }
 
-    pub fn set_start_directory(&self) -> Result<(), Error> {
+    fn set_start_directory(&self, dialog: &IFileDialog) -> Result<(), Error> {
         if let Some(folder) = self.context.directory {
-            unsafe { e!(self.dialog.SetFolder(&shell_item!(folder)?))? };
+            dialog.set_folder(folder)?;
         } else if let Some(folder) = self.context.default_folder {
-            unsafe { e!(self.dialog.SetDefaultFolder(&shell_item!(folder)?))? };
+            dialog.set_default_folder(folder)?;
         }
         Ok(())
     }
 
-    pub fn pick_folder(&self) -> Result<DialogAction, Error> {
-        self.set_options(Some(FOS_PICKFOLDERS), None)?;
-        self.set_title()?;
-        self.set_start_directory()?;
-
-        match unsafe { self.dialog.Show(None) } {
-            Ok(_) => self.get_result(false),
-            Err(e) => {
-                if e.code() == hresult_from_win!(ERROR_CANCELLED) {
-                    Ok(DialogAction::Canceled)
-                } else {
-                    Err(e.into())
-                }
-            }
+    fn set_filename_extension(&self, dialog: &IFileDialog, filename: Option<&str>, extension: Option<&str>) -> Result<(), Error> {
+        if let Some(filename) = filename {
+            dialog.set_filename(filename)?;
         }
+        if let Some(extension) = extension {
+            dialog.set_default_extension(extension)?;
+        }
+        Ok(())
     }
 
-    pub fn pick_file(&self) -> Result<DialogAction, Error> {
-        self.set_options(None, None)?;
-        self.set_filters()?;
-        self.set_title()?;
-        self.set_start_directory()?;
-        unsafe { e!(self.dialog.SetFileTypeIndex(self.context.filter_index))? };
-
-        match unsafe { self.dialog.Show(None) } {
-            Ok(_) => self.get_result(false),
-            Err(e) => {
-                if e.code() == hresult_from_win!(ERROR_CANCELLED) {
-                    Ok(DialogAction::Canceled)
-                } else {
-                    Err(e.into())
-                }
-            }
+    pub fn pick_file(&self, parent: isize) -> Result<DialogAction, Error> {
+        let dialog = IFileDialog::open()?;
+        dialog.set_options(Some(self.context.into()), None)?;
+        dialog.set_file_types(self.filters.as_slice())?;
+        if let Some(title) = self.context.title {
+            dialog.set_title(title)?;
         }
+
+        self.set_start_directory(&dialog)?;
+        dialog.set_file_type_index(self.context.filter_index)?;
+
+        dialog.show(parent)
     }
 
-    pub fn save_file(&self) -> Result<DialogAction, Error> {
-        self.set_options(None, Some(FOS_ALLOWMULTISELECT))?;
-        self.set_filters()?;
-        self.set_title()?;
-        self.set_start_directory()?;
-
-        if let Some(filename) = self.context.filename {
-            unsafe { e!(self.dialog.SetFileName(HSTRING::from(filename).as_pcwstr()))? };
+    pub fn save_file(&self, parent: isize) -> Result<DialogAction, Error> {
+        let dialog = IFileDialog::save()?;
+        dialog.set_options(Some(self.context.into()), Some(FOS_ALLOWMULTISELECT))?;
+        dialog.set_file_types(self.filters.as_slice())?;
+        if let Some(title) = self.context.title {
+            dialog.set_title(title)?;
         }
 
-        if let Some(default_extension) = self.context.default_extension {
-            unsafe {
-                e!(self
-                    .dialog
-                    .SetDefaultExtension(HSTRING::from(default_extension).as_pcwstr()))?
-            };
+        self.set_filename_extension(&dialog, self.context.filename, self.context.default_extension)?;
+        self.set_start_directory(&dialog)?;
+        dialog.set_file_type_index(self.context.filter_index)?;
+
+        dialog.show(parent)
+    }
+
+    pub fn pick_folder(&self, parent: isize) -> Result<DialogAction, Error> {
+        let dialog = IFileDialog::open()?;
+        dialog.set_options(Some(FILEOPENDIALOGOPTIONS::from(self.context) | FOS_PICKFOLDERS), None)?;
+        if let Some(title) = self.context.title {
+            dialog.set_title(title)?;
         }
 
-        unsafe { e!(self.dialog.SetFileTypeIndex(self.context.filter_index))? };
-
-        let result = match unsafe { self.dialog.Show(None) } {
-            Ok(_) => self.get_result(true),
-            Err(e) => {
-                if e.code() == hresult_from_win!(ERROR_CANCELLED) {
-                    Ok(DialogAction::Canceled)
-                } else {
-                    Err(e.into())
-                }
-            }
-        };
-        result
+        self.set_start_directory(&dialog)?;
+        dialog.show(parent)
     }
 }
 
@@ -363,7 +523,11 @@ pub struct ColorPicker {
 impl ColorPicker {
     pub fn get_custom_colors() -> Vec<u32> {
         CUSTOM_COLORS.with(|global_colors| {
-            global_colors.borrow().iter().map(|v| swap_rb(v.0)).collect()
+            global_colors
+                .borrow()
+                .iter()
+                .map(|v| swap_rb(v.0))
+                .collect()
         })
     }
 
@@ -395,7 +559,9 @@ impl ColorPicker {
                     Flags: self
                         .initial_color
                         .map_or(CHOOSECOLOR_FLAGS(0), |_| CC_RGBINIT)
-                        | CC_FULLOPEN | CC_PREVENTFULLOPEN | CC_ANYCOLOR,
+                        | CC_FULLOPEN
+                        | CC_PREVENTFULLOPEN
+                        | CC_ANYCOLOR,
                     lpCustColors: custom_colors.get_mut(0).unwrap(),
 
                     ..Default::default()

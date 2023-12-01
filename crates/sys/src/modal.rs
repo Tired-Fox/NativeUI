@@ -44,21 +44,25 @@ pub struct ColorDialog {
 }
 
 impl ColorDialog {
+    /// Set the initial color on dialog open
     pub fn initial(mut self, initial_color: u32) -> Self {
         self.initial_color = Some(initial_color);
         self
     }
 
+    /// Show the color dialog
     pub fn show(&self) -> Result<DialogAction, Error> {
         #[cfg(target_os = "windows")]
         crate::windows::modal::ColorPicker::new(self.initial_color).show()
     }
 
+    /// Get the current custom colors set by the user
     pub fn get_custom_colors() -> Vec<u32> {
         #[cfg(target_os = "windows")]
         crate::windows::modal::ColorPicker::get_custom_colors()
     }
 
+    /// Set the current custom colors for the dialog
     pub fn set_custom_colors(colors: Vec<u32>) {
         #[cfg(target_os = "windows")]
         crate::windows::modal::ColorPicker::set_custom_colors(colors)
@@ -101,8 +105,8 @@ pub trait ToPath {
 
 #[derive(Debug, Clone)]
 pub enum DialogAction {
-    File(PathBuf),
     Files(Vec<PathBuf>),
+    File(PathBuf),
     Color(u32),
     Canceled,
 }
@@ -135,68 +139,87 @@ impl Default for FileDialog {
 }
 
 impl FileDialog {
+    /// Set the title of the dialog window
     pub fn title(mut self, title: &'static str) -> Self {
         self.title = Some(title);
         self
     }
 
-    pub fn multi_select(mut self) -> Self {
+    /// When the file dialog opens allow the user to select multiple options
+    pub fn multiple(mut self) -> Self {
         self.options.insert(FileDialogOption::AllowMultiSelect);
         self
     }
 
+    /// Show hidden files and folders
     pub fn show_hidden(mut self) -> Self {
         self.options.insert(FileDialogOption::ForceShowHidden);
         self
     }
 
+    /// Set the starting directory the dialog opens in
     pub fn directory(mut self, directory: &'static str) -> Self {
         self.directory = Some(directory);
         self
     }
 
-    pub fn filename(mut self, filename: &'static str) -> Self {
+    /// Set the filename and the default extension for when the dialog opens
+    pub fn filename(mut self, filename: &'static str, extension: &'static str) -> Self {
         self.filename = Some(filename);
-        self
-    }
-
-    pub fn default_extension(mut self, extension: &'static str) -> Self {
         self.default_extension = Some(extension);
         self
     }
 
+    /// Set the default starting directory, this will change as the user opens new dialogs
     pub fn default_folder(mut self, directory: &'static str) -> Self {
         self.default_folder = Some(directory);
         self
     }
 
-    pub fn filter<const SIZE: usize>(
-        mut self,
-        name: &'static str,
-        extensions: [&'static str; SIZE],
-    ) -> Self {
-        self.filters.push((name, Vec::from(extensions)));
+    /// Set the file type filters.
+    ///
+    /// First is the index of the filter to use by default starting from one. Second is a list of filter name to extension patterns tuples.
+    /// On windows this will combine the patterns into a single string. Ex: `("Images", ["*.png", "*.jpg"])` will become `Images (*.png;*.jpg)`
+    pub fn filters(mut self, index: u32, filters: &[(&'static str, &[&'static str])]) -> Self {
+        self.filters.extend(filters.iter().map(|(name, extensions)| (*name, Vec::from(*extensions))));
+        self.filter_index = index;
         self
     }
 
-    pub fn filter_index(mut self, filter_index: u32) -> Self {
-        self.filter_index = filter_index;
-        self
-    }
-
+    /// Take the current options and create an open file dialog
     pub fn open_file(&self) -> Result<DialogAction, Error> {
         #[cfg(target_os = "windows")]
-        crate::windows::modal::CommonFileDialog::new(&self)?.pick_file()
+        crate::windows::modal::CommonFileDialog::new(&self).pick_file(0)
     }
 
+    /// Take the current options and create a save file dialog
     pub fn save_file(&self) -> Result<DialogAction, Error> {
         #[cfg(target_os = "windows")]
-        crate::windows::modal::CommonFileDialog::new(&self)?.save_file()
+        crate::windows::modal::CommonFileDialog::new(&self).save_file(0)
     }
 
+    /// Take the current options and create an open folder dialog
     pub fn open_folder(&self) -> Result<DialogAction, Error> {
         #[cfg(target_os = "windows")]
-        crate::windows::modal::CommonFileDialog::new(&self)?.pick_folder()
+        crate::windows::modal::CommonFileDialog::new(&self).pick_folder(0)
+    }
+
+    /// Take the current options and create an open file dialog
+    pub fn open_file_with(&self, parent: isize) -> Result<DialogAction, Error> {
+        #[cfg(target_os = "windows")]
+        crate::windows::modal::CommonFileDialog::new(&self).pick_file(parent)
+    }
+
+    /// Take the current options and create a save file dialog
+    pub fn save_file_with(&self, parent: isize) -> Result<DialogAction, Error> {
+        #[cfg(target_os = "windows")]
+        crate::windows::modal::CommonFileDialog::new(&self).save_file(parent)
+    }
+
+    /// Take the current options and create an open folder dialog
+    pub fn open_folder_with(&self, parent: isize) -> Result<DialogAction, Error> {
+        #[cfg(target_os = "windows")]
+        crate::windows::modal::CommonFileDialog::new(&self).pick_folder(parent)
     }
 }
 
@@ -209,35 +232,40 @@ pub struct Prompt {
 }
 
 impl Prompt {
+    /// Set the button combination displayed on the dialog
     pub fn buttons(mut self, buttons: Buttons) -> Self {
         self.buttons = buttons;
         self
     }
 
+    /// Set the icon that is used on the dialog
     pub fn icon(mut self, icon: Icon) -> Self {
         self.icon = icon;
         self
     }
 
+    /// Set the dialog title
     pub fn title(mut self, title: &'static str) -> Self {
         self.title = title;
         self
     }
 
+    /// Set the dialog message
     pub fn message(mut self, message: &'static str) -> Self {
         self.message = message;
         self
     }
 
-    pub fn show(&self) -> Result<Button, Error> {
+    /// Show the dialog
+    pub fn show(&self) -> Button {
         #[cfg(target_os = "windows")]
         {
-            crate::windows::modal::MsgBox::new(self).show()
+            crate::windows::modal::MsgBox::new(self).show().unwrap_or(Button::Cancel)
         }
         // TODO: Linux and MacOS support
         #[cfg(not(target_os = "windows"))]
         {
-            Err(Error { code: -1, message: "Not implemented".into() })
+            Button::Cancel
         }
     }
 }
