@@ -17,7 +17,6 @@ thread_local! {
 
 #[derive(Default, Debug, Clone)]
 pub struct ColorPicker {
-    expanded: bool,
     initial_color: Option<u32>,
 }
 

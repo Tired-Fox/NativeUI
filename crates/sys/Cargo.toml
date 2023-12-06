@@ -9,6 +9,8 @@ edition = "2021"
 lazy_static = "1.4.0"
 uuid = { version = "1.5.0", features = ["v8", "v4"] }
 clap = { version = "4.4.8", features = ["derive"] }
+homedir = "0.2.1"
+regex = "1.10.2"
 
 [dependencies.windows]
 version = "0.51.1"

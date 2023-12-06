@@ -75,25 +75,20 @@ pub trait IntoEvent {
 pub fn close(id: isize) {
     #[cfg(target_os = "windows")]
     unsafe {
+        use crate::windows::event::wnd_proc;
         use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
-        use crate::windows::event::{wnd_proc};
         use windows::Win32::UI::WindowsAndMessaging::{CallWindowProcW, WM_CLOSE};
 
-        CallWindowProcW(
-            Some(wnd_proc),
-            HWND(id),
-            WM_CLOSE,
-            WPARAM(0),
-            LPARAM(0),
-        );
+        CallWindowProcW(Some(wnd_proc), HWND(id), WM_CLOSE, WPARAM(0), LPARAM(0));
     }
 }
 
-pub fn quit() {
+pub fn quit(code: i32) {
     #[cfg(target_os = "windows")]
     unsafe {
         ::windows::Win32::UI::WindowsAndMessaging::PostQuitMessage(0);
     }
+    std::process::exit(code);
 }
 
 pub fn run<R: IntoEventResult, F: Fn(isize, Event) -> R + 'static + Sync + Send>(callback: F) {

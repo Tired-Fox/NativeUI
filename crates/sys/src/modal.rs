@@ -29,11 +29,11 @@ pub enum Icon {
 
 #[derive(Default, Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum FontWeight {
-    #[default]
     Any = 0,
     Thin = 100,
     ExtraLight = 200,
     Light = 300,
+    #[default]
     Regular = 400,
     Medium = 500,
     SemiBold = 600,
@@ -68,6 +68,11 @@ impl ColorDialog {
     pub fn initial(mut self, initial_color: u32) -> Self {
         self.initial_color = Some(initial_color);
         self
+    }
+
+    pub fn show_with(&self, parent: isize) -> Result<DialogAction, Error> {
+        #[cfg(target_os = "windows")]
+        crate::windows::modal::ColorPicker::new(self.initial_color).show_with(parent)
     }
 
     /// Show the color dialog
@@ -192,9 +197,14 @@ impl FileDialog {
     }
 
     /// Set the filename and the default extension for when the dialog opens
-    pub fn filename(mut self, filename: &'static str, extension: &'static str) -> Self {
-        self.filename = Some(filename);
-        self.default_extension = Some(extension);
+    pub fn filename(mut self, filename: &'static str) -> Self {
+        match PathBuf::from(filename).extension() {
+            Some(ext) => {
+                self.default_extension = Some(&filename[(filename.len() - ext.len())..]);
+                self.filename = Some(&filename[0..(filename.len() - ext.len()) - 1]);
+            }
+            None => self.filename = Some(filename),
+        }
         self
     }
 
@@ -343,15 +353,18 @@ impl Font {
         self
     }
 
-    pub fn show(&self) -> Result<DialogAction, Error> {
+    pub fn show_with(&self, parent: isize) -> Result<DialogAction, Error> {
         #[cfg(target_os = "windows")]
         crate::windows::modal::FontDialog {
-            point_size: self.size * 10,
+            point_size: self.size,
             weight: self.weight,
             italic: self.italic,
             underline: self.underline,
             strikethrough: self.strikethrough,
         }
-        .show()
+        .show(parent)
+    }
+    pub fn show(&self) -> Result<DialogAction, Error> {
+        self.show_with(0)
     }
 }

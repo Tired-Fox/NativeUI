@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use windows::core::HSTRING;
 use windows::Win32::Foundation::{ERROR_CANCELLED, HWND};
 use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_INPROC_SERVER};
@@ -136,17 +134,17 @@ impl IFileDialog {
         }
     }
 
-    fn get_result(&self) -> Result<PathBuf, Error> {
-        match self {
-            IFileDialog::Open(dialog) => unsafe { Ok(e!(dialog.GetResult())?.to_path()) },
-            IFileDialog::Save(dialog) => unsafe { Ok(e!(dialog.GetResult())?.to_path()) },
-        }
-    }
+    // fn get_result(&self) -> Result<PathBuf, Error> {
+    //     match self {
+    //         IFileDialog::Open(dialog) => unsafe { Ok(e!(dialog.GetResult())?.to_path()) },
+    //         IFileDialog::Save(dialog) => unsafe { Ok(e!(dialog.GetResult())?.to_path()) },
+    //     }
+    // }
 
     fn get_results(&self) -> Result<DialogAction, Error> {
         match self {
-            IFileDialog::Open(dialog) => unsafe {
-                let shell_items = e!(dialog.GetResults())?;
+            IFileDialog::Open(dialog) =>  {
+                let shell_items = unsafe { e!(dialog.GetResults())? };
                 let capacity = unsafe { e!(shell_items.GetCount())? };
                 let mut paths = Vec::with_capacity(capacity as usize);
                 for i in 0..capacity {

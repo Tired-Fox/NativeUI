@@ -1,25 +1,31 @@
 use std::ffi::c_void;
+use std::sync::Mutex;
 
 use windows::core::HSTRING;
 use windows::Foundation::{EventRegistrationToken, TypedEventHandler};
-use windows::UI::ViewManagement::UISettings;
 use windows::Win32::Foundation::{BOOL, HANDLE, HMODULE, HWND, LPARAM, WPARAM};
 use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWINDOWATTRIBUTE};
-use windows::Win32::Graphics::Gdi::{GetDC, UpdateWindow};
+use windows::Win32::Graphics::Gdi::GetDC;
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::WindowsAndMessaging::{
-    CallWindowProcW, CloseWindow, CreateWindowExW, CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT,
-    HICON, IDC_ARROW, IMAGE_ICON, LoadCursorW, LoadImageW, LR_DEFAULTSIZE, LR_LOADFROMFILE,
-    LR_LOADTRANSPARENT, LR_SHARED, RegisterClassW, ShowWindow, SW_HIDE, SW_MAXIMIZE,
+    CallWindowProcW, CloseWindow, CreateWindowExW, LoadCursorW, LoadImageW, RegisterClassW,
+    ShowWindow, CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT, HICON, IDC_ARROW, IMAGE_ICON,
+    LR_DEFAULTSIZE, LR_LOADFROMFILE, LR_LOADTRANSPARENT, LR_SHARED, SW_HIDE, SW_MAXIMIZE,
     SW_MINIMIZE, SW_RESTORE, SW_SHOWNORMAL, WINDOW_EX_STYLE, WM_ERASEBKGND, WM_PAINT, WNDCLASSW,
     WS_OVERLAPPEDWINDOW,
 };
+use windows::UI::ViewManagement::UISettings;
 
+use crate::e;
 use crate::error::Error;
 use crate::style::{Background, Theme};
 use crate::window::{WindowBuilder, WindowContext, WindowOptions};
 
-use super::{event::wnd_proc, IntoPCWSTR, is_dark_mode, UI_SETTINGS};
+use super::{event::wnd_proc, is_dark_mode, IntoPCWSTR, UI_SETTINGS};
+
+thread_local! {
+    static WINDOWS: Mutex<Vec<Window>> = Mutex::new(Vec::new())
+}
 
 macro_rules! boxed_unwrap {
     ($e:expr) => {
@@ -35,7 +41,7 @@ pub struct Builder {
     options: WindowOptions,
 }
 
-impl WindowBuilder<Window> for Builder {
+impl WindowBuilder for Builder {
     fn new() -> Self {
         Builder {
             options: WindowOptions::default(),
@@ -66,11 +72,11 @@ impl WindowBuilder<Window> for Builder {
         self
     }
 
-    fn create(self) -> Result<Box<Window>, Error> {
-        Ok(boxed_unwrap!(Window::create(self.options)))
+    fn create(self) -> Result<isize, Error> {
+        Window::create(self.options)
     }
 
-    fn show(mut self) -> Result<Box<Window>, Error> {
+    fn show(mut self) -> Result<isize, Error> {
         self.options.show = true;
         self.create()
     }
@@ -84,56 +90,68 @@ pub struct Window {
     theme_cookie: Option<EventRegistrationToken>,
 }
 
+impl Window {
+    pub fn options(&self) -> &WindowOptions {
+        &self.options
+    }
+}
+
 impl WindowContext for Window {
     type Builder = Builder;
 
-    fn create(options: WindowOptions) -> Result<Box<Self>, Error> {
-        let mut window = Box::new(Window {
-            handle: HWND(0),
-            instance: HMODULE(0),
-            options,
-            theme_cookie: None,
-        });
-        let class: HSTRING = HSTRING::from(format!("Window-Cypress-{}", uuid::Uuid::new_v4()));
+    fn create(options: WindowOptions) -> Result<isize, Error> {
+        // Either this or thread local. Doing it this way gives the user the power to decide how to
+        // handle multi-threading.
+        WINDOWS.with(move |windows| {
+            let mut windows = windows.lock().unwrap();
+            windows.push(Window {
+                handle: HWND(0),
+                instance: HMODULE(0),
+                options,
+                theme_cookie: None,
+            });
+            let window = windows.last_mut().unwrap();
+            let class: HSTRING = HSTRING::from(format!("Window-Cypress-{}", uuid::Uuid::new_v4()));
 
-        window.instance = boxed_unwrap!(unsafe { GetModuleHandleW(None) });
-        debug_assert!(window.instance.0 != 0);
+            window.instance = e!(unsafe { GetModuleHandleW(None) })?;
+            debug_assert!(window.instance.0 != 0);
 
-        let wc = WNDCLASSW {
-            hCursor: boxed_unwrap!(unsafe { LoadCursorW(None, IDC_ARROW) }),
-            hInstance: window.instance.into(),
-            lpszClassName: class.as_pcwstr(),
-            hIcon: icon(window.options.icon.map(|i| HSTRING::from(i))),
-            style: CS_HREDRAW | CS_VREDRAW,
-            lpfnWndProc: Some(wnd_proc),
-            ..Default::default()
-        };
+            let wc = WNDCLASSW {
+                hCursor: e!(unsafe { LoadCursorW(None, IDC_ARROW) })?,
+                hInstance: window.instance.into(),
+                lpszClassName: class.as_pcwstr(),
+                hIcon: icon(window.options.icon.map(|i| HSTRING::from(i))),
+                style: CS_HREDRAW | CS_VREDRAW,
+                lpfnWndProc: Some(wnd_proc),
+                ..Default::default()
+            };
 
-        let atom = unsafe { RegisterClassW(&wc) };
-        debug_assert!(atom != 0);
+            let atom = unsafe { RegisterClassW(&wc) };
+            debug_assert!(atom != 0);
 
-        unsafe {
-            window.handle = CreateWindowExW(
-                WINDOW_EX_STYLE::default(),
-                class.as_pcwstr(),
-                HSTRING::from(window.title()).as_pcwstr(),
-                WS_OVERLAPPEDWINDOW,
-                CW_USEDEFAULT,
-                CW_USEDEFAULT,
-                CW_USEDEFAULT,
-                CW_USEDEFAULT,
-                None,
-                None,
-                window.instance.clone(),
-                Some(&window.options as *const _ as *const _),
-            );
-        }
+            unsafe {
+                window.handle = CreateWindowExW(
+                    WINDOW_EX_STYLE::default(),
+                    class.as_pcwstr(),
+                    HSTRING::from(window.options.title).as_pcwstr(),
+                    WS_OVERLAPPEDWINDOW,
+                    CW_USEDEFAULT,
+                    CW_USEDEFAULT,
+                    CW_USEDEFAULT,
+                    CW_USEDEFAULT,
+                    None,
+                    None,
+                    window.instance.clone(),
+                    Some(&window.options as *const _ as *const _),
+                );
+            }
 
-        window.set_theme(window.options.theme)?;
-        if window.options.show {
-            window.show();
-        }
-        Ok(window)
+            window.set_theme(window.options.theme)?;
+            if window.options.show {
+                Window::show(window.handle.0);
+            }
+            Ok(window.handle.0)
+        })
     }
 
     fn set_theme(&mut self, theme: Theme) -> Result<(), Error> {
@@ -189,7 +207,7 @@ impl WindowContext for Window {
 
         unsafe {
             DwmSetWindowAttribute(
-                HWND(self.id()),
+                self.handle,
                 DWMWINDOWATTRIBUTE(20),
                 &state as *const _ as *const c_void,
                 4,
@@ -204,55 +222,48 @@ impl WindowContext for Window {
     }
 
     /// Show the window
-    fn show(&self) {
+    fn show(id: isize) {
         unsafe {
-            ShowWindow(HWND(self.id()), SW_SHOWNORMAL);
+            ShowWindow(HWND(id), SW_SHOWNORMAL);
         }
     }
 
     /// Hide the window
-    fn hide(&self) {
+    fn hide(id: isize) {
         unsafe {
-            ShowWindow(HWND(self.id()), SW_HIDE);
+            ShowWindow(HWND(id), SW_HIDE);
         }
     }
 
     /// Minimize the window
-    fn minimize(&self) {
+    fn minimize(id: isize) {
         unsafe {
-            ShowWindow(HWND(self.id()), SW_MINIMIZE);
+            ShowWindow(HWND(id), SW_MINIMIZE);
         }
     }
 
     /// Restore the window
-    fn restore(&self) {
+    fn restore(id: isize) {
         unsafe {
-            ShowWindow(HWND(self.id()), SW_RESTORE);
+            ShowWindow(HWND(id), SW_RESTORE);
         }
     }
 
     /// Maximize the window
-    fn maximize(&self) {
+    fn maximize(id: isize) {
         unsafe {
-            ShowWindow(HWND(self.id()), SW_MAXIMIZE);
+            ShowWindow(HWND(id), SW_MAXIMIZE);
         }
     }
 
-    fn update(&self) {
-        unsafe {
-            UpdateWindow(HWND(self.id()));
-        }
-    }
-
-    fn close(&self) -> Result<(), Error> {
-        Ok(boxed_unwrap!(unsafe { CloseWindow(HWND(self.id())) }))
-    }
-    fn id(&self) -> isize {
-        self.handle.0
-    }
-
-    fn title(&self) -> String {
-        self.options.title.to_string()
+    fn close(id: isize) -> Result<(), Error> {
+        WINDOWS.with(|windows| {
+            let mut windows = windows.lock().unwrap();
+            if let Some(index) = windows.iter().position(|window| window.handle.0 == id) {
+                windows.remove(index);
+            }
+        });
+        Ok(e!(unsafe { CloseWindow(HWND(id)) })?)
     }
 }
 

@@ -1,9 +1,13 @@
-use windows::Win32::Foundation::{COLORREF, HWND};
-use windows::Win32::Graphics::Gdi::LOGFONTW;
-use windows::Win32::UI::Controls::Dialogs::{CF_SCREENFONTS, CHOOSEFONTW, CF_EFFECTS, CF_INITTOLOGFONTSTRUCT, REGULAR_FONTTYPE, ChooseFontW};
 use crate::error::Error;
 use crate::modal::{DialogAction, FontWeight};
 use crate::windows::modal::{cwide_to_string, get_dlg_error};
+use windows::core::PWSTR;
+use windows::Win32::Foundation::{COLORREF, HWND};
+use windows::Win32::Graphics::Gdi::{GetDC, GetDeviceCaps, LOGFONTW, LOGPIXELSY};
+use windows::Win32::UI::Controls::Dialogs::{
+    ChooseFontW, CF_EFFECTS, CF_INITTOLOGFONTSTRUCT, CF_SCREENFONTS, CF_USESTYLE, CHOOSEFONTW,
+    REGULAR_FONTTYPE,
+};
 
 #[derive(Default, Debug, Clone)]
 pub struct FontDialog {
@@ -26,71 +30,59 @@ impl From<i32> for FontWeight {
             601..=700 => FontWeight::Bold,
             701..=800 => FontWeight::ExtraBold,
             801..=900 => FontWeight::Black,
-            _ => FontWeight::Any
-
+            _ => FontWeight::Any,
         }
     }
 }
 
 impl FontDialog {
-    pub fn builder() -> Self {
-        Self::default()
-    }
+    pub fn show(&self, parent: isize) -> Result<DialogAction, Error> {
+        let mut face_name = [0; 32];
+        face_name[0] = 'A' as u16;
+        face_name[1] = 'r' as u16;
+        face_name[2] = 'i' as u16;
+        face_name[3] = 'a' as u16;
+        face_name[4] = 'l' as u16;
 
-    pub fn weight(mut self, weight: FontWeight) -> Self {
-        self.weight = weight;
-        self
-    }
-
-    pub fn italic(mut self) -> Self {
-        self.italic = true;
-        self
-    }
-
-    pub fn underline(mut self) -> Self {
-        self.underline = true;
-        self
-    }
-
-    pub fn strikethrough(mut self) -> Self {
-        self.strikethrough = true;
-        self
-    }
-
-    pub fn point_size(mut self, point_size: u32) -> Self {
-        self.point_size = point_size;
-        self
-    }
-
-    pub fn show(&self) -> Result<DialogAction, Error> {
         unsafe {
             let mut font = LOGFONTW {
+                lfHeight: (self.point_size as i32 * GetDeviceCaps(GetDC(None), LOGPIXELSY)) / 72,
                 lfWeight: self.weight as i32,
                 lfItalic: self.italic as u8,
                 lfUnderline: self.underline as u8,
                 lfStrikeOut: self.strikethrough as u8,
-                lfFaceName: [0; 32],
-                ..Default::default()
-            };
-            let mut CF: CHOOSEFONTW = CHOOSEFONTW {
-                lStructSize: std::mem::size_of::<CHOOSEFONTW>() as u32,
-                hwndOwner: HWND(0),
-                lpLogFont: &mut font,
-                iPointSize: self.point_size as i32,
-                Flags: CF_SCREENFONTS | CF_EFFECTS | CF_INITTOLOGFONTSTRUCT,
-                rgbColors: COLORREF(0), // Only if CF_INITTOLOGFONTSTRUCT is set
-                nFontType: REGULAR_FONTTYPE,
+                lfFaceName: face_name,
                 ..Default::default()
             };
 
-            if ChooseFontW(&mut CF).into() {
+            let mut style = {
+                let items = String::from("Regular").encode_utf16().collect::<Vec<u16>>();
+                let mut result = [0; 32];
+                for (idx, i) in items.iter().enumerate() {
+                    result[idx] = *i;
+                }
+                result
+            };
+
+            let mut cf: CHOOSEFONTW = CHOOSEFONTW {
+                lStructSize: std::mem::size_of::<CHOOSEFONTW>() as u32,
+                hwndOwner: HWND(parent),
+                lpLogFont: &mut font,
+                Flags: CF_SCREENFONTS | CF_EFFECTS | CF_INITTOLOGFONTSTRUCT | CF_USESTYLE,
+                rgbColors: COLORREF(0), // Only if CF_INITTOLOGFONTSTRUCT is set
+                nFontType: REGULAR_FONTTYPE,
+                lpszStyle: PWSTR(style.as_mut_ptr()),
+                ..Default::default()
+            };
+
+            if ChooseFontW(&mut cf).into() {
                 Ok(DialogAction::Font {
                     name: cwide_to_string(&font.lfFaceName),
                     weight: FontWeight::from(font.lfWeight),
                     italic: font.lfItalic != 0,
                     underline: font.lfUnderline != 0,
                     strikethrough: font.lfStrikeOut != 0,
-                    size: CF.iPointSize as u32 / 10
+                    size: cf.iPointSize as u32 / 10,
                 })
             } else {
                 get_dlg_error()

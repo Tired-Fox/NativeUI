@@ -29,32 +29,37 @@ impl Default for WindowOptions {
     }
 }
 
-pub trait WindowContext:
-where Self: Sized {
-    type Builder: WindowBuilder<Self>;
+pub trait WindowContext
+where
+    Self: Sized,
+{
+    type Builder: WindowBuilder;
 
-    fn create(options: WindowOptions) -> Result<Box<Self>, Error> where Self: Sized;
-    fn builder() -> Box<Self::Builder> where Self: Sized;
+    fn create(options: WindowOptions) -> Result<isize, Error>
+    where
+        Self: Sized;
+    fn builder() -> Box<Self::Builder>
+    where
+        Self: Sized;
     fn set_theme(&mut self, theme: Theme) -> Result<(), Error>;
-    fn show(&self);
-    fn hide(&self);
-    fn minimize(&self);
-    fn restore(&self);
-    fn maximize(&self);
-    fn update(&self);
-    fn close(&self) -> Result<(), Error>;
-    fn id(&self) -> isize;
-    fn title(&self) -> String;
+    fn show(id: isize);
+    fn hide(id: isize);
+    fn minimize(id: isize);
+    fn restore(id: isize);
+    fn maximize(id: isize);
+    fn close(id: isize) -> Result<(), Error>;
 }
 
-pub trait WindowBuilder<T>:
-where T: WindowContext<Builder = Self>
-{
+pub trait WindowBuilder {
     fn new() -> Self;
     fn title(self, title: &'static str) -> Self;
     fn theme(self, theme: Theme) -> Self;
     fn background(self, background: Background) -> Self;
     fn icon(self, icon: &'static str) -> Self;
-    fn create(self) -> Result<Box<T>, Error> where Self: Sized;
-    fn show(self) -> Result<Box<T>, Error> where Self: Sized;
+    fn create(self) -> Result<isize, Error>
+    where
+        Self: Sized;
+    fn show(self) -> Result<isize, Error>
+    where
+        Self: Sized;
 }
