@@ -23,3 +23,10 @@ impl From<io::Error> for Error {
         }
     }
 }
+
+#[macro_export]
+macro_rules! e {
+    ($e: expr) => {
+        $e.map_err(|e| Into::<crate::error::Error>::into(e))
+    };
+}

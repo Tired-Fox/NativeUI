@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::path::PathBuf;
 
 use crate::error::Error;
@@ -14,7 +14,7 @@ pub enum Buttons {
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum Button {
     Ok,
-    Cancel
+    Cancel,
 }
 
 #[derive(Default, Debug, Clone, Copy, Hash, PartialEq, Eq)]
@@ -27,6 +27,21 @@ pub enum Icon {
     None,
 }
 
+#[derive(Default, Debug, Clone, Copy, Hash, PartialEq, Eq)]
+pub enum FontWeight {
+    #[default]
+    Any = 0,
+    Thin = 100,
+    ExtraLight = 200,
+    Light = 300,
+    Regular = 400,
+    Medium = 500,
+    SemiBold = 600,
+    Bold = 700,
+    ExtraBold = 800,
+    Black = 900,
+}
+
 pub struct Dialog;
 impl Dialog {
     pub fn prompt() -> Prompt {
@@ -35,7 +50,12 @@ impl Dialog {
     pub fn file() -> FileDialog {
         FileDialog::default()
     }
-    pub fn color() -> ColorDialog { ColorDialog::default() }
+    pub fn color() -> ColorDialog {
+        ColorDialog::default()
+    }
+    pub fn font() -> Font {
+        Font::default()
+    }
 }
 
 #[derive(Default, Debug, Clone)]
@@ -108,6 +128,14 @@ pub enum DialogAction {
     Files(Vec<PathBuf>),
     File(PathBuf),
     Color(u32),
+    Font {
+        name: String,
+        size: u32,
+        italic: bool,
+        underline: bool,
+        strikethrough: bool,
+        weight: FontWeight,
+    },
     Canceled,
 }
 
@@ -181,7 +209,11 @@ impl FileDialog {
     /// First is the index of the filter to use by default starting from one. Second is a list of filter name to extension patterns tuples.
     /// On windows this will combine the patterns into a single string. Ex: `("Images", ["*.png", "*.jpg"])` will become `Images (*.png;*.jpg)`
     pub fn filters(mut self, index: u32, filters: &[(&'static str, &[&'static str])]) -> Self {
-        self.filters.extend(filters.iter().map(|(name, extensions)| (*name, Vec::from(*extensions))));
+        self.filters.extend(
+            filters
+                .iter()
+                .map(|(name, extensions)| (*name, Vec::from(*extensions))),
+        );
         self.filter_index = index;
         self
     }
@@ -260,12 +292,66 @@ impl Prompt {
     pub fn show(&self) -> Button {
         #[cfg(target_os = "windows")]
         {
-            crate::windows::modal::MsgBox::new(self).show().unwrap_or(Button::Cancel)
+            crate::windows::modal::MsgBox::new(self)
+                .show()
+                .unwrap_or(Button::Cancel)
         }
         // TODO: Linux and MacOS support
         #[cfg(not(target_os = "windows"))]
         {
             Button::Cancel
         }
+    }
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct Font {
+    pub size: u32,
+    pub weight: FontWeight,
+    pub italic: bool,
+    pub underline: bool,
+    pub strikethrough: bool,
+}
+
+impl Font {
+    pub fn builder() -> Self {
+        Self::default()
+    }
+
+    pub fn size(mut self, size: u32) -> Self {
+        self.size = size;
+        self
+    }
+
+    pub fn weight(mut self, weight: FontWeight) -> Self {
+        self.weight = weight;
+        self
+    }
+
+    pub fn italic(mut self) -> Self {
+        self.italic = true;
+        self
+    }
+
+    pub fn underline(mut self) -> Self {
+        self.underline = true;
+        self
+    }
+
+    pub fn strikethrough(mut self) -> Self {
+        self.strikethrough = true;
+        self
+    }
+
+    pub fn show(&self) -> Result<DialogAction, Error> {
+        #[cfg(target_os = "windows")]
+        crate::windows::modal::FontDialog {
+            point_size: self.size * 10,
+            weight: self.weight,
+            italic: self.italic,
+            underline: self.underline,
+            strikethrough: self.strikethrough,
+        }
+        .show()
     }
 }

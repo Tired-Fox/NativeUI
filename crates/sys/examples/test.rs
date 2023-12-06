@@ -1,5 +1,5 @@
 use cypress_sys::event::close;
-use cypress_sys::modal::{Button, ColorDialog, Dialog, Icon};
+use cypress_sys::modal::{Button, ColorDialog, Dialog, FontWeight, Icon};
 use cypress_sys::style::Theme;
 use cypress_sys::{
     event::{
@@ -34,6 +34,9 @@ fn main() {
         .title("Cypress")
         .message("Are you sure?")
         .icon(Icon::Exclamation);
+
+    let font = Dialog::font()
+        .weight(FontWeight::Bold);
 
     // TODO: Add cross platform assignment of dialog to parent window
     let mut color_picker = Dialog::color().initial(0x00FF00);
@@ -71,6 +74,10 @@ fn main() {
                             .collect::<Vec<String>>()
                             .join(", ")
                     )
+                },
+                Key::Char('5') => {
+                    let result = font.show();
+                    println!("Font: {:?}", result);
                 }
                 _ => {}
             },

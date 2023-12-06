@@ -1,26 +1,32 @@
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::mem::transmute;
-use std::ops::Deref;
 use std::sync::Arc;
 
 use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, LRESULT, RECT, WPARAM};
 use windows::Win32::Graphics::Gdi::{CreateSolidBrush, FillRect, HDC};
-use windows::Win32::UI::WindowsAndMessaging::{DefWindowProcW, DispatchMessageW, GetClientRect, GetMessageW, GetWindowLongPtrW, PostQuitMessage, SetWindowLongPtrW, CREATESTRUCTW, GWLP_USERDATA, MSG, WM_CREATE, WM_DESTROY, WM_ERASEBKGND, WM_PAINT, WM_CLOSE, DestroyWindow, CallWindowProcW};
+use windows::Win32::UI::WindowsAndMessaging::{
+    CallWindowProcW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetClientRect, GetMessageW,
+    GetWindowLongPtrW, PostQuitMessage, SetWindowLongPtrW, CREATESTRUCTW, GWLP_USERDATA, MSG,
+    WM_CLOSE, WM_CREATE, WM_DESTROY, WM_ERASEBKGND, WM_PAINT,
+};
 
-use crate::event::{Event, InputEvent, IntoEventResult, keyboard, mouse};
 use crate::event::keyboard::KeyboardEvent;
 use crate::event::mouse::MouseEvent;
-use crate::window::WindowOptions;
+use crate::event::{keyboard, mouse, Event, InputEvent, IntoEventResult};
 use crate::style::Background;
+use crate::window::WindowOptions;
 use crate::windows::{is_dark_mode, swap_rb};
 
 #[derive(Default)]
 struct Handler {
-    handler: Option<Arc<dyn Fn(HWND, u32, WPARAM, LPARAM) -> bool + Sync + Send + 'static>>
+    handler: Option<Arc<dyn Fn(HWND, u32, WPARAM, LPARAM) -> bool + Sync + Send + 'static>>,
 }
 
 impl Handler {
-    pub fn set_handler<F: Fn(HWND, u32, WPARAM, LPARAM) -> bool + Sync + Send + 'static>(&mut self, handler: F) {
+    pub fn set_handler<F: Fn(HWND, u32, WPARAM, LPARAM) -> bool + Sync + Send + 'static>(
+        &mut self,
+        handler: F,
+    ) {
         self.handler = Some(Arc::new(handler));
     }
 
@@ -44,7 +50,9 @@ thread_local! {
 impl From<(u32, WPARAM, LPARAM)> for InputEvent {
     fn from(v: (u32, WPARAM, LPARAM)) -> Self {
         match v.0 {
-            _ if keyboard::KeyboardEvent::message(v.0) => InputEvent::Keyboard(KeyboardEvent::from(v)),
+            _ if keyboard::KeyboardEvent::message(v.0) => {
+                InputEvent::Keyboard(KeyboardEvent::from(v))
+            }
             _ if mouse::MouseEvent::message(v.0) => InputEvent::Mouse(MouseEvent::from(v)),
             _ => panic!("Unknown keyboard event message: {}", v.0),
         }
@@ -60,11 +68,7 @@ pub fn run<R: IntoEventResult, F: (Fn(isize, Event) -> R) + 'static + Sync + Sen
                     _ if InputEvent::message(message) => {
                         callback(
                             hwnd.0,
-                            Event::Input(InputEvent::from((
-                                message,
-                                wparam,
-                                lparam,
-                            ))),
+                            Event::Input(InputEvent::from((message, wparam, lparam))),
                         );
                     }
                     WM_CLOSE => {
@@ -77,10 +81,10 @@ pub fn run<R: IntoEventResult, F: (Fn(isize, Event) -> R) + 'static + Sync + Sen
                         unsafe { DefWindowProcW(hwnd, message, wparam, lparam) };
                         callback(hwnd.0, Event::Repaint);
                     }
-                    _ => { return false }
+                    _ => return false,
                 }
                 true
-            }
+            },
         );
     });
 
@@ -101,9 +105,11 @@ pub extern "system" fn wnd_proc(
             match message {
                 WM_CREATE => {
                     let create_struct: &CREATESTRUCTW = unsafe { transmute(lparam) };
-                    unsafe { SetWindowLongPtrW(window, GWLP_USERDATA, create_struct.lpCreateParams as _) };
+                    unsafe {
+                        SetWindowLongPtrW(window, GWLP_USERDATA, create_struct.lpCreateParams as _)
+                    };
                     LRESULT(0)
-                },
+                }
                 WM_DESTROY => {
                     unsafe { PostQuitMessage(0) };
                     LRESULT(0)
@@ -112,16 +118,19 @@ pub extern "system" fn wnd_proc(
                     // Auto fill background with window theme color
                     let user_data = unsafe { GetWindowLongPtrW(window, GWLP_USERDATA) };
                     let sample = std::ptr::NonNull::<WindowOptions>::new(user_data as _);
-                    let background =
-                        sample.map_or(Background::default(), |s| unsafe { s.as_ref() }.background.clone());
+                    let background = sample.map_or(Background::default(), |s| {
+                        unsafe { s.as_ref() }.background.clone()
+                    });
 
                     let mut rect = RECT::default();
                     unsafe { GetClientRect(window, &mut rect).unwrap() };
 
-                    let brush = unsafe { CreateSolidBrush(COLORREF(swap_rb(background.color(is_dark_mode().into())))) };
+                    let brush = unsafe {
+                        CreateSolidBrush(COLORREF(swap_rb(background.color(is_dark_mode().into()))))
+                    };
                     unsafe { FillRect(HDC(wparam.0 as isize), &rect, brush) };
                     LRESULT(0)
-                },
+                }
                 _ => unsafe { DefWindowProcW(window, message, wparam, lparam) },
             }
         } else {
