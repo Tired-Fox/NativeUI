@@ -9,7 +9,7 @@ pub enum Theme {
 #[macro_export]
 macro_rules! rgb {
     ($red: literal, $green: literal, $blue: literal) => {
-       u32::from_be_bytes([0, $red, $green, $blue])
+        u32::from_be_bytes([0, $red, $green, $blue])
     };
 }
 pub use crate::rgb;
@@ -26,10 +26,7 @@ pub struct Background {
 
 impl Background {
     pub fn new(light: u32, dark: u32) -> Self {
-        Self {
-            light,
-            dark,
-        }
+        Self { light, dark }
     }
     pub fn with_light(color: u32) -> Self {
         Self {
@@ -65,8 +62,8 @@ impl Background {
 impl Default for Background {
     fn default() -> Self {
         Self {
-            light: 0x00FFFFFF,
-            dark: 0x00282828,
+            light: 0xFFFFFF,
+            dark: 0x0B0B0B,
         }
     }
 }
@@ -76,3 +73,4 @@ impl From<u32> for Background {
         Self { light: v, dark: v }
     }
 }
+

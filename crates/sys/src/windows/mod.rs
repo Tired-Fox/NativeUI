@@ -13,8 +13,8 @@ pub mod event;
 pub mod modal;
 pub mod window;
 
-lazy_static::lazy_static! {
-    pub static ref UI_SETTINGS: UISettings = UISettings::new().unwrap();
+thread_local! {
+    pub static UI_SETTINGS: UISettings = UISettings::new().unwrap();
 }
 
 impl From<windows::core::Error> for Error {
@@ -84,7 +84,8 @@ pub fn get_wheel_delta_wparam(wparam: usize) -> i16 {
 }
 
 pub fn is_dark_mode() -> BOOL {
-    let color = UI_SETTINGS.GetColorValue(UIColorType::Foreground).unwrap();
+    let color =
+        UI_SETTINGS.with(|ui_settings| ui_settings.GetColorValue(UIColorType::Foreground).unwrap());
     BOOL((((5 * color.G as u32) + (2 * color.R as u32) + color.B as u32) > (8u32 * 128u32)) as i32)
 }
 

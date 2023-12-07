@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-use lazy_static::lazy_static;
 use windows::core::{GUID, HRESULT, HSTRING};
 use windows::Win32::Foundation::WIN32_ERROR;
 use windows::Win32::System::Diagnostics::Debug::FACILITY_WIN32;
@@ -27,17 +26,12 @@ use crate::error::Error;
 use crate::modal::{Button, Buttons, DialogAction, FileDialogOption, Icon, ToPath};
 use crate::windows::IntoPCWSTR;
 
-use regex::Regex;
-
 mod color;
 mod file;
 mod font;
 mod prompt;
 
 // [Use Common Dialog Boxes](https://learn.microsoft.com/en-us/windows/win32/dlgbox/using-common-dialog-boxes)
-lazy_static! {
-    static ref MULTI_SLASH: Regex = Regex::new("/+").unwrap();
-}
 
 pub(crate) fn to_shell_item(path: &str) -> Result<IShellItem, Error> {
     //TODO: Auto expand `~`

@@ -11,6 +11,7 @@
       <sourceFolder url="file://$MODULE_DIR$/crates/render/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/sys/examples" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/sys/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/css/examples" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/crates/css/target" />
       <excludeFolder url="file://$MODULE_DIR$/crates/html/target" />
       <excludeFolder url="file://$MODULE_DIR$/crates/js/target" />

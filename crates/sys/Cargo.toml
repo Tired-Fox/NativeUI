@@ -3,17 +3,12 @@ name = "cypress-sys"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-lazy_static = "1.4.0"
-uuid = { version = "1.5.0", features = ["v8", "v4"] }
-clap = { version = "4.4.8", features = ["derive"] }
-homedir = "0.2.1"
-regex = "1.10.2"
+uuid = { version = "1.5.0", features = ["v4"] }
 
+# See about switching to windows-sys
 [dependencies.windows]
-version = "0.51.1"
+version = "0.52.0"
 features = [
     "Foundation",
     "Win32_Foundation",

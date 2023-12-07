@@ -158,48 +158,52 @@ impl WindowContext for Window {
         let state = match theme {
             Theme::Light => {
                 if let Some(cookie) = self.theme_cookie {
-                    boxed_unwrap!(UI_SETTINGS.RemoveColorValuesChanged(cookie));
+                    boxed_unwrap!(UI_SETTINGS
+                        .with(|ui_settings| { ui_settings.RemoveColorValuesChanged(cookie) }));
                 }
                 BOOL(0)
             }
             Theme::Dark => {
                 if let Some(cookie) = self.theme_cookie {
-                    boxed_unwrap!(UI_SETTINGS.RemoveColorValuesChanged(cookie));
+                    boxed_unwrap!(UI_SETTINGS
+                        .with(|ui_settings| { ui_settings.RemoveColorValuesChanged(cookie) }));
                 }
                 BOOL(1)
             }
             Theme::Auto => {
                 let handle = self.handle;
-                self.theme_cookie = Some(UI_SETTINGS.ColorValuesChanged(
-                    &TypedEventHandler::new(move |settings: &Option<UISettings>, _| {
-                        if settings.is_some() {
-                            unsafe {
-                                DwmSetWindowAttribute(
-                                    handle,
-                                    DWMWINDOWATTRIBUTE(20),
-                                    &is_dark_mode() as *const _ as *const _,
-                                    4,
-                                )
-                                .unwrap();
-                                CallWindowProcW(
-                                    Some(wnd_proc),
-                                    handle,
-                                    WM_ERASEBKGND,
-                                    WPARAM(GetDC(handle).0 as usize),
-                                    LPARAM(0),
-                                );
-                                CallWindowProcW(
-                                    Some(wnd_proc),
-                                    handle,
-                                    WM_PAINT,
-                                    WPARAM(0),
-                                    LPARAM(0),
-                                );
+                self.theme_cookie = Some(UI_SETTINGS.with(|ui_settings| {
+                    ui_settings.ColorValuesChanged(&TypedEventHandler::new(
+                        move |settings: &Option<UISettings>, _| {
+                            if settings.is_some() {
+                                unsafe {
+                                    DwmSetWindowAttribute(
+                                        handle,
+                                        DWMWINDOWATTRIBUTE(20),
+                                        &is_dark_mode() as *const _ as *const _,
+                                        4,
+                                    )
+                                    .unwrap();
+                                    CallWindowProcW(
+                                        Some(wnd_proc),
+                                        handle,
+                                        WM_ERASEBKGND,
+                                        WPARAM(GetDC(handle).0 as usize),
+                                        LPARAM(0),
+                                    );
+                                    CallWindowProcW(
+                                        Some(wnd_proc),
+                                        handle,
+                                        WM_PAINT,
+                                        WPARAM(0),
+                                        LPARAM(0),
+                                    );
+                                }
                             }
-                        }
-                        Ok(())
-                    }),
-                )?);
+                            Ok(())
+                        },
+                    ))
+                })?);
 
                 is_dark_mode()
             }
