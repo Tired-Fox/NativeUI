@@ -53,13 +53,11 @@ pub enum Token<'i> {
         value: f64,
         flag: NumberType,
     },
-    Percentage {
-        value: f64,
-    },
+    Percentage(f64),
     Dimension {
         value: f64,
         flag: NumberType,
-        unit: Unit,
+        unit: &'i str,
     },
     BadString,
     BadUrl,
@@ -101,6 +99,11 @@ impl<'i> Tokenizer<'i> {
     #[inline]
     pub fn next_byte_unchecked(&self) -> u8 {
         self.input.as_bytes()[self.position]
+    }
+
+    #[inline]
+    pub fn byte_at(&self, n: usize) -> Option<u8> {
+        self.input.as_bytes().get(self.position + n).copied()
     }
 
     #[inline]
@@ -167,6 +170,40 @@ impl<'i> Tokenizer<'i> {
     }
 
     #[inline]
+    pub fn starts_with_number(&self) -> bool {
+        if self.position + 2 >= self.input.len() {
+            return false;
+        }
+
+        let first = self.next_byte_unchecked();
+        let second = self.input.as_bytes()[self.position + 1];
+        let third = self.input.as_bytes()[self.position + 2];
+
+        if first == b'-' || first == b'+' {
+            second.is_ascii_digit() || (second == b'.' && third.is_ascii_digit())
+        } else if first == b'.' {
+            second.is_ascii_digit()
+        } else {
+            first.is_ascii_digit()
+        }
+    }
+
+    #[inline]
+    pub fn skip_whitespace(&mut self) {
+        while !self.is_eof() {
+            let byte = self.next_byte_unchecked();
+            match byte {
+                b' ' | b'\t' | b'\n' | b'\r' | b'\x0C' => {
+                    self.position += 1;
+                },
+                _ => {
+                    break;
+                }
+            }
+        }
+    }
+
+    #[inline]
     pub fn slice(&self, start: usize, end: usize) -> &'i str {
         &self.input[start..end]
     }
@@ -211,7 +248,67 @@ fn next_token<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<Token<'i>, ()> {
                 Ok(Token::Delim('/'))
             }
         }
+        b'\\' => {
+            if tokenizer.starts_with_escape() {
+                consume_ident_like(tokenizer)
+            } else {
+                Err(())
+            }
+        }
         b'"' | b'\'' => consume_string(tokenizer),
+        b'(' => consumes(tokenizer, Token::LeftParen),
+        b')' => consumes(tokenizer, Token::RightParen),
+        b'[' => consumes(tokenizer, Token::LeftBracket),
+        b']' => consumes(tokenizer, Token::RightBracket),
+        b'{' => consumes(tokenizer, Token::LeftBrace),
+        b'}' => consumes(tokenizer, Token::RightBrace),
+        b',' => consumes(tokenizer, Token::Comma),
+        b':' => consumes(tokenizer, Token::Colon),
+        b';' => consumes(tokenizer, Token::Semicolon),
+        b'@' => {
+            tokenizer.consume(1);
+            if tokenizer.starts_with_ident() {
+                Ok(Token::AtKeyword(consume_ident(tokenizer)))
+            } else {
+                Ok(Token::Delim('@'))
+            }
+        }
+        b'<' => {
+            if tokenizer.starts_with("<!--") {
+                tokenizer.consume(4);
+                Ok(Token::CDO)
+            } else {
+                consumes(tokenizer, Token::Delim('<'))
+            }
+        }
+        b'-' => {
+            if tokenizer.starts_with_number() {
+                consume_numeric(tokenizer)
+            } else {
+                if tokenizer.byte_at(1) == Some(b'-') && tokenizer.byte_at(2) == Some(b'>') {
+                    tokenizer.consume(3);
+                    Ok(Token::CDC)
+                } else if tokenizer.starts_with_ident() {
+                    consume_ident_like(tokenizer)
+                } else {
+                    consumes(tokenizer, Token::Delim('-'))
+                }
+            }
+        }
+        b'+' => {
+            if tokenizer.starts_with_number() {
+                consume_numeric(tokenizer)
+            } else {
+                consumes(tokenizer, Token::Delim('-'))
+            }
+        },
+        b'.' => {
+            if tokenizer.starts_with_number() {
+                consume_numeric(tokenizer)
+            } else {
+                consumes(tokenizer, Token::Delim('.'))
+            }
+        }
         b'#' => {
             tokenizer.consume(1);
             if !tokenizer.is_eof()
@@ -227,7 +324,165 @@ fn next_token<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<Token<'i>, ()> {
                 });
             }
             Ok(Token::Delim('#'))
+        },
+        b'0'..=b'9' => consume_numeric(tokenizer),
+        b'a'..=b'z' | b'A'..=b'Z' | b'_' => consume_ident_like(tokenizer),
+        byte => consumes(tokenizer, Token::Delim(byte as char)),
+    }
+}
+
+pub fn consumes<'i>(tokenizer: &mut Tokenizer<'i>, token: Token<'i>) -> Result<Token<'i>, ()> {
+    tokenizer.consume(1);
+    Ok(token)
+}
+
+pub fn consume_ident_like<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<Token<'i>, ()> {
+    let ident = consume_ident(tokenizer);
+    if ident == "url" && tokenizer.next_byte() == Some(b'(') {
+        tokenizer.consume(1);
+        tokenizer.skip_whitespace();
+        if tokenizer.next_byte() == Some(b'\'') || tokenizer.next_byte() == Some(b'"') {
+            Ok(Token::Function(ident))
+        } else {
+            Ok(Token::Url(ident))
         }
+    } else if tokenizer.next_byte() == Some(b'(') {
+        tokenizer.consume(1);
+        Ok(Token::Function(ident))
+    } else {
+        Ok(Token::Ident(ident))
+    }
+}
+
+pub fn consume_numeric<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<Token<'i>, ()> {
+    let (number, ty) = consume_number(tokenizer)?;
+    if tokenizer.starts_with_ident() {
+        let unit = consume_ident(tokenizer);
+        println!("{:?}", unit);
+        Ok(Token::Dimension {
+            value: number,
+            unit,
+            flag: ty,
+        })
+    } else if tokenizer.next_byte() == Some(b'%') {
+        tokenizer.consume(1);
+        Ok(Token::Percentage(number))
+    } else {
+        Ok(Token::Number {
+            value: number,
+            flag: ty,
+        })
+    }
+}
+
+pub fn consume_number<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<(f64, NumberType), ()> {
+    let start = tokenizer.position();
+    let mut ty = NumberType::default();
+    let mut repr = String::new();
+
+    // Example: -123.45e-16
+    // Assume: ([+-])?(\d+)?(\.\d+)?([eE][+-]?\d+)?
+    // Parts:
+    //   1. ([+-])?
+    //   2. (\d+)?(\.\d+)?([eE][+-]?\d+)?
+    //   3. (\.\d+)?([eE][+-]?\d+)?
+    //   4. ([eE][+-]?\d+)?
+
+    // Part 1
+    match tokenizer.next_byte() {
+        Some(val) if val == b'-' || val == b'+' => {
+            repr.push(val as char);
+            tokenizer.consume(1);
+        }
+        _ => {}
+    }
+
+    // Part 2
+    match tokenizer.next_byte() {
+        Some(val) if val.is_ascii_digit() => {
+            while !tokenizer.is_eof() {
+                let mut byte = tokenizer.next_byte_unchecked();
+                if !byte.is_ascii_digit() {
+                    break;
+                }
+                repr.push(byte as char);
+                tokenizer.consume(1);
+            }
+        }
+        _ => {}
+    }
+
+    // Part 3
+    if tokenizer.position() + 1 < tokenizer.len()
+        && tokenizer.next_byte_unchecked() == b'.'
+        && tokenizer
+            .input
+            .as_bytes()
+            .get(tokenizer.position() + 1)
+            .is_some_and(|val| val.is_ascii_digit())
+    {
+        repr.push(tokenizer.next_byte_unchecked() as char);
+        tokenizer.consume(1);
+        repr.push(tokenizer.next_byte_unchecked() as char);
+        tokenizer.consume(1);
+        ty = NumberType::Number;
+
+        while !tokenizer.is_eof() {
+            let mut byte = tokenizer.next_byte_unchecked();
+            if !byte.is_ascii_digit() {
+                break;
+            }
+            repr.push(byte as char);
+            tokenizer.consume(1);
+        }
+    }
+
+    // Part 4
+    match tokenizer.next_byte() {
+        Some(b'e') | Some(b'E') => {
+            let e = tokenizer.next_byte_unchecked();
+            tokenizer.consume(1);
+            let numbers = match tokenizer.next_byte() {
+                Some(b'-') | Some(b'+') => {
+                    let sign = tokenizer.next_byte_unchecked();
+                    tokenizer.consume(1);
+                    match tokenizer.next_byte() {
+                        Some(val) if val.is_ascii_digit() => {
+                            repr.push(e as char);
+                            repr.push(sign as char);
+                            true
+                        },
+                        _ =>  {
+                            tokenizer.reconsume(2);
+                            false
+                        }
+                    }
+                },
+                Some(val) if val.is_ascii_digit() => {
+                    repr.push(e as char);
+                    true
+                },
+                _ => {
+                    tokenizer.reconsume(1);
+                    false
+                }
+            };
+            if numbers {
+                while !tokenizer.is_eof() {
+                    let mut byte = tokenizer.next_byte_unchecked();
+                    if !byte.is_ascii_digit() {
+                        break;
+                    }
+                    repr.push(byte as char);
+                    tokenizer.consume(1);
+                }
+            }
+        },
+        _ => {}
+    }
+
+    match repr.parse::<f64>() {
+        Ok(val) => Ok((val, ty)),
         _ => Err(()),
     }
 }
@@ -256,12 +511,12 @@ pub fn consume_hex<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<u32, ()> {
         match byte {
             b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F' => {
                 tokenizer.consume(1);
-            },
+            }
             b' ' => {
                 tokenizer.consume(1);
                 break;
-            },
-            _ => break
+            }
+            _ => break,
         }
     }
 
@@ -290,7 +545,7 @@ pub fn consume_escape<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<char, ()> {
             }
             _ => {
                 tokenizer.consume(1);
-                return Ok(tokenizer.next_byte_unchecked() as char)
+                return Ok(tokenizer.next_byte_unchecked() as char);
             }
         }
     }
@@ -306,17 +561,15 @@ pub fn consume_string<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<Token<'i>, ()
     while !tokenizer.is_eof() {
         match tokenizer.next_byte_unchecked() {
             b'"' => {
+                tokenizer.consume(1);
                 if tt == b'"' {
                     break;
-                } else {
-                    tokenizer.consume(1);
                 }
-            },
+            }
             b'\'' => {
+                tokenizer.consume(1);
                 if tt == b'\'' {
                     break;
-                } else {
-                    tokenizer.consume(1);
                 }
             }
             b'\n' | b'\r' | b'\x0C' => {
