@@ -1,6 +1,6 @@
 extern crate cypress_css;
 
-use cypress_css::parser::tokenizer::{Token, Tokenizer};
+use cypress_css::parser::tokenizer::{Tokenizer};
 
 fn main() {
     let src = r#"
@@ -30,22 +30,15 @@ fn main() {
         color: red;
     }
     "#;
-    // TODO: Tests
     let mut tokenizer = Tokenizer::new(src);
 
-    loop {
+    while !tokenizer.is_eof() {
         match tokenizer.next() {
-            Err(_) => {
-                println!("ERROR");
+            Err(err) => {
+                eprintln!("[cypress]: {:?}", err);
                 break;
             },
-            Ok(token) => {
-                if let Token::String(value) = token {
-                    println!("{}", value);
-                } else {
-                    println!("{:?}", token);
-                }
-            }
+            Ok(token) => println!("{:?}", token),
         }
     }
 }

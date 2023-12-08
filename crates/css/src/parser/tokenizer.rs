@@ -3,39 +3,34 @@
 //! TODO: continuation bytes
 //! TODO: 4byte leading bytes
 
-use crate::parser::tokenizer::Token::BadString;
-use std::borrow::Cow;
+#[derive(Debug, Default, PartialEq, Clone, Copy)]
+pub enum TokenizerErrorKind {
+    EOF,
+    #[default]
+    Uknown,
+    InvalidNumberFormat,
+    InvalidUnicode,
+    InvalidHex,
+    InvalidEscape,
+    UnterminatedString,
+    UnterminatedComment,
+}
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub enum HashType {
     Id,
     #[default]
     Unrestricted,
 }
 
-#[derive(Default, Debug)]
-pub enum Unit {
-    Rem,
-    #[default]
-    Px,
-    Em,
-    Cm,
-    In,
-    Pt,
-    Pc,
-    Percent,
-    Ch,
-    Mm,
-}
-
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub enum NumberType {
     #[default]
     Integer,
     Number,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Token<'i> {
     Ident(&'i str),
     Function(&'i str),
@@ -195,7 +190,7 @@ impl<'i> Tokenizer<'i> {
             match byte {
                 b' ' | b'\t' | b'\n' | b'\r' | b'\x0C' => {
                     self.position += 1;
-                },
+                }
                 _ => {
                     break;
                 }
@@ -218,7 +213,7 @@ impl<'i> Tokenizer<'i> {
         self.position
     }
 
-    pub fn next(&mut self) -> Result<Token<'i>, ()> {
+    pub fn next(&mut self) -> Result<Token<'i>, TokenizerErrorKind> {
         next_token(self)
     }
 }
@@ -233,9 +228,9 @@ fn is_ident(byte: u8) -> bool {
     matches!(byte, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_' | b'-')
 }
 
-fn next_token<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<Token<'i>, ()> {
+fn next_token<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<Token<'i>, TokenizerErrorKind> {
     if tokenizer.is_eof() {
-        return Err(());
+        return Err(TokenizerErrorKind::EOF);
     }
 
     match tokenizer.next_byte_unchecked() {
@@ -252,7 +247,7 @@ fn next_token<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<Token<'i>, ()> {
             if tokenizer.starts_with_escape() {
                 consume_ident_like(tokenizer)
             } else {
-                Err(())
+                Err(TokenizerErrorKind::InvalidEscape)
             }
         }
         b'"' | b'\'' => consume_string(tokenizer),
@@ -268,7 +263,7 @@ fn next_token<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<Token<'i>, ()> {
         b'@' => {
             tokenizer.consume(1);
             if tokenizer.starts_with_ident() {
-                Ok(Token::AtKeyword(consume_ident(tokenizer)))
+                consume_ident(tokenizer).map(Token::AtKeyword)
             } else {
                 Ok(Token::Delim('@'))
             }
@@ -301,7 +296,7 @@ fn next_token<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<Token<'i>, ()> {
             } else {
                 consumes(tokenizer, Token::Delim('-'))
             }
-        },
+        }
         b'.' => {
             if tokenizer.starts_with_number() {
                 consume_numeric(tokenizer)
@@ -319,25 +314,30 @@ fn next_token<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<Token<'i>, ()> {
                     tag = HashType::Id;
                 }
                 return Ok(Token::Hash {
-                    value: consume_ident(tokenizer),
+                    value: consume_ident(tokenizer)?,
                     tag,
                 });
             }
             Ok(Token::Delim('#'))
-        },
+        }
         b'0'..=b'9' => consume_numeric(tokenizer),
         b'a'..=b'z' | b'A'..=b'Z' | b'_' => consume_ident_like(tokenizer),
         byte => consumes(tokenizer, Token::Delim(byte as char)),
     }
 }
 
-pub fn consumes<'i>(tokenizer: &mut Tokenizer<'i>, token: Token<'i>) -> Result<Token<'i>, ()> {
+pub fn consumes<'i>(
+    tokenizer: &mut Tokenizer<'i>,
+    token: Token<'i>,
+) -> Result<Token<'i>, TokenizerErrorKind> {
     tokenizer.consume(1);
     Ok(token)
 }
 
-pub fn consume_ident_like<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<Token<'i>, ()> {
-    let ident = consume_ident(tokenizer);
+pub fn consume_ident_like<'i>(
+    tokenizer: &mut Tokenizer<'i>,
+) -> Result<Token<'i>, TokenizerErrorKind> {
+    let ident = consume_ident(tokenizer)?;
     if ident == "url" && tokenizer.next_byte() == Some(b'(') {
         tokenizer.consume(1);
         tokenizer.skip_whitespace();
@@ -354,11 +354,10 @@ pub fn consume_ident_like<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<Token<'i>
     }
 }
 
-pub fn consume_numeric<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<Token<'i>, ()> {
+pub fn consume_numeric<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<Token<'i>, TokenizerErrorKind> {
     let (number, ty) = consume_number(tokenizer)?;
     if tokenizer.starts_with_ident() {
-        let unit = consume_ident(tokenizer);
-        println!("{:?}", unit);
+        let unit = consume_ident(tokenizer)?;
         Ok(Token::Dimension {
             value: number,
             unit,
@@ -375,7 +374,9 @@ pub fn consume_numeric<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<Token<'i>, (
     }
 }
 
-pub fn consume_number<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<(f64, NumberType), ()> {
+pub fn consume_number<'i>(
+    tokenizer: &mut Tokenizer<'i>,
+) -> Result<(f64, NumberType), TokenizerErrorKind> {
     let start = tokenizer.position();
     let mut ty = NumberType::default();
     let mut repr = String::new();
@@ -451,17 +452,17 @@ pub fn consume_number<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<(f64, NumberT
                             repr.push(e as char);
                             repr.push(sign as char);
                             true
-                        },
-                        _ =>  {
+                        }
+                        _ => {
                             tokenizer.reconsume(2);
                             false
                         }
                     }
-                },
+                }
                 Some(val) if val.is_ascii_digit() => {
                     repr.push(e as char);
                     true
-                },
+                }
                 _ => {
                     tokenizer.reconsume(1);
                     false
@@ -477,17 +478,17 @@ pub fn consume_number<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<(f64, NumberT
                     tokenizer.consume(1);
                 }
             }
-        },
+        }
         _ => {}
     }
 
     match repr.parse::<f64>() {
         Ok(val) => Ok((val, ty)),
-        _ => Err(()),
+        _ => Err(TokenizerErrorKind::InvalidNumberFormat),
     }
 }
 
-pub fn consume_ident<'i>(tokenizer: &mut Tokenizer<'i>) -> &'i str {
+pub fn consume_ident<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<&'i str, TokenizerErrorKind> {
     let start = tokenizer.position();
 
     while !tokenizer.is_eof() {
@@ -495,16 +496,16 @@ pub fn consume_ident<'i>(tokenizer: &mut Tokenizer<'i>) -> &'i str {
         if is_ident(byte) {
             tokenizer.consume(1);
         } else if tokenizer.starts_with_escape() {
-            consume_escape(tokenizer);
+            consume_escape(tokenizer)?;
         } else {
             break;
         }
     }
 
-    tokenizer.slice(start, tokenizer.position())
+    Ok(tokenizer.slice(start, tokenizer.position()))
 }
 
-pub fn consume_hex<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<u32, ()> {
+pub fn consume_hex<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<u32, TokenizerErrorKind> {
     let start = tokenizer.position();
     while !tokenizer.is_eof() && tokenizer.position() - start < 6 {
         let byte = tokenizer.next_byte_unchecked();
@@ -520,16 +521,11 @@ pub fn consume_hex<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<u32, ()> {
         }
     }
 
-    let hex = match u32::from_str_radix(tokenizer.slice(start, tokenizer.position()), 16) {
-        Ok(hex) => hex,
-        Err(err) => {
-            return Err(());
-        }
-    };
-    u32::from_str_radix(tokenizer.slice(start, tokenizer.position()), 16).map_err(|_| ())
+    u32::from_str_radix(tokenizer.slice(start, tokenizer.position()), 16)
+        .map_err(|_| TokenizerErrorKind::InvalidHex)
 }
 
-pub fn consume_escape<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<char, ()> {
+pub fn consume_escape<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<char, TokenizerErrorKind> {
     tokenizer.consume(1);
     let start = tokenizer.position();
 
@@ -540,7 +536,7 @@ pub fn consume_escape<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<char, ()> {
                 return if hex == 0 || hex > 0x10FFFF {
                     Ok('�')
                 } else {
-                    char::from_u32(hex).ok_or(())
+                    char::from_u32(hex).ok_or(TokenizerErrorKind::InvalidUnicode)
                 };
             }
             _ => {
@@ -549,10 +545,10 @@ pub fn consume_escape<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<char, ()> {
             }
         }
     }
-    Err(())
+    Err(TokenizerErrorKind::InvalidEscape)
 }
 
-pub fn consume_string<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<Token<'i>, ()> {
+pub fn consume_string<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<Token<'i>, TokenizerErrorKind> {
     let tt = tokenizer.next_byte_unchecked();
     tokenizer.consume(1);
     let start = tokenizer.position();
@@ -574,7 +570,7 @@ pub fn consume_string<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<Token<'i>, ()
             }
             b'\n' | b'\r' | b'\x0C' => {
                 tokenizer.reconsume(1);
-                return Err(());
+                return Err(TokenizerErrorKind::UnterminatedString);
             }
             b'\\' => {
                 if tokenizer.starts_with_escape() {
@@ -590,7 +586,7 @@ pub fn consume_string<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<Token<'i>, ()
     Ok(Token::String(result))
 }
 
-pub fn consume_whitespace<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<Token<'i>, ()> {
+pub fn consume_whitespace<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<Token<'i>, TokenizerErrorKind> {
     let start = tokenizer.position();
     while !tokenizer.is_eof() {
         match tokenizer.next_byte_unchecked() {
@@ -610,7 +606,7 @@ pub fn consume_whitespace<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<Token<'i>
     ))
 }
 
-pub fn consume_comment<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<&'i str, ()> {
+pub fn consume_comment<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<&'i str, TokenizerErrorKind> {
     // Consume `/*` prefix
     tokenizer.consume(2);
     let start = tokenizer.position();
@@ -625,7 +621,6 @@ pub fn consume_comment<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<&'i str, ()>
                     return Ok(tokenizer.slice(start, end));
                 }
             }
-            // TODO: Continuation and Leading bytes?
             _ => {
                 // Consume any other character
                 tokenizer.consume(1);
@@ -633,5 +628,5 @@ pub fn consume_comment<'i>(tokenizer: &mut Tokenizer<'i>) -> Result<&'i str, ()>
         }
     }
 
-    Err(())
+    Err(TokenizerErrorKind::UnterminatedComment)
 }
