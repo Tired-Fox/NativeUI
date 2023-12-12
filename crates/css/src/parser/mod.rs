@@ -23,7 +23,7 @@
 //! ```
 //!
 //! Goal Strict Typing and Objects
-
-pub mod tokenizer;
-mod parser;
-
+pub mod stylesheet;
+mod at_rule;
+mod qualified_rule;
+mod decleration;
