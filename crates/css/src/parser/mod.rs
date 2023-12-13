@@ -23,7 +23,13 @@
 //! ```
 //!
 //! Goal Strict Typing and Objects
+use cssparser::{ParseError, Parser};
+use crate::parser::stylesheet::StyleParseError;
+
 pub mod stylesheet;
-mod at_rule;
-mod qualified_rule;
-mod decleration;
+pub mod selector;
+
+pub trait Parse<'i, 't>
+where Self: Sized {
+    fn parse(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>>;
+}

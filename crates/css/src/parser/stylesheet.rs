@@ -3,6 +3,9 @@ use std::process::exit;
 
 use cssparser::{AtRuleParser, CowRcStr, DeclarationParser, Delimiter, Delimiters, ParseError, ParseErrorKind, Parser, ParserInput, ParserState, QualifiedRuleParser, SourceLocation, SourcePosition, StyleSheetParser};
 use cssparser::Token::{CurlyBracketBlock, Delim, Ident, IDHash};
+use crate::parser::selector::{ComplexSelector, SelectorList};
+
+use crate::parser::Parse;
 
 macro_rules! not_implemented {
     ($location: expr) => {
@@ -21,12 +24,18 @@ pub enum AtRulePrelude {
 
 #[derive(Debug)]
 pub struct QualifiedRule;
-pub struct SelectorList;
 
 #[derive(Debug)]
 pub enum StyleParseError {
     NotImplemented,
     Unkown,
+    EndOfStream,
+    ExpectedCombinator,
+    ExpectedEqualSign,
+    DuplicateIDSelector,
+    DuplicateElementSelector,
+    InvalidPseudoSelector,
+    UnexpectedCombinator,
 }
 
 #[derive(Debug)]
@@ -54,7 +63,10 @@ impl StyleSheet {
                         let location = error.location;
                         let error = match error.kind {
                             ParseErrorKind::Custom(custom) => custom,
-                            _ => StyleParseError::Unkown
+                            kind => {
+                                eprintln!("{:?}", kind);
+                                StyleParseError::Unkown
+                            }
                         };
                         eprintln!("[{}:{}]: {:?}\n\n{} │ {}\n", location.line, location.column, error, location.line, slice);
                         exit(0);
@@ -76,7 +88,7 @@ impl StyleSheet {
 }
 
 impl<'i> QualifiedRuleParser<'i> for StyleSheet {
-    type Prelude = SelectorList;
+    type Prelude = SelectorList<'i>;
     type QualifiedRule = SourcePosition;
     type Error = StyleParseError;
 
@@ -84,41 +96,12 @@ impl<'i> QualifiedRuleParser<'i> for StyleSheet {
         &mut self,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self::Prelude, ParseError<'i, Self::Error>> {
-        input.parse_until_before(Delimiter::Comma, |i| {
-            loop {
-                match i.next() {
-                    Err(e) => return Err(ParseError{
-                        kind: ParseErrorKind::Custom(StyleParseError::Unkown),
-                        location: i.current_source_location(),
-                    }),
-                    Ok(token) => {
-                        match token {
-                            IDHash(value) => {
-                                println!("ID: {:?}", value);
-                            },
-                            Delim('.') => {
-                                if let Ok(Ident(value)) = i.next() {
-                                    println!("CLASS: {:?}", value);
-                                } else {
-                                    return Err(ParseError{
-                                        kind: ParseErrorKind::Custom(StyleParseError::Unkown),
-                                        location: i.current_source_location(),
-                                    })
-                                }
-                            },
-                            Ident(value) => {
-                                println!("Element: {:?}", value);
-                            },
-                            Delim('>') => {
-                                println!("Is Child")
-                            }
-                            token => println!("TOKEN: {:?}", token)
-                        }
-                    }
-                }
-            }
-            Ok(SelectorList)
-        })
+        let list = SelectorList::parse(input)?;
+        println!("{:?}", list);
+        for rs in list.iter() {
+            println!("{}", rs);
+        }
+        not_implemented!(input.current_source_location())
     }
 
     fn parse_block<'t>(

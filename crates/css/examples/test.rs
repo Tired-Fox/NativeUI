@@ -6,12 +6,11 @@ use cypress_css::parser::stylesheet::StyleSheet;
 
 fn main() {
     let src = r#"
-    #some-id > div.some-class {
+    #some-id[data-value~='foo' i] > div.some-class#of-pop:pseudo-woodo(3) {
         color: red;
     }
     "#;
 
-    let file = fs::read_to_string("examples/styles.css").unwrap();
     let stylesheet = StyleSheet::source(src);
     println!("{:?}", stylesheet);
 

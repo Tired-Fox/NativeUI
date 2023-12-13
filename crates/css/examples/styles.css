@@ -4,7 +4,7 @@ You must create a new Custom.css file in the .../itim/custom/ui/css directory.
 For a trial, import this Sample.css file in the Custom.css file that you created to view the effect of the customized styles in the Identity Manager Service Center login page.
 */
 @import 'other.css';
- 
+
 .oneui .loginForm .page{
 	max-height: auto;
 }

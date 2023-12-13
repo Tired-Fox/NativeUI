@@ -6,3 +6,4 @@ Uses cssparser under the hood for the generic css parsing. The spec, minificatio
 manually inside this crate. This crate is meant to keep up with the full browser spec and can be used by any application or library hoping to use a css parser of that calliber.
 
 Parsing is outlined with [CSS Syntaax Module Level 3](https://drafts.csswg.org/css-syntax/).
+Example project that sort of does this, but without decleration parsing. [css](https://docs.rs/css/latest/css/)
