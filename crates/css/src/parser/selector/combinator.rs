@@ -61,3 +61,31 @@ impl<'i, 't> Parse<'i, 't> for Combinator {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use cssparser::{ParserInput, Parser};
+
+    use crate::parser::Parse;
+
+    use super::Combinator;
+
+    #[test]
+    fn parse_success() {
+        let src = "> p";
+        let mut input = ParserInput::new(src);
+        let mut parser = Parser::new(&mut input);
+        let result = Combinator::parse(&mut parser);
+        assert!(result.is_ok());
+        assert!(result.unwrap() == Combinator::Child);
+    }
+
+    #[test]
+    fn parse_fail() {
+        let src = "p";
+        let mut input = ParserInput::new(src);
+        let mut parser = Parser::new(&mut input);
+        let result = Combinator::parse(&mut parser);
+        assert!(result.is_err());
+    }
+}

@@ -6,8 +6,7 @@ For a trial, import this Sample.css file in the Custom.css file that you created
 @import 'other.css';
 
 .oneui .loginForm .page{
-	max-height: auto;
-}
+    max-height: auto;
 
 /*
 To change product logo size edit below class:

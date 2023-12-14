@@ -1,9 +1,11 @@
-use std::{fs, path::Path};
 use std::process::exit;
+use std::{fs, path::Path};
 
-use cssparser::{AtRuleParser, CowRcStr, DeclarationParser, Delimiter, Delimiters, ParseError, ParseErrorKind, Parser, ParserInput, ParserState, QualifiedRuleParser, SourceLocation, SourcePosition, StyleSheetParser};
-use cssparser::Token::{CurlyBracketBlock, Delim, Ident, IDHash};
-use crate::parser::selector::{ComplexSelector, SelectorList};
+use crate::parser::selector::SelectorList;
+use cssparser::{
+    AtRuleParser, CowRcStr, ParseError, ParseErrorKind, Parser, ParserInput, ParserState,
+    QualifiedRuleParser, SourcePosition, StyleSheetParser,
+};
 
 use crate::parser::Parse;
 
@@ -29,13 +31,19 @@ pub struct QualifiedRule;
 pub enum StyleParseError {
     NotImplemented,
     Unkown,
+    UnkownSyntax,
+    UnkownPseudoClass,
+    UnkownPseudoElement,
     EndOfStream,
     ExpectedCombinator,
+    ExpectedIdentOrString,
     ExpectedEqualSign,
     DuplicateIDSelector,
     DuplicateElementSelector,
     InvalidPseudoSelector,
+    InvalidNthFormat,
     UnexpectedCombinator,
+    ExpectedArguments,
 }
 
 #[derive(Debug)]
@@ -68,7 +76,10 @@ impl StyleSheet {
                                 StyleParseError::Unkown
                             }
                         };
-                        eprintln!("[{}:{}]: {:?}\n\n{} │ {}\n", location.line, location.column, error, location.line, slice);
+                        eprintln!(
+                            "[{}:{}]: {:?}\n\n{} │ {}\n",
+                            location.line, location.column, error, location.line, slice
+                        );
                         exit(0);
                     }
                     Ok(start) => {
@@ -96,7 +107,7 @@ impl<'i> QualifiedRuleParser<'i> for StyleSheet {
         &mut self,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self::Prelude, ParseError<'i, Self::Error>> {
-        let list = SelectorList::parse(input)?;
+        let list = SelectorList::parse(input, false)?;
         println!("{:?}", list);
         for rs in list.iter() {
             println!("{}", rs);

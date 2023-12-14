@@ -3,12 +3,12 @@ use crate::parser::Parse;
 use cssparser::{CowRcStr, ParseError, ParseErrorKind, Parser, Token};
 use std::fmt::{Display, Formatter};
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, PartialEq, Clone)]
 pub struct AttributeSelector<'i> {
-    name: CowRcStr<'i>,
-    expects: Option<CowRcStr<'i>>,
-    matcher: Matcher,
-    insensitive: bool,
+    pub name: CowRcStr<'i>,
+    pub expects: Option<CowRcStr<'i>>,
+    pub matcher: Matcher,
+    pub insensitive: bool,
 }
 
 impl<'i> Display for AttributeSelector<'i> {
@@ -26,8 +26,7 @@ impl<'i> Display for AttributeSelector<'i> {
 
 impl<'i> AttributeSelector<'i> {
     pub fn matches(&self, value: Option<&str>) -> bool {
-        self.matcher
-            .matches(self.expects.clone(), value, self.insensitive)
+        self.matcher.matches(self.expects.as_ref().clone(), value, self.insensitive)
     }
 }
 
@@ -36,17 +35,6 @@ impl<'i, 't> Parse<'i, 't> for AttributeSelector<'i> {
         input.parse_nested_block(|i| {
             let mut attribute = AttributeSelector::default();
             attribute.name = i.expect_ident()?.clone();
-
-            macro_rules! expect_equal {
-                ($input: ident) => {
-                    if let Err(_) = $input.expect_delim('=') {
-                        return Err(ParseError {
-                            kind: ParseErrorKind::Custom(StyleParseError::ExpectedEqualSign),
-                            location: $input.current_source_location(),
-                        });
-                    }
-                };
-            }
 
             loop {
                 let next = i.next();
@@ -58,19 +46,15 @@ impl<'i, 't> Parse<'i, 't> for AttributeSelector<'i> {
                         attribute.matcher = Matcher::Include;
                     }
                     Ok(Token::DashMatch) => {
-                        expect_equal!(i);
                         attribute.matcher = Matcher::Dash;
                     }
                     Ok(Token::PrefixMatch) => {
-                        expect_equal!(i);
                         attribute.matcher = Matcher::Prefix;
                     }
                     Ok(Token::SuffixMatch) => {
-                        expect_equal!(i);
                         attribute.matcher = Matcher::Suffix;
                     }
                     Ok(Token::SubstringMatch) => {
-                        expect_equal!(i);
                         attribute.matcher = Matcher::Substring;
                     }
                     Ok(Token::Delim('i')) => {
@@ -129,7 +113,7 @@ impl Display for Matcher {
 impl Matcher {
     pub fn matches<'i>(
         &self,
-        pattern: Option<CowRcStr<'i>>,
+        pattern: Option<&CowRcStr<'i>>,
         value: Option<&str>,
         case_sensitive: bool,
     ) -> bool {
@@ -146,24 +130,200 @@ impl Matcher {
         };
 
         if pattern.is_none() {
+            if let Matcher::Exists = self {
+                return value.is_empty() || value.as_str() == "true"
+            }
             return false;
         }
 
         let pattern = pattern.unwrap();
         match self {
-            Matcher::Exists => true,
             Matcher::Equal => pattern == value,
             Matcher::Include => {
                 pattern == value
-                    || pattern
+                    || value 
                         .split(' ')
                         .collect::<Vec<&str>>()
-                        .contains(&value.as_str())
+                        .contains(&pattern.as_str())
             }
-            Matcher::Dash => pattern == value || pattern.starts_with(&format!("{}-", value)),
-            Matcher::Prefix => pattern.starts_with(&value),
-            Matcher::Suffix => pattern.ends_with(&value),
-            Matcher::Substring => pattern.contains(&value),
+            Matcher::Dash => pattern == value || value.starts_with(&format!("{}-", pattern)),
+            Matcher::Prefix => value.starts_with(&pattern),
+            Matcher::Suffix => value.ends_with(&pattern),
+            Matcher::Substring => value.contains(&pattern),
+            _ => return false
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use cssparser::{ParserInput, Parser};
+
+    use crate::parser::{selector::{AttributeSelector, Matcher}, Parse};
+
+    #[test]
+    fn parse_exists() {
+        let mut expected = AttributeSelector {
+            name: "data-value".into(),
+            matcher: Matcher::Exists,
+            expects: None,
+            insensitive: false
+        };
+
+        let src = "[data-value]";
+        let mut input = ParserInput::new(src);
+        let mut parser = Parser::new(&mut input);
+        parser.next();
+        let result = AttributeSelector::parse(&mut parser);
+        assert!(result.is_ok());
+        assert!(result.as_ref().unwrap() == &expected);
+        assert!(result.as_ref().unwrap().matches(None));
+        assert!(result.as_ref().unwrap().matches(Some("true")));
+
+        let src = "[data-value i]";
+        let mut input = ParserInput::new(src);
+        let mut parser = Parser::new(&mut input);
+        parser.next();
+        let result = AttributeSelector::parse(&mut parser);
+        expected.insensitive = true;
+        assert!(result.is_ok());
+        assert!(result.as_ref().unwrap() == &expected);
+        assert!(result.as_ref().unwrap().matches(None));
+        assert!(result.as_ref().unwrap().matches(Some("TRue")));
+
+    }
+    #[test]
+    fn parse_equal() {
+        let mut expected = AttributeSelector {
+            name: "data-value".into(),
+            matcher: Matcher::Equal,
+            expects: Some("test".into()),
+            insensitive: false
+        };
+
+        let src = "[data-value=test]";
+        let mut input = ParserInput::new(src);
+        let mut parser = Parser::new(&mut input);
+        parser.next();
+        let result = AttributeSelector::parse(&mut parser);
+        assert!(result.is_ok());
+        assert!(result.as_ref().unwrap() == &expected);
+        assert!(result.as_ref().unwrap().matches(Some("test")));
+
+        let src = "[data-value=\"test\"]";
+        let mut input = ParserInput::new(src);
+        let mut parser = Parser::new(&mut input);
+        parser.next();
+        let result = AttributeSelector::parse(&mut parser);
+        assert!(result.is_ok());
+        assert!(result.as_ref().unwrap() == &expected);
+        assert!(result.as_ref().unwrap().matches(Some("test")));
+
+
+        let src = "[data-value=\"test\" i]";
+        let mut input = ParserInput::new(src);
+        let mut parser = Parser::new(&mut input);
+        expected.insensitive = true;
+        parser.next();
+        let result = AttributeSelector::parse(&mut parser);
+
+        assert!(result.is_ok());
+        assert!(result.as_ref().unwrap() == &expected);
+        assert!(result.as_ref().unwrap().matches(Some("TeST")));
+    }
+    #[test]
+    fn parse_include() {
+        let expected = AttributeSelector {
+            name: "data-value".into(),
+            matcher: Matcher::Include,
+            expects: Some("val".into()),
+            insensitive: false
+        };
+
+        let src = "[data-value~=val]";
+        let mut input = ParserInput::new(src);
+        let mut parser = Parser::new(&mut input);
+        parser.next();
+        let result = AttributeSelector::parse(&mut parser);
+        assert!(result.is_ok());
+        assert!(result.as_ref().unwrap() == &expected);
+        assert!(result.as_ref().unwrap().matches(Some("val")));
+        assert!(result.as_ref().unwrap().matches(Some("some space seperated list of val")));
+    }
+    #[test]
+    fn parse_dash() {
+        let expected = AttributeSelector {
+            name: "data-value".into(),
+            matcher: Matcher::Dash,
+            expects: Some("val".into()),
+            insensitive: false
+        };
+
+        let src = "[data-value|=val]";
+        let mut input = ParserInput::new(src);
+        let mut parser = Parser::new(&mut input);
+        parser.next();
+        let result = AttributeSelector::parse(&mut parser);
+        assert!(result.is_ok());
+        assert!(result.as_ref().unwrap() == &expected);
+        assert!(result.as_ref().unwrap().matches(Some("val")));
+        assert!(result.as_ref().unwrap().matches(Some("val-dashed")));
+    }
+    #[test]
+    fn parse_prefix() {
+        let expected = AttributeSelector {
+            name: "data-value".into(),
+            matcher: Matcher::Prefix,
+            expects: Some("val".into()),
+            insensitive: false
+        };
+
+        let src = "[data-value^=val]";
+        let mut input = ParserInput::new(src);
+        let mut parser = Parser::new(&mut input);
+        parser.next();
+        let result = AttributeSelector::parse(&mut parser);
+        assert!(result.is_ok());
+        assert!(result.as_ref().unwrap() == &expected);
+        assert!(result.as_ref().unwrap().matches(Some("val")));
+        assert!(result.as_ref().unwrap().matches(Some("valdashed")));
+    }
+    #[test]
+    fn parse_suffix() {
+        let expected = AttributeSelector {
+            name: "data-value".into(),
+            matcher: Matcher::Suffix,
+            expects: Some("val".into()),
+            insensitive: false
+        };
+
+        let src = "[data-value$=val]";
+        let mut input = ParserInput::new(src);
+        let mut parser = Parser::new(&mut input);
+        parser.next();
+        let result = AttributeSelector::parse(&mut parser);
+        assert!(result.is_ok());
+        assert!(result.as_ref().unwrap() == &expected);
+        assert!(result.as_ref().unwrap().matches(Some("val")));
+        assert!(result.as_ref().unwrap().matches(Some("someval")));
+    }
+    #[test]
+    fn parse_substring() {
+        let expected = AttributeSelector {
+            name: "data-value".into(),
+            matcher: Matcher::Substring,
+            expects: Some("val".into()),
+            insensitive: false
+        };
+
+        let src = "[data-value*=val]";
+        let mut input = ParserInput::new(src);
+        let mut parser = Parser::new(&mut input);
+        parser.next();
+        let result = AttributeSelector::parse(&mut parser);
+        assert!(result.is_ok());
+        assert!(result.as_ref().unwrap() == &expected);
+        assert!(result.as_ref().unwrap().matches(Some("val")));
+        assert!(result.as_ref().unwrap().matches(Some("somevalbetween")));
     }
 }
