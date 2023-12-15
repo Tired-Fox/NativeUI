@@ -213,23 +213,6 @@ pub trait SelectorCompare {
 
     fn matches(&self, other: &CompoundSelector) -> bool {
         let uclasses = self.get_classes();
-        println!("Tag: {}, ID: {}, Classes: {}, ATTRS: {}",
-            cmp_exists(other.tag.as_deref(), self.get_tag()),
-            cmp_exists(other.id.as_deref(), self.get_id()),
-            other.classes.iter().all(|c| uclasses.contains(&c.as_ref())),
-            other.attributes.iter().all(
-                |AttributeSelector {
-                     name,
-                     matcher,
-                     expects,
-                     insensitive,
-                 }| {
-                    let attr = self.get_attribute(name.as_ref());
-                    matcher.matches(expects.as_ref(), attr, *insensitive)
-                },
-            ),
-        );
-
         cmp_exists(other.tag.as_deref(), self.get_tag())
             && cmp_exists(other.id.as_deref(), self.get_id())
             && other.classes.iter().all(|c| uclasses.contains(&c.as_ref()))

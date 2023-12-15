@@ -1,6 +1,8 @@
 use std::process::exit;
 use std::{fs, path::Path};
 
+use crate::parser::at_rule::{AtRule, AtRulePrelude};
+use crate::parser::nested::NestedParser;
 use crate::parser::selector::SelectorList;
 use cssparser::{
     AtRuleParser, CowRcStr, ParseError, ParseErrorKind, Parser, ParserInput, ParserState,
@@ -19,12 +21,6 @@ macro_rules! not_implemented {
 }
 
 #[derive(Debug)]
-pub struct AtRule;
-pub enum AtRulePrelude {
-    FontFace,
-}
-
-#[derive(Debug)]
 pub struct QualifiedRule;
 
 #[derive(Debug)]
@@ -32,6 +28,7 @@ pub enum StyleParseError {
     NotImplemented,
     Unkown,
     UnkownSyntax,
+    UnkownAtRule,
     UnkownPseudoClass,
     UnkownPseudoElement,
     EndOfStream,
@@ -57,38 +54,45 @@ pub struct StyleSheet {
     rules: Vec<Rule>,
 }
 
+pub fn parse_styles<'i, 't, P>(input: &mut Parser<'i, 't>, parser: &mut P)
+where
+    P: QualifiedRuleParser<'i, QualifiedRule = SourcePosition, Error = StyleParseError>
+        + AtRuleParser<'i, AtRule = SourcePosition, Error = StyleParseError>,
+{
+    let mut iter = StyleSheetParser::new(input, parser);
+    while let Some(result) = iter.next() {
+        match result {
+            Err((error, slice)) => {
+                let location = error.location;
+                let error = match error.kind {
+                    ParseErrorKind::Custom(custom) => custom,
+                    kind => {
+                        eprintln!("{:?}", kind);
+                        StyleParseError::Unkown
+                    }
+                };
+                eprintln!(
+                    "[{}:{}]: {:?}\n\n{} │ {}\n",
+                    location.line, location.column, error, location.line, slice
+                );
+                exit(0);
+            }
+            Ok(start) => {
+                // Used to construct a sanatized out of the input
+                let end = iter.input.position().byte_index();
+                // print!("{}", &src[start.byte_index()..end])
+            }
+        }
+    }
+}
+
 impl StyleSheet {
     pub fn source(src: &str) -> Self {
         let mut input = ParserInput::new(src);
         let mut parser = Parser::new(&mut input);
 
         let mut stylesheet = Self::default();
-        {
-            let mut iter = StyleSheetParser::new(&mut parser, &mut stylesheet);
-            while let Some(result) = iter.next() {
-                match result {
-                    Err((error, slice)) => {
-                        let location = error.location;
-                        let error = match error.kind {
-                            ParseErrorKind::Custom(custom) => custom,
-                            kind => {
-                                eprintln!("{:?}", kind);
-                                StyleParseError::Unkown
-                            }
-                        };
-                        eprintln!(
-                            "[{}:{}]: {:?}\n\n{} │ {}\n",
-                            location.line, location.column, error, location.line, slice
-                        );
-                        exit(0);
-                    }
-                    Ok(start) => {
-                        let end = iter.input.position().byte_index();
-                        print!("{}", &src[start.byte_index()..end])
-                    }
-                }
-            }
-        }
+        parse_styles(&mut parser, &mut stylesheet);
         stylesheet
     }
 
@@ -107,12 +111,8 @@ impl<'i> QualifiedRuleParser<'i> for StyleSheet {
         &mut self,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self::Prelude, ParseError<'i, Self::Error>> {
-        let list = SelectorList::parse(input, false)?;
-        println!("{:?}", list);
-        for rs in list.iter() {
-            println!("{}", rs);
-        }
-        not_implemented!(input.current_source_location())
+        println!("[QualifiedRule] Prelude");
+        SelectorList::parse(input, false)
     }
 
     fn parse_block<'t>(
@@ -121,7 +121,10 @@ impl<'i> QualifiedRuleParser<'i> for StyleSheet {
         start: &ParserState,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self::QualifiedRule, ParseError<'i, Self::Error>> {
-        not_implemented!(start.source_location())
+        let mut nested = NestedParser::default();
+        parse_styles(input, &mut nested);
+        // TODO: Join nested rules into stylesheet rules
+        Ok(start.position())
     }
 }
 
@@ -135,7 +138,7 @@ impl<'i> AtRuleParser<'i> for StyleSheet {
         name: CowRcStr<'i>,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self::Prelude, ParseError<'i, Self::Error>> {
-        not_implemented!(input.current_source_location())
+        AtRule::parse_prelude(name, input)
     }
 
     fn parse_block<'t>(
@@ -144,7 +147,10 @@ impl<'i> AtRuleParser<'i> for StyleSheet {
         start: &ParserState,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self::AtRule, ParseError<'i, Self::Error>> {
-        not_implemented!(start.source_location())
+        println!("[AtRule] Block");
+        // TODO: Custom at rule block parser
+        todo!();
+        Ok(start.position())
     }
 
     fn rule_without_block(
@@ -152,6 +158,10 @@ impl<'i> AtRuleParser<'i> for StyleSheet {
         prelude: Self::Prelude,
         start: &ParserState,
     ) -> Result<Self::AtRule, ()> {
-        Err(())
+        self.rules.push(Rule::At(AtRule {
+            prelude,
+            block: None,
+        }));
+        Ok(start.position())
     }
 }

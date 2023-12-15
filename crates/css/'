@@ -71,98 +71,64 @@ pub enum Nth<'i> {
     Parity(Parity),
 }
 
-fn parse_nth_step<'i, 't>(
-    input: &mut Parser<'i, 't>,
-) -> Result<isize, ParseError<'i, StyleParseError>> {
-    let next = input.next();
-    match next {
-        Ok(Token::Dimension { value, unit, .. }) if unit.as_ref() == "n" => {
-            if *value < -1. {
-                return Err(ParseError {
-                    kind: ParseErrorKind::Custom(StyleParseError::InvalidNthFormat),
-                    location: input.current_source_location(),
-                });
-            }
-            Ok(*value as isize)
-        }
-        _ => {
-            Err(ParseError {
-                kind: ParseErrorKind::Custom(StyleParseError::InvalidNthFormat),
-                location: input.current_source_location(),
-            })
-        }
-    }
-}
-
-fn parse_nth_offset<'i, 't>(
-    input: &mut Parser<'i, 't>,
-) -> Result<usize, ParseError<'i, StyleParseError>> {
-    let before = input.state();
-    match input.next() {
-        Ok(Token::Delim('+')) => {
-            match input.next() {
-                Ok(Token::Number { value, .. }) => {
-                    if *value < 0. {
-                        return Err(ParseError {
-                            kind: ParseErrorKind::Custom(StyleParseError::InvalidNthFormat),
-                            location: input.current_source_location(),
-                        });
-                    }
-                    Ok(*value as usize)
-                }
-                _ => {
-                    return Err(ParseError {
-                        kind: ParseErrorKind::Custom(StyleParseError::InvalidNthFormat),
-                        location: input.current_source_location(),
-                    });
-                }
-            }
-        }
-        Ok(Token::Number { value, .. }) => {
-            if *value < 0. {
-                return Err(ParseError {
-                    kind: ParseErrorKind::Custom(StyleParseError::InvalidNthFormat),
-                    location: input.current_source_location(),
-                });
-            }
-            Ok(*value as usize)
-        }
-        _ => {
-            input.reset(&before);
-            Ok(0)
-        }
-    }
-}
-
-fn parse_nth_of<'i, 't>(
-    input: &mut Parser<'i, 't>,
-) -> Result<Option<CompoundSelector<'i>>, ParseError<'i, StyleParseError>> {
-    let before = input.state();
-    match input.expect_ident_matching("of") {
-        Ok(_) => {
-            input.skip_whitespace();
-            Ok(Some(CompoundSelector::parse(input)?))
-        }
-        _ => {
-            input.reset(&before);
-            Ok(None)
-        }
-    }
-}
-
 impl<'i, 't> Parse<'i, 't> for Nth<'i> {
     fn parse(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>> {
-        let before = input.state();
+        let before = input.state().clone();
         let next = input.next();
         Ok(match next {
             Ok(Token::Ident(val)) if val.as_ref() == "odd" => Nth::Parity(Parity::Odd),
             Ok(Token::Ident(val)) if val.as_ref() == "even" => Nth::Parity(Parity::Even),
             _ => {
                 input.reset(&before);
-                let step = parse_nth_step(input)?;
-                let offset = parse_nth_offset(input)?;
-                let of = parse_nth_of(input)?;
-                Nth::Functional { step, offset, of }
+                // -? \d* n (\+\d+)? (of <CompoundSelector>)?
+                let before = input.state();
+                match input.next() {
+                    Ok(Token::Delim('-')) => {
+                        // Negative step ensure next is not number
+                    },
+                    Ok(Token::Number { has_sign, value, int_value } {
+                        if value < -1 {
+                            // Error step cannot be less than -1
+                        }
+                        // next is n
+                    }
+                    Ok(Token::Ident(val)) if val.as_ref() == "n" => {
+                        // next is optional
+                    }
+                    _ => {
+                        return Err(ParseError {
+                            kind: ParseErrorKind::Custom(StyleParseError::InvalidNthFormat),
+                            location: input.current_source_location(),
+                        })
+                    }
+                };
+
+                let step = match input.expect_number() {
+                    Ok(val) => val as isize,
+                    Err(..) => {
+                        input.reset(&before);
+                        1
+                    }
+                };
+
+                let n = input.expect_ident()?;
+                if n.as_ref() != "n" {
+                    return Err(ParseError {
+                        kind: ParseErrorKind::Custom(StyleParseError::InvalidNthFormat),
+                        location: input.current_source_location(),
+                    })
+                }
+
+                let before = input.state();
+                let offset = match input.expect_number() {
+                    // TODO: Check for negative
+                    Ok(val) => val as usize,
+                    _ => {
+                        0 
+                    }
+                };
+                
+                Nth::Functional { step, offset, of: None }
             }
         })
     }
@@ -382,7 +348,7 @@ impl<'i> Display for PseudoElement<'i> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "::{}",
+            "{}",
             match self {
                 PseudoElement::After => "after".to_string(),
                 PseudoElement::Backdrop => "backdrop".to_string(),
@@ -637,7 +603,7 @@ mod test {
             result.unwrap()
                 == Nth::Functional {
                     step: 3,
-                    offset: 2,
+                    offset: 1,
                     of: None
                 }
         );
