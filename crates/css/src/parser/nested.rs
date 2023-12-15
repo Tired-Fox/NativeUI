@@ -1,7 +1,7 @@
-use crate::parser::at_rule::AtRulePrelude;
+use crate::parser::at_rule::{AtRule, AtRulePrelude};
 use crate::parser::selector::SelectorList;
 use crate::parser::stylesheet::{Rule, StyleParseError};
-use cssparser::{AtRuleParser, CowRcStr, DeclarationParser, ParseError, Parser, ParserState, QualifiedRuleParser, RuleBodyItemParser, SourcePosition};
+use cssparser::{AtRuleParser, CowRcStr, DeclarationParser, ParseError, ParseErrorKind, Parser, ParserState, QualifiedRuleParser, RuleBodyItemParser, RuleBodyParser, SourcePosition};
 
 #[derive(Debug, Default)]
 pub struct NestedParser {
@@ -26,7 +26,29 @@ impl<'i> QualifiedRuleParser<'i> for NestedParser {
         start: &ParserState,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self::QualifiedRule, ParseError<'i, Self::Error>> {
-        todo!()
+        let mut nested = NestedParser::default();
+        let mut iter = RuleBodyParser::new(input, &mut nested);
+        while let Some(result) = iter.next() {
+            match result {
+                Ok(()) => {},
+                Err((error, slice)) => {
+                    let location = error.location;
+                    let error = match error.kind {
+                        ParseErrorKind::Custom(custom) => custom,
+                        kind => {
+                            eprintln!("{:?}", kind);
+                            StyleParseError::Unkown
+                        }
+                    };
+                    eprintln!(
+                        "[{}:{}]: {:?}\n\n{} │ {}\n",
+                        location.line, location.column, error, location.line, slice
+                    );
+                }
+            }
+        }
+        // TODO: Join nested rules into stylesheet rules
+        Ok(())
     }
 }
 
@@ -40,22 +62,30 @@ impl<'i> AtRuleParser<'i> for NestedParser {
         name: CowRcStr<'i>,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self::Prelude, ParseError<'i, Self::Error>> {
-        todo!()
+        // TODO: Validate at-rule is valid for scope
+        AtRule::parse_prelude(name, input)
     }
+
     fn parse_block<'t>(
         &mut self,
         prelude: Self::Prelude,
         start: &ParserState,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self::AtRule, ParseError<'i, Self::Error>> {
-        todo!()
+        println!("[Nested::AtRule] Block");
+        // TODO: Custom at rule block parser
+        todo!();
     }
+
     fn rule_without_block(
         &mut self,
         prelude: Self::Prelude,
         start: &ParserState,
     ) -> Result<Self::AtRule, ()> {
-        todo!()
+        self.rules.push(Rule::At(AtRule {
+            prelude,
+            ..Default::default()
+        }));
     }
 }
 

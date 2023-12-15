@@ -2,7 +2,7 @@ use crate::parser::stylesheet::StyleParseError;
 use crate::parser::Parse;
 use cssparser::{CowRcStr, ParseError, ParseErrorKind, SourcePosition};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct AtRule {
     pub prelude: AtRulePrelude,
     pub block: Option<SourcePosition>,
@@ -17,8 +17,10 @@ impl<'i, 't> AtRule {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum AtRulePrelude {
+    #[default]
+    None,
     Charset,
     ColorProfile,
     Container,

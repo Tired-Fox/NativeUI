@@ -32,6 +32,7 @@ pub mod selector;
 mod at_rule;
 mod decleration;
 mod nested;
+mod color;
 
 pub trait Parse<'i, 't>
 where Self: Sized {
