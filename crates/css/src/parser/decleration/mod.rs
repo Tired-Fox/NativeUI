@@ -1,6 +1,9 @@
 use cssparser::CowRcStr;
 
 #[derive(Debug)]
-pub enum Decleration<'i> {
-    Simple(CowRcStr<'i>, CowRcStr<'i>)
+pub enum Decleration {
+    Simple(String, String)
 }
+
+#[derive(Debug)]
+pub struct Block(Vec<Decleration>);

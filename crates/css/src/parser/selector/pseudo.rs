@@ -62,11 +62,11 @@ impl Display for Parity {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Nth<'i> {
+pub enum Nth {
     Functional {
         step: isize,
         offset: usize,
-        of: Option<CompoundSelector<'i>>,
+        of: Option<CompoundSelector>,
     },
     Parity(Parity),
 }
@@ -136,7 +136,7 @@ fn parse_nth_offset<'i, 't>(
 
 fn parse_nth_of<'i, 't>(
     input: &mut Parser<'i, 't>,
-) -> Result<Option<CompoundSelector<'i>>, ParseError<'i, StyleParseError>> {
+) -> Result<Option<CompoundSelector>, ParseError<'i, StyleParseError>> {
     let before = input.state();
     match input.expect_ident_matching("of") {
         Ok(_) => {
@@ -150,7 +150,7 @@ fn parse_nth_of<'i, 't>(
     }
 }
 
-impl<'i, 't> Parse<'i, 't> for Nth<'i> {
+impl<'i, 't> Parse<'i, 't> for Nth {
     fn parse(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>> {
         let before = input.state();
         let next = input.next();
@@ -168,7 +168,7 @@ impl<'i, 't> Parse<'i, 't> for Nth<'i> {
     }
 }
 
-impl<'i> Display for Nth<'i> {
+impl Display for Nth {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -193,14 +193,14 @@ impl<'i> Display for Nth<'i> {
     }
 }
 
-impl<'i> Default for Nth<'i> {
+impl Default for Nth {
     fn default() -> Self {
         Nth::Parity(Parity::Odd)
     }
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum PseudoClass<'i> {
+pub enum PseudoClass {
     // -moz classes
     Active,
     AnyLink,
@@ -223,15 +223,15 @@ pub enum PseudoClass<'i> {
     FocusWithin,
     FullScreen,
     Future,
-    Has(SelectorList<'i>),
-    Host(CompoundSelector<'i>),
+    Has(SelectorList),
+    Host(CompoundSelector),
     HostContext,
     Hover,
     InRange,
     Indeterminate,
     Invalid,
-    Is(SelectorList<'i>),
-    Lang(Vec<CowRcStr<'i>>),
+    Is(SelectorList),
+    Lang(Vec<String>),
     LastChild,
     LastOfType,
     Left,
@@ -239,11 +239,11 @@ pub enum PseudoClass<'i> {
     LocalLink,
     Modal,
     Muted,
-    Not(SelectorList<'i>),
-    NthChild(Nth<'i>),
-    NthLastChild(Nth<'i>),
-    NthLastOfType(Nth<'i>),
-    NthOfType(Nth<'i>),
+    Not(SelectorList),
+    NthChild(Nth),
+    NthLastChild(Nth),
+    NthLastOfType(Nth),
+    NthOfType(Nth),
     OnlyChild,
     OnlyOfType,
     Optional,
@@ -269,10 +269,10 @@ pub enum PseudoClass<'i> {
     Valid,
     Visited,
     VolumeLocked,
-    Where(SelectorList<'i>),
+    Where(SelectorList),
 }
 
-impl<'i> Display for PseudoClass<'i> {
+impl Display for PseudoClass {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -352,7 +352,7 @@ impl<'i> Display for PseudoClass<'i> {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum PseudoElement<'i> {
+pub enum PseudoElement {
     // -moz, --webkit functions
     After,
     Backdrop,
@@ -363,12 +363,12 @@ pub enum PseudoElement<'i> {
     FirstLetter,
     FirstLine,
     GrammerError,
-    Highlight(CowRcStr<'i>),
+    Highlight(String),
     Marker,
-    Part(CowRcStr<'i>),
+    Part(String),
     Placeholder,
     Selection,
-    Slotted(CompoundSelector<'i>),
+    Slotted(CompoundSelector),
     SpellingError,
     TargetText,
     ViewTransition,
@@ -378,7 +378,7 @@ pub enum PseudoElement<'i> {
     ViewTransitionOld,
 }
 
-impl<'i> Display for PseudoElement<'i> {
+impl Display for PseudoElement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -429,7 +429,7 @@ where
     input.parse_nested_block(clbk)
 }
 
-impl<'i, 't> PseudoClass<'i> {
+impl<'i, 't> PseudoClass {
     pub fn parse(
         name: CowRcStr<'i>,
         input: &mut Parser<'i, 't>,
@@ -476,7 +476,7 @@ impl<'i, 't> PseudoClass<'i> {
             "lang" => parse_arguments(input, function, |i| {
                 let values = i.parse_comma_separated(|i| match i.next() {
                     Ok(Token::Ident(string)) | Ok(Token::QuotedString(string)) => {
-                        Ok(string.clone())
+                        Ok(string.to_string())
                     }
                     _ => Err(ParseError {
                         kind: ParseErrorKind::Custom(StyleParseError::ExpectedIdentOrString),
@@ -545,7 +545,7 @@ impl<'i, 't> PseudoClass<'i> {
     }
 }
 
-impl<'i, 't> PseudoElement<'i> {
+impl<'i, 't> PseudoElement {
     pub fn parse(
         name: CowRcStr<'i>,
         input: &mut Parser<'i, 't>,
@@ -562,12 +562,12 @@ impl<'i, 't> PseudoElement<'i> {
             "firstline" => PseudoElement::FirstLine,
             "grammererror" => PseudoElement::GrammerError,
             "highlight" => parse_arguments(input, function, |i| {
-                Ok(PseudoElement::Highlight(i.expect_ident()?.clone()))
+                Ok(PseudoElement::Highlight(i.expect_ident()?.to_string()))
             })?,
             "marker" => PseudoElement::Marker,
             "part" => parse_arguments(input, function, |i| {
                 let value = i.expect_ident()?;
-                Ok(PseudoElement::Part(value.clone()))
+                Ok(PseudoElement::Part(value.to_string()))
             })?,
             "placeholder" => PseudoElement::Placeholder,
             "selection" => PseudoElement::Selection,

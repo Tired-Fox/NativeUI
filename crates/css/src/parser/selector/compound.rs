@@ -7,22 +7,22 @@ use std::fmt::Display;
 use super::{pseudo::{PseudoClass, PseudoElement}, SelectorCompare};
 
 #[derive(Debug, Default, PartialEq, Clone)]
-pub struct CompoundSelector<'i> {
-    pub tag: Option<CowRcStr<'i>>,
-    pub id: Option<CowRcStr<'i>>,
-    pub classes: Vec<CowRcStr<'i>>,
-    pub attributes: Vec<AttributeSelector<'i>>,
-    pub pseudo_class: Option<Box<PseudoClass<'i>>>,
-    pub pseudo_element: Option<Box<PseudoElement<'i>>>,
+pub struct CompoundSelector {
+    pub tag: Option<String>,
+    pub id: Option<String>,
+    pub classes: Vec<String>,
+    pub attributes: Vec<AttributeSelector>,
+    pub pseudo_class: Option<Box<PseudoClass>>,
+    pub pseudo_element: Option<Box<PseudoElement>>,
 }
 
-impl<'i> CompoundSelector<'i> {
+impl<'i> CompoundSelector {
     pub fn matches<T: SelectorCompare>(&self, other: &T) -> bool {
         other.matches(self)
     }
 }
 
-impl<'i> Display for CompoundSelector<'i> {
+impl<'i> Display for CompoundSelector {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -48,7 +48,7 @@ impl<'i> Display for CompoundSelector<'i> {
     }
 }
 
-impl<'i, 't> Parse<'i, 't> for CompoundSelector<'i> {
+impl<'i, 't> Parse<'i, 't> for CompoundSelector {
     fn parse(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>> {
         let mut element = CompoundSelector::default();
         input.skip_whitespace();
@@ -63,11 +63,11 @@ impl<'i, 't> Parse<'i, 't> for CompoundSelector<'i> {
                             location: input.current_source_location(),
                         });
                     }
-                    element.tag = Some(name.clone());
+                    element.tag = Some(name.to_string());
                 }
                 Ok(Token::Delim('.')) => {
                     if let Ok(ident) = input.expect_ident() {
-                        element.classes.push(ident.clone());
+                        element.classes.push(ident.to_string());
                     }
                 }
                 Ok(Token::IDHash(value)) => {
@@ -77,7 +77,7 @@ impl<'i, 't> Parse<'i, 't> for CompoundSelector<'i> {
                             location: input.current_source_location(),
                         });
                     }
-                    element.id = Some(value.clone());
+                    element.id = Some(value.to_string());
                 }
                 Ok(Token::Colon) => {
                     let before = input.state();

@@ -1,10 +1,7 @@
 use crate::parser::at_rule::AtRulePrelude;
 use crate::parser::selector::SelectorList;
 use crate::parser::stylesheet::{Rule, StyleParseError};
-use cssparser::{
-    AtRuleParser, CowRcStr, DeclarationParser, ParseError, Parser, ParserState,
-    QualifiedRuleParser, SourcePosition,
-};
+use cssparser::{AtRuleParser, CowRcStr, DeclarationParser, ParseError, Parser, ParserState, QualifiedRuleParser, RuleBodyItemParser, SourcePosition};
 
 #[derive(Debug, Default)]
 pub struct NestedParser {
@@ -12,8 +9,8 @@ pub struct NestedParser {
 }
 
 impl<'i> QualifiedRuleParser<'i> for NestedParser {
-    type Prelude = SelectorList<'i>;
-    type QualifiedRule = SourcePosition;
+    type Prelude = SelectorList;
+    type QualifiedRule = ();
     type Error = StyleParseError;
 
     fn parse_prelude<'t>(
@@ -35,7 +32,7 @@ impl<'i> QualifiedRuleParser<'i> for NestedParser {
 
 impl<'i> AtRuleParser<'i> for NestedParser {
     type Prelude = AtRulePrelude;
-    type AtRule = SourcePosition;
+    type AtRule = ();
     type Error = StyleParseError;
 
     fn parse_prelude<'t>(
@@ -63,7 +60,7 @@ impl<'i> AtRuleParser<'i> for NestedParser {
 }
 
 impl<'i> DeclarationParser<'i> for NestedParser {
-    type Declaration = SourcePosition;
+    type Declaration = ();
     type Error = StyleParseError;
 
     fn parse_value<'t>(
@@ -71,8 +68,18 @@ impl<'i> DeclarationParser<'i> for NestedParser {
         name: CowRcStr<'i>,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self::Declaration, ParseError<'i, Self::Error>> {
-        let position = input.position();
-        while input.next().is_ok() {}
-        Ok(position)
+        todo!()
+    }
+}
+
+impl<'i> RuleBodyItemParser<'i, (), StyleParseError> for NestedParser {
+    fn parse_declarations(&self) -> bool {
+        // TODO: Set based on config
+        true
+    }
+
+    fn parse_qualified(&self) -> bool {
+        // TODO: Set based on config
+        true
     }
 }

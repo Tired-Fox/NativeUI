@@ -4,10 +4,8 @@ use std::{fs, path::Path};
 use crate::parser::at_rule::{AtRule, AtRulePrelude};
 use crate::parser::nested::NestedParser;
 use crate::parser::selector::SelectorList;
-use cssparser::{
-    AtRuleParser, CowRcStr, ParseError, ParseErrorKind, Parser, ParserInput, ParserState,
-    QualifiedRuleParser, SourcePosition, StyleSheetParser,
-};
+use cssparser::{AtRuleParser, CowRcStr, ParseError, ParseErrorKind, Parser, ParserInput, ParserState, QualifiedRuleParser, RuleBodyParser, SourcePosition, StyleSheetParser};
+use crate::parser::decleration::Block;
 
 use crate::parser::Parse;
 
@@ -21,7 +19,10 @@ macro_rules! not_implemented {
 }
 
 #[derive(Debug)]
-pub struct QualifiedRule;
+pub struct QualifiedRule {
+    pub selectors: SelectorList,
+    pub block: Block,
+}
 
 #[derive(Debug)]
 pub enum StyleParseError {
@@ -75,7 +76,6 @@ where
                     "[{}:{}]: {:?}\n\n{} │ {}\n",
                     location.line, location.column, error, location.line, slice
                 );
-                exit(0);
             }
             Ok(start) => {
                 // Used to construct a sanatized out of the input
@@ -103,7 +103,7 @@ impl StyleSheet {
 }
 
 impl<'i> QualifiedRuleParser<'i> for StyleSheet {
-    type Prelude = SelectorList<'i>;
+    type Prelude = SelectorList;
     type QualifiedRule = SourcePosition;
     type Error = StyleParseError;
 
@@ -122,7 +122,26 @@ impl<'i> QualifiedRuleParser<'i> for StyleSheet {
         input: &mut Parser<'i, 't>,
     ) -> Result<Self::QualifiedRule, ParseError<'i, Self::Error>> {
         let mut nested = NestedParser::default();
-        parse_styles(input, &mut nested);
+        let mut iter = RuleBodyParser::new(input, &mut nested);
+        while let Some(result) = iter.next() {
+            match result {
+                Ok(()) => {},
+                Err((error, slice)) => {
+                    let location = error.location;
+                    let error = match error.kind {
+                        ParseErrorKind::Custom(custom) => custom,
+                        kind => {
+                            eprintln!("{:?}", kind);
+                            StyleParseError::Unkown
+                        }
+                    };
+                    eprintln!(
+                        "[{}:{}]: {:?}\n\n{} │ {}\n",
+                        location.line, location.column, error, location.line, slice
+                    );
+                }
+            }
+        }
         // TODO: Join nested rules into stylesheet rules
         Ok(start.position())
     }

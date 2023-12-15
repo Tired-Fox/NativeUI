@@ -14,12 +14,12 @@ pub use compound::CompoundSelector;
 pub use pseudo::{Direction, Nth, Parity, PseudoClass, PseudoElement};
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum ComplexSelector<'i> {
+pub enum ComplexSelector {
     Combinator(Combinator),
-    Compound(CompoundSelector<'i>),
+    Compound(CompoundSelector),
 }
 
-impl<'i> Display for ComplexSelector<'i> {
+impl<'i> Display for ComplexSelector {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -34,11 +34,11 @@ impl<'i> Display for ComplexSelector<'i> {
 
 /// Element and Combinator parts of a selector
 #[derive(Debug, Default, PartialEq, Clone)]
-pub struct RelativeSelector<'i> {
-    parts: Vec<ComplexSelector<'i>>,
+pub struct RelativeSelector {
+    parts: Vec<ComplexSelector>,
 }
 
-impl<'i> From<&'i str> for RelativeSelector<'i> {
+impl<'i> From<&'i str> for RelativeSelector {
     fn from(value: &'i str) -> Self {
         let mut input = ParserInput::new(value);
         let mut parser = Parser::new(&mut input);
@@ -46,13 +46,13 @@ impl<'i> From<&'i str> for RelativeSelector<'i> {
     }
 }
 
-impl<'i> From<&'i String> for RelativeSelector<'i> {
+impl<'i> From<&'i String> for RelativeSelector {
     fn from(value: &'i String) -> Self {
         RelativeSelector::from(value.as_str())
     }
 }
 
-impl<'i> Display for RelativeSelector<'i> {
+impl<'i> Display for RelativeSelector {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut iter = self.parts.iter().peekable();
         if let Some(ComplexSelector::Combinator(Combinator::Descendant)) = iter.peek() {
@@ -69,8 +69,8 @@ impl<'i> Display for RelativeSelector<'i> {
     }
 }
 
-impl<'i> RelativeSelector<'i> {
-    pub fn add_part(&mut self, part: ComplexSelector<'i>) {
+impl<'i> RelativeSelector {
+    pub fn add_part(&mut self, part: ComplexSelector) {
         self.parts.push(part);
     }
 }
@@ -79,7 +79,7 @@ enum Previous {
     Combinator,
     Compound,
 }
-impl<'i, 't> Parse<'i, 't> for RelativeSelector<'i> {
+impl<'i, 't> Parse<'i, 't> for RelativeSelector {
     fn parse(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>> {
         let mut selector = RelativeSelector::default();
 
@@ -129,11 +129,11 @@ impl<'i, 't> Parse<'i, 't> for RelativeSelector<'i> {
 
 /// Comman seperated list of selectors
 #[derive(Debug, Default, PartialEq, Clone)]
-pub struct SelectorList<'i> {
-    pub(crate) pattern: Vec<RelativeSelector<'i>>,
+pub struct SelectorList {
+    pub(crate) pattern: Vec<RelativeSelector>,
 }
 
-impl<'i> Display for SelectorList<'i> {
+impl<'i> Display for SelectorList {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -147,17 +147,17 @@ impl<'i> Display for SelectorList<'i> {
     }
 }
 
-impl<'i> SelectorList<'i> {
-    pub fn add_selector(&mut self, selector: RelativeSelector<'i>) {
+impl<'i> SelectorList {
+    pub fn add_selector(&mut self, selector: RelativeSelector) {
         self.pattern.push(selector);
     }
 
-    pub fn iter(&self) -> std::slice::Iter<'_, RelativeSelector<'i>> {
+    pub fn iter(&self) -> std::slice::Iter<'_, RelativeSelector> {
         self.pattern.iter()
     }
 }
 
-impl<'i, 't> SelectorList<'i> {
+impl<'i, 't> SelectorList {
     pub fn parse(
         input: &mut Parser<'i, 't>,
         forgiving: bool,
@@ -249,7 +249,7 @@ pub fn get_nth<'i, N: SelectorCompare, T: IntoIterator<Item = &'i N>>(source: T,
                     source.into_iter().take(*offset).collect::<Vec<&N>>()
                 }
             }
-            
+
         }
     }
 }

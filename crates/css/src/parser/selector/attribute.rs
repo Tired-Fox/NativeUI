@@ -4,14 +4,14 @@ use cssparser::{CowRcStr, ParseError, ParseErrorKind, Parser, Token};
 use std::fmt::{Display, Formatter};
 
 #[derive(Default, Debug, PartialEq, Clone)]
-pub struct AttributeSelector<'i> {
-    pub name: CowRcStr<'i>,
-    pub expects: Option<CowRcStr<'i>>,
+pub struct AttributeSelector {
+    pub name: String,
+    pub expects: Option<String>,
     pub matcher: Matcher,
     pub insensitive: bool,
 }
 
-impl<'i> Display for AttributeSelector<'i> {
+impl<'i> Display for AttributeSelector {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -24,17 +24,17 @@ impl<'i> Display for AttributeSelector<'i> {
     }
 }
 
-impl<'i> AttributeSelector<'i> {
+impl<'i> AttributeSelector {
     pub fn matches(&self, value: Option<&str>) -> bool {
         self.matcher.matches(self.expects.as_ref().clone(), value, self.insensitive)
     }
 }
 
-impl<'i, 't> Parse<'i, 't> for AttributeSelector<'i> {
+impl<'i, 't> Parse<'i, 't> for AttributeSelector {
     fn parse(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>> {
         input.parse_nested_block(|i| {
             let mut attribute = AttributeSelector::default();
-            attribute.name = i.expect_ident()?.clone();
+            attribute.name = i.expect_ident()?.to_string();
 
             loop {
                 let next = i.next();
@@ -70,7 +70,7 @@ impl<'i, 't> Parse<'i, 't> for AttributeSelector<'i> {
                                 location: i.current_source_location(),
                             });
                         }
-                        attribute.expects = Some(string.clone());
+                        attribute.expects = Some(string.to_string());
                     }
                     _ => break,
                 }
@@ -113,14 +113,14 @@ impl Display for Matcher {
 impl Matcher {
     pub fn matches<'i>(
         &self,
-        pattern: Option<&CowRcStr<'i>>,
+        pattern: Option<&String>,
         value: Option<&str>,
         case_sensitive: bool,
     ) -> bool {
         let (pattern, value) = if case_sensitive {
             (
-                pattern.map(|s| s.to_lowercase()),
-                value.map(|v| v.to_lowercase()).unwrap_or(String::new()),
+                pattern.map(|s| s.to_ascii_lowercase()),
+                value.map(|v| v.to_ascii_lowercase()).unwrap_or(String::new()),
             )
         } else {
             (

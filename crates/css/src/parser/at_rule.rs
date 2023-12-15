@@ -1,6 +1,6 @@
-use cssparser::{CowRcStr, ParseError, ParseErrorKind, SourcePosition};
-use crate::parser::Parse;
 use crate::parser::stylesheet::StyleParseError;
+use crate::parser::Parse;
+use cssparser::{CowRcStr, ParseError, ParseErrorKind, SourcePosition};
 
 #[derive(Debug)]
 pub struct AtRule {
@@ -9,7 +9,10 @@ pub struct AtRule {
 }
 
 impl<'i, 't> AtRule {
-    pub fn parse_prelude(name: CowRcStr<'i>, input: &mut cssparser::Parser<'i, 't>) -> Result<AtRulePrelude, ParseError<'i, StyleParseError>> {
+    pub fn parse_prelude(
+        name: CowRcStr<'i>,
+        input: &mut cssparser::Parser<'i, 't>,
+    ) -> Result<AtRulePrelude, ParseError<'i, StyleParseError>> {
         AtRulePrelude::parse(name, input)
     }
 }
@@ -32,11 +35,14 @@ pub enum AtRulePrelude {
     Page,
     Scope,
     Supports,
-    StartingStyle
+    StartingStyle,
 }
 
 impl<'i, 't> AtRulePrelude {
-    pub fn parse(name: CowRcStr<'i>, input: &mut cssparser::Parser<'i, 't>) -> Result<Self, cssparser::ParseError<'i, StyleParseError>> {
+    pub fn parse(
+        name: CowRcStr<'i>,
+        input: &mut cssparser::Parser<'i, 't>,
+    ) -> Result<Self, cssparser::ParseError<'i, StyleParseError>> {
         let location = input.current_source_location();
         let result = match name.to_ascii_lowercase().as_str() {
             "charset" => Ok(AtRulePrelude::Charset),
@@ -58,8 +64,8 @@ impl<'i, 't> AtRulePrelude {
             "starting-style" => Ok(AtRulePrelude::StartingStyle),
             _ => Err(ParseError {
                 kind: ParseErrorKind::Custom(StyleParseError::UnkownAtRule),
-                location
-            })
+                location,
+            }),
         };
         while input.next().is_ok() {}
         result

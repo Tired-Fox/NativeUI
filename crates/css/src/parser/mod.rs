@@ -24,7 +24,8 @@
 //!
 //! Goal Strict Typing and Objects
 use cssparser::{ParseError, Parser};
-use crate::parser::stylesheet::StyleParseError;
+use crate::parser::stylesheet::{Rule, StyleParseError};
+use decleration::Decleration;
 
 pub mod stylesheet;
 pub mod selector;
