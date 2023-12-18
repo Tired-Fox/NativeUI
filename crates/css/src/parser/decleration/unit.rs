@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 pub trait Unit {}
 
 #[derive(Debug)]
@@ -20,7 +22,17 @@ pub enum Angle {
     Rad(f32),
     Turn(f32),
 }
-impl Unit for Length {}
+impl Display for Angle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match self {
+            Angle::Deg(value) => format!("{}deg", value),
+            Angle::Grad(value) => format!("{}grad", value),
+            Angle::Rad(value) => format!("{}rad", value),
+            Angle::Turn(value) => format!("{}turn", value),
+        })
+    }
+}
+impl Unit for Angle {}
 
 #[derive(Debug)]
 pub enum Relative {
@@ -43,4 +55,4 @@ pub enum Relative {
     Dvw(f32),
     Dvh(f32),
 }
-impl Unit for Length {}
+impl Unit for Relative {}

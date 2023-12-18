@@ -79,8 +79,8 @@ enum Previous {
     Combinator,
     Compound,
 }
-impl<'i, 't> Parse<'i, 't> for RelativeSelector {
-    fn parse(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>> {
+impl Parse for RelativeSelector {
+    fn parse<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>> {
         let mut selector = RelativeSelector::default();
 
         let mut prev = Previous::Compound;
@@ -142,7 +142,7 @@ impl<'i> Display for SelectorList {
                 .iter()
                 .map(|v| v.to_string())
                 .collect::<Vec<String>>()
-                .join(",")
+                .join(",\n")
         )
     }
 }

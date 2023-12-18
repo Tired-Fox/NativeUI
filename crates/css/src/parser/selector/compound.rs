@@ -48,8 +48,8 @@ impl<'i> Display for CompoundSelector {
     }
 }
 
-impl<'i, 't> Parse<'i, 't> for CompoundSelector {
-    fn parse(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>> {
+impl Parse for CompoundSelector {
+    fn parse<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>> {
         let mut element = CompoundSelector::default();
         input.skip_whitespace();
 

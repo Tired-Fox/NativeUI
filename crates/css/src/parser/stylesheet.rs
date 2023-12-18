@@ -1,27 +1,43 @@
-use std::process::exit;
+use std::fmt::Display;
 use std::{fs, path::Path};
 
 use crate::parser::at_rule::{AtRule, AtRulePrelude};
 use crate::parser::nested::NestedParser;
 use crate::parser::selector::SelectorList;
-use cssparser::{AtRuleParser, CowRcStr, ParseError, ParseErrorKind, Parser, ParserInput, ParserState, QualifiedRuleParser, RuleBodyParser, SourcePosition, StyleSheetParser};
-use crate::parser::decleration::Block;
+use cssparser::{
+    AtRuleParser, CowRcStr, ParseError, ParseErrorKind, Parser, ParserInput, ParserState,
+    QualifiedRuleParser, RuleBodyParser, SourcePosition, StyleSheetParser,
+};
 
-use crate::parser::Parse;
-
-macro_rules! not_implemented {
-    ($location: expr) => {
-        Err(ParseError {
-            kind: ParseErrorKind::Custom(StyleParseError::NotImplemented),
-            location: $location,
-        })
-    };
-}
+use super::decleration::Declaration;
 
 #[derive(Debug)]
 pub struct QualifiedRule {
     pub selectors: SelectorList,
-    pub block: Block,
+    pub declarations: Vec<Declaration>,
+    pub rules: Vec<Box<Rule>>,
+}
+
+impl Display for QualifiedRule {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let declarations = if !self.declarations.is_empty() {
+            format!("    {}", self.declarations.iter().map(|v| v.to_string()).collect::<Vec<String>>().join("\n    "))
+        } else {
+            String::new()
+        };
+
+        let rules = if !self.rules.is_empty() {
+            format!("    {}", self.rules.iter().map(|v| v.to_string()).collect::<Vec<String>>().join("\n    "))
+        } else {
+            String::new()
+        };
+
+        write!(f, "{} {{\n{}{}\n}}",
+            self.selectors,
+            declarations,
+            rules
+        )
+    }
 }
 
 #[derive(Debug)]
@@ -32,6 +48,7 @@ pub enum StyleParseError {
     UnkownAtRule,
     UnkownPseudoClass,
     UnkownPseudoElement,
+    UnkownProperty,
     EndOfStream,
     ExpectedCombinator,
     ExpectedIdentOrString,
@@ -40,6 +57,7 @@ pub enum StyleParseError {
     DuplicateElementSelector,
     InvalidPseudoSelector,
     InvalidNthFormat,
+    InvalidColorKeyword,
     UnexpectedCombinator,
     ExpectedArguments,
 }
@@ -50,9 +68,24 @@ pub enum Rule {
     Qualified(QualifiedRule),
 }
 
+impl Display for Rule {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match self {
+            Rule::At(at_rule) => at_rule.to_string(),
+            Rule::Qualified(qualified_rule) => qualified_rule.to_string()
+        })
+    }
+}
+
 #[derive(Default, Debug)]
 pub struct StyleSheet {
-    rules: Vec<Rule>,
+    rules: Vec<Box<Rule>>,
+}
+
+impl Display for StyleSheet {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.rules.iter().map(|v| v.to_string()).collect::<Vec<String>>().join("\n\n"))
+    }
 }
 
 pub fn parse_styles<'i, 't, P>(input: &mut Parser<'i, 't>, parser: &mut P)
@@ -125,7 +158,7 @@ impl<'i> QualifiedRuleParser<'i> for StyleSheet {
         let mut iter = RuleBodyParser::new(input, &mut nested);
         while let Some(result) = iter.next() {
             match result {
-                Ok(()) => {},
+                Ok(()) => {}
                 Err((error, slice)) => {
                     let location = error.location;
                     let error = match error.kind {
@@ -142,7 +175,12 @@ impl<'i> QualifiedRuleParser<'i> for StyleSheet {
                 }
             }
         }
-        // TODO: Join nested rules into stylesheet rules
+
+        self.rules.push(Box::new(Rule::Qualified(QualifiedRule {
+            selectors: prelude,
+            rules: nested.rules,
+            declarations: nested.declerations,
+        })));
         Ok(start.position())
     }
 }
@@ -177,10 +215,10 @@ impl<'i> AtRuleParser<'i> for StyleSheet {
         prelude: Self::Prelude,
         start: &ParserState,
     ) -> Result<Self::AtRule, ()> {
-        self.rules.push(Rule::At(AtRule {
+        self.rules.push(Box::new(Rule::At(AtRule {
             prelude,
             block: None,
-        }));
+        })));
         Ok(start.position())
     }
 }

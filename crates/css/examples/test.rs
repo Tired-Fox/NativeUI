@@ -14,10 +14,11 @@ fn main() {
         color: red;
     }
     "#;
-
-    let stylesheet = StyleSheet::source(src);
-    println!("{:?}", stylesheet);
-
-    // let stylesheet = StyleSheet::path("examples/styles.css");
+    //
+    // let stylesheet = StyleSheet::source(src);
     // println!("{:?}", stylesheet);
+
+    let stylesheet = StyleSheet::path("examples/styles.css");
+    println!("{:?}", stylesheet);
+    println!("{}", stylesheet);
 }

@@ -13,8 +13,8 @@ pub enum Direction {
     Rtl,
 }
 
-impl<'i, 't> Parse<'i, 't> for Direction {
-    fn parse(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>> {
+impl Parse for Direction {
+    fn parse<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>> {
         let dir = input.expect_ident()?;
         match dir.as_ref() {
             "ltr" => Ok(Direction::Ltr),
@@ -150,8 +150,8 @@ fn parse_nth_of<'i, 't>(
     }
 }
 
-impl<'i, 't> Parse<'i, 't> for Nth {
-    fn parse(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>> {
+impl Parse for Nth {
+    fn parse<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>> {
         let before = input.state();
         let next = input.next();
         Ok(match next {

@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::parser::stylesheet::StyleParseError;
 use crate::parser::Parse;
 use cssparser::{CowRcStr, ParseError, ParseErrorKind, SourcePosition};
@@ -6,6 +8,17 @@ use cssparser::{CowRcStr, ParseError, ParseErrorKind, SourcePosition};
 pub struct AtRule {
     pub prelude: AtRulePrelude,
     pub block: Option<SourcePosition>,
+}
+
+impl Display for AtRule {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "@{};", match self.prelude {
+            AtRulePrelude::Import => {
+                "import"
+            },
+            _ => "UNKOWN"
+        })
+    }
 }
 
 impl<'i, 't> AtRule {

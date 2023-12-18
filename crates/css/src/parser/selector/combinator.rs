@@ -32,8 +32,8 @@ impl Display for Combinator {
     }
 }
 
-impl<'i, 't> Parse<'i, 't> for Combinator {
-    fn parse(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>> {
+impl Parse for Combinator {
+    fn parse<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>> {
         let mut whitespaced = false;
         loop {
             match input.next_including_whitespace() {
