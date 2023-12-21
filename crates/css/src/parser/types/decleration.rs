@@ -1,12 +1,13 @@
-pub mod unit;
-
 use std::{ascii::AsciiExt, fmt::Display};
 
 use cssparser::{CowRcStr, ParseError, ParseErrorKind, Parser, Token};
 
-use unit::{Angle, Length};
-
-use super::{color::Color, stylesheet::StyleParseError, Parse};
+use super::{
+    base::{Angle, Length},
+    color::Color,
+    or::{AutoOr, Either, GlobalOr, NoneOr},
+};
+use crate::parser::{stylesheet::StyleParseError, Parse};
 
 /// -moz-* properties
 #[derive(Debug)]
@@ -152,61 +153,6 @@ pub enum FillMode {
 }
 
 #[derive(Debug, Default)]
-pub enum AutoOr<T> {
-    #[default]
-    Auto,
-    Or(T),
-}
-
-impl<T: Parse + Display> Display for AutoOr<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                AutoOr::Auto => "auto".to_string(),
-                AutoOr::Or(value) => value.to_string(),
-            }
-        )
-    }
-}
-
-impl<T: Parse> Parse for AutoOr<T> {
-    fn parse<'i, 't>(
-        input: &mut cssparser::Parser<'i, 't>,
-    ) -> Result<Self, cssparser::ParseError<'i, super::stylesheet::StyleParseError>> {
-        let start = input.state();
-        if let Ok(value) = input.expect_ident() {
-            match value.to_ascii_lowercase().as_str() {
-                "auto" => return Ok(AutoOr::Auto),
-                _ => input.reset(&start),
-            }
-        }
-        Ok(AutoOr::Or(T::parse(input)?))
-    }
-}
-
-#[derive(Debug, Default)]
-pub enum NoneOr<T: Parse> {
-    #[default]
-    None,
-    Or(T),
-}
-
-impl<T: Parse + Display> Display for NoneOr<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                NoneOr::None => "none".to_string(),
-                NoneOr::Or(value) => value.to_string(),
-            }
-        )
-    }
-}
-
-#[derive(Debug, Default)]
 pub enum PlayState {
     Running,
     #[default]
@@ -283,52 +229,6 @@ pub enum TimingFunction {
     Steps(f32, JumpTerm),
     StepStart,
     StepEnd,
-}
-
-#[derive(Debug)]
-pub enum GlobalOr<T: Parse> {
-    Inherit,
-    Initial,
-    Revert,
-    RevertLayer,
-    Unset,
-    Or(T),
-}
-
-impl<T: Parse + Display> Display for GlobalOr<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                GlobalOr::Inherit => "inherit".to_string(),
-                GlobalOr::Initial => "initial".to_string(),
-                GlobalOr::Revert => "revert".to_string(),
-                GlobalOr::RevertLayer => "revert-layer".to_string(),
-                GlobalOr::Unset => "unset".to_string(),
-                GlobalOr::Or(val) => val.to_string(),
-            }
-        )
-    }
-}
-
-impl<T: Parse> Parse for GlobalOr<T> {
-    fn parse<'i, 't>(
-        input: &mut cssparser::Parser<'i, 't>,
-    ) -> Result<Self, cssparser::ParseError<'i, super::stylesheet::StyleParseError>> {
-        let start = input.state();
-        if let Ok(value) = input.expect_ident() {
-            match value.to_ascii_lowercase().as_str() {
-                "inherit" => return Ok(GlobalOr::Inherit),
-                "initial" => return Ok(GlobalOr::Initial),
-                "revert" => return Ok(GlobalOr::Revert),
-                "revert-layer" => return Ok(GlobalOr::RevertLayer),
-                "unset" => return Ok(GlobalOr::Unset),
-                _ => input.reset(&start),
-            }
-        }
-        Ok(GlobalOr::Or(T::parse(input)?))
-    }
 }
 
 #[derive(Debug)]
@@ -434,7 +334,7 @@ impl<T: FromNumber> Parse for PercentOrNumber<T> {
                     return Err(ParseError {
                         kind: ParseErrorKind::Custom(StyleParseError::UnkownSyntax),
                         location: input.current_source_location(),
-                    })
+                    });
                 }
 
                 Ok(PercentOrNumber::Number(T::from_number(*value)))
@@ -499,6 +399,7 @@ pub enum Declaration {
     Webkit(Webkit),
     /// accent-color
     AccentColor(GlobalOr<AutoOr<Color>>),
+    // TODO: ...
     // align-*
     // AlignContent { safe: Option<SafeUnsafe>, value: GlobalOr<AutoOr<Align>> },
     // AlignItems { safe: Option<SafeUnsafe>, value: GlobalOr<AutoOr<Align>> },
@@ -529,103 +430,104 @@ pub enum Declaration {
     // clipDeprecated
     // clip-path
     // color
-    Color(GlobalOr<Color>), // color-scheme
-                            // column-*
-                            // columns
-                            // contain-*
-                            // container-*
-                            // content
-                            // content-visibilityExperimental
-                            // counter-*
-                            // cursor
-                            // direction
-                            // display
-                            // empty-cells
-                            // filter
-                            // flex-*
-                            // float
-                            // font-*
-                            // forced-color-adjust
-                            // gap
-                            // grid-*
-                            // hanging-punctuation
-                            // height
-                            // hyphenate-character
-                            // hyphenate-limit-chars
-                            // hyphens
-                            // image-*
-                            // initial-letterExperimental
-                            // initial-letter-alignExperimental
-                            // inline-size
-                            // inset-*
-                            // isolation
-                            // justify-*
-                            // left
-                            // letter-spacing
-                            // line-*
-                            // list-*
-                            // margin-*
-                            // mask-*
-                            // masonry-auto-flowExperimental
-                            // math-*
-                            // max-*
-                            // min-*
-                            // mix-blend-mode
-                            // object-fit
-                            // object-position
-                            // offset-*
-                            // opacity
-                            // order
-                            // orphans
-                            // outline-*
-                            // overflow-*
-                            // overlayExperimental
-                            // overscroll-*
-                            // padding-*
-                            // page-*
-                            // paint-order
-                            // perspective
-                            // perspective-origin
-                            // place-*
-                            // pointer-events
-                            // position
-                            // print-color-adjust
-                            // quotes
-                            // resize
-                            // right
-                            // rotate
-                            // row-gap
-                            // ruby-alignExperimental
-                            // ruby-position
-                            // scale
-                            // scroll-*
-                            // scrollbar-*
-                            // shape-*
-                            // tab-size
-                            // table-layout
-                            // text-*
-                            // timeline-scopeExperimental
-                            // top
-                            // touch-action
-                            // transform-*
-                            // transition-*
-                            // translate
-                            // unicode-bidi
-                            // user-modifyNon-standardDeprecated
-                            // user-select
-                            // vertical-align
-                            // view-*
-                            // visibility
-                            // white-space
-                            // white-space-collapseExperimental
-                            // widows
-                            // width
-                            // will-change
-                            // word-break
-                            // word-spacing
-                            // writing-mode
-                            // z-index
-                            // zoomNon-standard
+    Color(GlobalOr<Color>),
+    // color-scheme
+    // column-*
+    // columns
+    // contain-*
+    // container-*
+    // content
+    // content-visibilityExperimental
+    // counter-*
+    // cursor
+    // direction
+    // display
+    // empty-cells
+    // filter
+    // flex-*
+    // float
+    // font-*
+    // forced-color-adjust
+    // gap
+    // grid-*
+    // hanging-punctuation
+    // height
+    // hyphenate-character
+    // hyphenate-limit-chars
+    // hyphens
+    // image-*
+    // initial-letterExperimental
+    // initial-letter-alignExperimental
+    // inline-size
+    // inset-*
+    // isolation
+    // justify-*
+    // left
+    // letter-spacing
+    // line-*
+    // list-*
+    // margin-*
+    // mask-*
+    // masonry-auto-flowExperimental
+    // math-*
+    // max-*
+    // min-*
+    // mix-blend-mode
+    // object-fit
+    // object-position
+    // offset-*
+    // opacity
+    // order
+    // orphans
+    // outline-*
+    // overflow-*
+    // overlayExperimental
+    // overscroll-*
+    // padding-*
+    // page-*
+    // paint-order
+    // perspective
+    // perspective-origin
+    // place-*
+    // pointer-events
+    // position
+    // print-color-adjust
+    // quotes
+    // resize
+    // right
+    // rotate
+    // row-gap
+    // ruby-alignExperimental
+    // ruby-position
+    // scale
+    // scroll-*
+    // scrollbar-*
+    // shape-*
+    // tab-size
+    // table-layout
+    // text-*
+    // timeline-scopeExperimental
+    // top
+    // touch-action
+    // transform-*
+    // transition-*
+    // translate
+    // unicode-bidi
+    // user-modifyNon-standardDeprecated
+    // user-select
+    // vertical-align
+    // view-*
+    // visibility
+    // white-space
+    // white-space-collapseExperimental
+    // widows
+    // width
+    // will-change
+    // word-break
+    // word-spacing
+    // writing-mode
+    // z-index
+    // zoomNon-standard
 }
 
 impl Declaration {
@@ -634,12 +536,16 @@ impl Declaration {
         input: &mut Parser<'i, 't>,
     ) -> Result<Self, ParseError<'i, StyleParseError>> {
         let property = match name.as_ref() {
-            "accent-color" => Ok(Self::AccentColor(GlobalOr::<AutoOr<Color>>::parse(input)?)),
+            "accent-color" => {
+                let result = GlobalOr::<AutoOr<Color>>::parse(input);
+                Ok(Self::AccentColor(result?))
+            },
             "color" => Ok(Self::Color(GlobalOr::<Color>::parse(input)?)),
+            // TODO: ...
             _ => Err(ParseError {
                 kind: ParseErrorKind::Custom(StyleParseError::UnkownProperty),
                 location: input.current_source_location(),
-            }),
+            })
         };
 
         // TODO: Parse importance
@@ -653,7 +559,8 @@ impl Display for Declaration {
         let (name, value) = match self {
             Declaration::Color(color) => ("color", color.to_string()),
             Declaration::AccentColor(color) => ("accent-color", color.to_string()),
-            _ => ("-cyp", String::new()),
+            // TODO: ...
+            _ => ("--cypress-error", String::new()),
         };
         write!(f, "{}: {};", name, value)
     }

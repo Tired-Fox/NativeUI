@@ -1,5 +1,5 @@
 use crate::parser::at_rule::{AtRule, AtRulePrelude};
-use crate::parser::decleration::Declaration;
+use crate::parser::types::Declaration;
 use crate::parser::selector::SelectorList;
 use crate::parser::stylesheet::{QualifiedRule, Rule, StyleParseError};
 use cssparser::{
@@ -112,7 +112,7 @@ impl<'i> DeclarationParser<'i> for NestedParser {
         name: CowRcStr<'i>,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self::Declaration, ParseError<'i, Self::Error>> {
-        println!("[Nested::Decleration] Value");
+        println!("[Nested::Declaration] Value");
         self.declerations.push(Declaration::parse(name, input)?);
         Ok(())
     }

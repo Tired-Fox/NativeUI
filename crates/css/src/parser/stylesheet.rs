@@ -9,7 +9,7 @@ use cssparser::{
     QualifiedRuleParser, RuleBodyParser, SourcePosition, StyleSheetParser,
 };
 
-use super::decleration::Declaration;
+use super::types::decleration::Declaration;
 
 #[derive(Debug)]
 pub struct QualifiedRule {

@@ -1,8 +1,6 @@
 /*
     Sample css comment that will be ignored
 */
-@import "other.css";
-
 div > p ~ a + input,
 #some-id[data-value~='foo' i]::before,
 div.some-class#of-pop:where(p > a, :pseudo-invalid) {
@@ -10,7 +8,19 @@ div.some-class#of-pop:where(p > a, :pseudo-invalid) {
     accent-color: currentcolor;
     accent-color: auto;
     accent-color: unset;
-    color: inherit;
-    color: red;
-    color: transparent;
+    accent-color: rgb(0 0 0);
+    accent-color: rgb(0, 0, 0);
+    accent-color: rgb(0 0 0 / .40);
+    accent-color: rgb(0, 0, 0, .40);
+    accent-color: rgba(0 0 0);
+    accent-color: rgba(0, 0, 0);
+    accent-color: rgba(0 0 0 / 0.40);
+    accent-color: rgba(0, 0, 0, 0.40);
+    accent-color: #f32;
+    accent-color: #f32a;
+    accent-color: #ff6b6b;
+    accent-color: #ff6b6baf;
+    /*color: inherit;*/
+    /*color: red;*/
+    /*color: transparent;*/
 }
