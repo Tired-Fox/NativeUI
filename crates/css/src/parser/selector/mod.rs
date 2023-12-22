@@ -4,7 +4,7 @@ mod compound;
 mod pseudo;
 
 use crate::parser::selector::combinator::Combinator;
-use crate::parser::stylesheet::StyleParseError;
+use crate::parser::error::StyleParseError;
 use crate::parser::Parse;
 use cssparser::{Delimiter, ParseError, ParseErrorKind, Parser, Token, ParserInput};
 use std::{fmt::{Debug, Display, Formatter}, slice::Iter, vec::IntoIter, iter::StepBy, cmp::{min, max}};
@@ -96,10 +96,7 @@ impl Parse for RelativeSelector {
             match Combinator::parse(input) {
                 Ok(combinator) => {
                     if let Previous::Combinator = prev {
-                        return Err(ParseError {
-                            kind: ParseErrorKind::Custom(StyleParseError::UnexpectedCombinator),
-                            location: input.current_source_location(),
-                        });
+                        return Err(input.new_custom_error(StyleParseError::UnexpectedCombinator));
                     }
                     selector.add_part(ComplexSelector::Combinator(combinator));
                     prev = Previous::Combinator;

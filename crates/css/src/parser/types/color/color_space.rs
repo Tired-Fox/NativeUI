@@ -1,4 +1,4 @@
-use crate::parser::stylesheet::StyleParseError;
+use crate::parser::error::StyleParseError;
 use crate::parser::Parse;
 use cssparser::{ParseError, ParseErrorKind, Parser};
 use std::fmt::Display;
@@ -39,7 +39,8 @@ impl Display for ColorSpace {
 
 impl Parse for ColorSpace {
     fn parse<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>> {
-        let i = input.current_source_location();
+        input.skip_whitespace();
+        let start = input.current_source_location();
         match input.expect_ident()?.as_ref() {
             "srgb" => Ok(ColorSpace::SRGB),
             "srgb-linear" => Ok(ColorSpace::SRGBLinear),
@@ -50,10 +51,17 @@ impl Parse for ColorSpace {
             "xyz" => Ok(ColorSpace::XYZ),
             "xyz-d50" => Ok(ColorSpace::XYZD50),
             "xyz-d65" => Ok(ColorSpace::XYZD65),
-            _ => Err(ParseError {
-                kind: ParseErrorKind::Custom(StyleParseError::UnkownSyntax),
-                location: i,
-            }),
+            _ => Err(start.new_custom_error(StyleParseError::ExpectedKeywords(vec![
+                "srgb",
+                "srgb-linear",
+                "display-p3",
+                "a98-rgb",
+                "prophoto-rgb",
+                "rec2020",
+                "xyz",
+                "xyz-d50",
+                "xyz-d65",
+            ]))),
         }
     }
 }
@@ -90,8 +98,9 @@ impl Display for RectangularColorSpace {
 
 impl Parse for RectangularColorSpace {
     fn parse<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>> {
-        let i = input.current_source_location();
         input.expect_ident_matching("in")?;
+        input.skip_whitespace();
+        let i = input.current_source_location();
         match input.expect_ident()?.as_ref() {
             "srgb" => Ok(RectangularColorSpace::SRGB),
             "srgb-linear" => Ok(RectangularColorSpace::SRGBLinear),
@@ -100,10 +109,15 @@ impl Parse for RectangularColorSpace {
             "xyz" => Ok(RectangularColorSpace::XYZ),
             "xyz-d50" => Ok(RectangularColorSpace::XYZD50),
             "oklab" => Ok(RectangularColorSpace::OKLAB),
-            _ => Err(ParseError {
-                kind: ParseErrorKind::Custom(StyleParseError::UnkownSyntax),
-                location: i,
-            }),
+            _ => Err(i.new_custom_error(StyleParseError::ExpectedKeywords(vec![
+                "srgb",
+                "srgb-linear",
+                "lab",
+                "xyz-d65",
+                "xyz",
+                "xyz-d50",
+                "oklab",
+            ]))),
         }
     }
 }
@@ -133,6 +147,7 @@ impl Display for PolarColorSpace {
 
 impl Parse for PolarColorSpace {
     fn parse<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>> {
+        input.skip_whitespace();
         let i = input.current_source_location();
         input.expect_ident_matching("in")?;
         match input.expect_ident()?.as_ref() {
@@ -140,10 +155,9 @@ impl Parse for PolarColorSpace {
             "hwb" => Ok(PolarColorSpace::HWB),
             "lch" => Ok(PolarColorSpace::LCH),
             "oklch" => Ok(PolarColorSpace::OKLCH),
-            _ => Err(ParseError {
-                kind: ParseErrorKind::Custom(StyleParseError::UnkownSyntax),
-                location: i,
-            }),
+            _ => Err(i.new_custom_error(StyleParseError::ExpectedKeywords(vec![
+                "hsl", "hwb", "lch", "oklch",
+            ]))),
         }
     }
 }
@@ -174,19 +188,30 @@ impl Display for HueInterpolationMethod {
 
 impl Parse for HueInterpolationMethod {
     fn parse<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>> {
+        input.skip_whitespace();
         let i = input.current_source_location();
+        if input.is_exhausted() {
+            return Ok(HueInterpolationMethod::default());
+        }
+
         let result = match input.expect_ident()?.as_ref() {
             "longer" => Ok(HueInterpolationMethod::Longer),
             "shorter" => Ok(HueInterpolationMethod::Shorter),
             "increasing" => Ok(HueInterpolationMethod::Increasing),
             "decreasing" => Ok(HueInterpolationMethod::Decreasing),
-            _ => Err(ParseError {
-                kind: ParseErrorKind::Custom(StyleParseError::UnkownSyntax),
-                location: i,
-            }),
+            _ => Err(i.new_custom_error(StyleParseError::ExpectedKeywords(vec![
+                "longer",
+                "shorter",
+                "increasing",
+                "decreasing",
+            ]))),
         }?;
 
-        input.expect_ident_matching("hue")?;
+        input.skip_whitespace();
+        input.expect_ident_matching("hue").map_err(|e| {
+            e.location
+                .new_custom_error(StyleParseError::ExpectedKeyword("hue"))
+        })?;
         Ok(result)
     }
 }
@@ -204,7 +229,12 @@ impl Display for ColorInterpolationMethod {
             "{}",
             match self {
                 Self::Rectangular(cs) => cs.to_string(),
-                Self::Polar(cs, him) => format!("{} {}", cs, him),
+                Self::Polar(cs, him) =>
+                    if let HueInterpolationMethod::Shorter = him {
+                        format!("{}", cs)
+                    } else {
+                        format!("{} {}", cs, him)
+                    },
             }
         )
     }
@@ -218,9 +248,10 @@ impl Default for ColorInterpolationMethod {
 
 impl Parse for ColorInterpolationMethod {
     fn parse<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>> {
-        let i = input.current_source_location();
         let state = input.state();
         input.expect_ident_matching("in")?;
+        input.skip_whitespace();
+        let i = input.current_source_location();
         match input.expect_ident()?.as_ref() {
             "srgb" | "srgb-linear" | "lab" | "xyz-d65" | "xyz" | "xyz-d50" | "oklab" => {
                 input.reset(&state);
@@ -232,14 +263,22 @@ impl Parse for ColorInterpolationMethod {
                 input.reset(&state);
                 Ok(ColorInterpolationMethod::Polar(
                     PolarColorSpace::parse(input)?,
-                    HueInterpolationMethod::parse(input)
-                        .unwrap_or(HueInterpolationMethod::default()),
+                    HueInterpolationMethod::parse(input)?,
                 ))
             }
-            _ => Err(ParseError {
-                kind: ParseErrorKind::Custom(StyleParseError::UnkownSyntax),
-                location: i,
-            }),
+            _ => Err(i.new_custom_error(StyleParseError::ExpectedKeywords(vec![
+                "srgb",
+                "srgb-linear",
+                "lab",
+                "xyz-d65",
+                "xyz",
+                "xyz-d50",
+                "oklab",
+                "hsl",
+                "hwb",
+                "lch",
+                "oklch",
+            ]))),
         }
     }
 }

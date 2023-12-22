@@ -1,6 +1,6 @@
-use crate::parser::stylesheet::StyleParseError;
+use crate::parser::error::StyleParseError;
 use crate::parser::Parse;
-use cssparser::{ParseError, ParseErrorKind, Parser, Token};
+use cssparser::{Delimiter, ParseError, ParseErrorKind, Parser, Token};
 use std::fmt::{Debug, Display};
 
 use super::{
@@ -27,13 +27,12 @@ pub enum Alpha {
 
 impl Parse for Alpha {
     fn parse<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>> {
+        input.skip_whitespace();
+        let start = input.current_source_location();
         match input.next() {
             Ok(Token::Percentage { unit_value, .. }) => Ok(Alpha::Percentage(unit_value.into())),
             Ok(Token::Number { value, .. }) => Ok(Alpha::Number(value.into())),
-            _ => Err(ParseError {
-                kind: ParseErrorKind::Custom(StyleParseError::UnkownSyntax),
-                location: input.current_source_location(),
-            }),
+            _ => Err(start.new_custom_error(StyleParseError::ExpectedNumberOrPercent)),
         }
     }
 }
@@ -45,7 +44,7 @@ impl Display for Alpha {
             "{}",
             match self {
                 Alpha::Number(num) => num.to_string(),
-                Alpha::Percentage(perc) => format!("{}%", perc),
+                Alpha::Percentage(perc) => perc.to_string(),
             }
         )
     }
@@ -135,10 +134,6 @@ pub enum Color {
     /// - hwb(h w b)
     /// - hwb(h w b / a)
     ///
-    /// _**Legacy**_
-    /// - hwb(h, w, b)
-    /// - hwb(h, w, b, a)
-    ///
     /// Reference: https://developer.mozilla.org/en-US/docs/Web/CSS/color_value/hwb
     HWB {
         hue: NoneOr<Either<Angle, Number>>,
@@ -153,19 +148,13 @@ pub enum Color {
     /// - oklab(l a b)
     /// - oklab(l a b / a)
     ///
-    /// _**Legacy**_
-    /// - lab(l, a, b)
-    /// - lab(l, a, b, a)
-    /// - oklab(l, a, b)
-    /// - oklab(l, a, b, a)
-    ///
     /// Reference: https://developer.mozilla.org/en-US/docs/Web/CSS/color_value/lab
     /// Reference(OK): https://developer.mozilla.org/en-US/docs/Web/CSS/color_value/oklab
     LAB {
         ok: bool,
         lightness: NoneOr<PercentOr<Number>>,
-        a_axis: NoneOr<PercentOr<Number>>,
-        b_axis: NoneOr<PercentOr<Number>>,
+        a: NoneOr<PercentOr<Number>>,
+        b: NoneOr<PercentOr<Number>>,
         alpha: Option<NoneOr<Alpha>>,
     },
     /// (OK)LCH Color
@@ -234,19 +223,101 @@ pub enum Color {
     LightDark { light: Box<Color>, dark: Box<Color> },
 }
 
-fn parse_with_opt_comma<'i, 't, T: Parse + Debug>(
+/// For parsing RGB and HSL modern and legacy syntax since they are similar.
+///
+/// Technically rgb and hsl legacy syntax have all values being consistant while this will
+/// parse each value as it's modern syntax with comma seperation. This is known and allows for more lenient legacy
+/// css syntax, but this is more or less to support users writing legacy syntax of rgb and hsl not validating that they are
+/// 100% correct.
+///
+/// # Modern RGB
+/// - rgb|rgba: `rgb([<number>|<percent>|none]#{3} [ / [<alpha-value> | None]]?)`
+///
+/// # Legacy RGB
+/// - rgb|rgba: `rgb(<number>#{3}, <alplha-value>?)`
+/// - rgb|rgba: `rgb(<percent>#{3}, <alplha-value>?)`
+///
+/// # Modern HSL
+/// - hsl|hsla: `hsl([<hue> | none] [<number>|<percent>|none]{2} [ / [<alpha-value> | None]]?)`
+///
+/// # Legacy HSL
+/// - hsl|hsla: `hsl(<hue>, <percent>, <percent>, <alplha-value>?)`
+fn parse_color_with_legacy<'i, 't, A1: Parse, A2: Parse, A3: Parse, A4: Parse>(
     input: &mut Parser<'i, 't>,
-) -> Result<T, ParseError<'i, StyleParseError>> {
-    let result = T::parse(input)?;
-    let _ = input.try_parse(|i| i.expect_comma());
-    Ok(result)
+) -> Result<(A1, A2, A3, Option<A4>), ParseError<'i, StyleParseError>> {
+    let a1 = A1::parse(input)?;
+    let bfr = input.state();
+    match input.expect_comma() {
+        Ok(_) => {
+            let a2 = input.parse_until_before(Delimiter::Comma, |i| {
+                // parse
+                let result = A2::parse(i)?;
+                i.skip_whitespace();
+                if let Err(err) = i.expect_exhausted() {
+                    return Err(ParseError {
+                        kind: ParseErrorKind::Custom(StyleParseError::InvalidArgument),
+                        location: err.location,
+                    });
+                }
+                Ok(result)
+            })?;
+            input.skip_whitespace();
+            if let Err(err) = input.expect_comma() {
+                return Err(ParseError {
+                    kind: ParseErrorKind::Custom(StyleParseError::InvalidArgument),
+                    location: err.location,
+                });
+            }
+            let a3 = A3::parse(input)?;
+
+            let bfr = input.state();
+            let a4 = if let Ok(_) = input.expect_comma() {
+                Option::<A4>::parse(input)?
+            } else {
+                input.reset(&bfr);
+                None
+            };
+
+            input.skip_whitespace();
+            if let Err(err) = input.expect_exhausted() {
+                return Err(ParseError {
+                    kind: ParseErrorKind::Custom(StyleParseError::InvalidArgument),
+                    location: err.location,
+                });
+            }
+            Ok((a1, a2, a3, a4))
+        }
+        Err(_) => {
+            input.reset(&bfr);
+            let a2 = A2::parse(input)?;
+            let a3 = A3::parse(input)?;
+            let bfr = input.state();
+            let a4 = if let Ok(_) = input.expect_delim('/') {
+                Some(A4::parse(input)?)
+            } else {
+                input.reset(&bfr);
+                None
+            };
+
+            input.skip_whitespace();
+            if let Err(err) = input.expect_exhausted() {
+                return Err(ParseError {
+                    kind: ParseErrorKind::Custom(StyleParseError::InvalidArgument),
+                    location: err.location,
+                });
+            }
+            Ok((a1, a2, a3, a4))
+        }
+    }
 }
+
 impl Parse for Color {
     fn parse<'i, 't>(
         input: &mut cssparser::Parser<'i, 't>,
     ) -> Result<Self, cssparser::ParseError<'i, StyleParseError>> {
-        let next = input.next();
-        match next {
+        input.skip_whitespace();
+        let begin = input.current_source_location();
+        match input.next() {
             Ok(Token::Ident(value)) => match value.to_ascii_lowercase().as_str() {
                 "transparent" => Ok(Color::Transparent),
                 "currentcolor" => Ok(Color::CurrentColor),
@@ -256,21 +327,13 @@ impl Parse for Color {
                     } else if let Some(system) = System::parse(value.as_ref()) {
                         Ok(Color::System(system))
                     } else {
-                        Err(ParseError {
-                            kind: cssparser::ParseErrorKind::Custom(
-                                StyleParseError::InvalidColorKeyword,
-                            ),
-                            location: input.current_source_location(),
-                        })
+                        Err(begin.new_custom_error(StyleParseError::InvalidColorKeyword))
                     }
                 }
             },
-            Ok(Token::IDHash(hex)) => {
+            Ok(Token::IDHash(hex)) | Ok(Token::Hash(hex)) => {
                 if hex.len() != 3 && hex.len() != 6 && hex.len() != 4 && hex.len() != 8 {
-                    return Err(ParseError {
-                        kind: ParseErrorKind::Custom(StyleParseError::UnkownSyntax),
-                        location: input.current_source_location(),
-                    });
+                    return Err(begin.new_custom_error(StyleParseError::InvalidHexFormat));
                 }
 
                 let hex = match hex.len() {
@@ -295,10 +358,7 @@ impl Parse for Color {
                 };
 
                 let hex = u32::from_str_radix(hex.as_str(), 16)
-                    .map_err(|_| ParseError {
-                        kind: ParseErrorKind::Custom(StyleParseError::UnkownSyntax),
-                        location: input.current_source_location(),
-                    })?
+                    .map_err(|_| begin.new_custom_error(StyleParseError::InvalidHexFormat))?
                     .to_be_bytes();
 
                 if hex.len() == 6 {
@@ -319,61 +379,143 @@ impl Parse for Color {
             }
             Ok(Token::Function(name)) => match name.to_ascii_lowercase().as_str() {
                 "rgb" | "rgba" => input.parse_nested_block(|i| {
+                    let parts = parse_color_with_legacy(i)?;
                     Ok(Color::RGB {
-                        red: parse_with_opt_comma(i)?,
-                        green: parse_with_opt_comma(i)?,
-                        blue: parse_with_opt_comma(i)?,
+                        red: parts.0,
+                        green: parts.1,
+                        blue: parts.2,
+                        alpha: parts.3,
+                    })
+                }),
+                "hsl" | "hsla" => input.parse_nested_block(|i| {
+                    let parts = parse_color_with_legacy(i)?;
+                    Ok(Color::HSL {
+                        hue: parts.0,
+                        saturation: parts.1,
+                        lightness: parts.2,
+                        alpha: parts.3,
+                    })
+                }),
+                "hwb" => input.parse_nested_block(|i| {
+                    Ok(Color::HWB {
+                        hue: NoneOr::<Either<Angle, Number>>::parse(i)?,
+                        whiteness: NoneOr::<Percent>::parse(i)?,
+                        blackness: NoneOr::<Percent>::parse(i)?,
                         alpha: if !i.is_exhausted() {
-                            if let Err(_) = i.try_parse(|i| i.expect_comma()) {
-                                if let Err(_) = i.try_parse(|i| i.expect_delim('/')) {
-                                    return Err(ParseError {
-                                        kind: ParseErrorKind::Custom(StyleParseError::UnkownSyntax),
-                                        location: i.current_source_location(),
-                                    });
-                                }
+                            if let Err(_) = i.try_parse(|i| i.expect_delim('/')) {
+                                return Err(i.new_custom_error(StyleParseError::InvalidArgument));
                             }
-                            Option::<NoneOr<Alpha>>::parse(i)?
+                            Some(NoneOr::<Alpha>::parse(i)?)
                         } else {
                             None
                         },
                     })
                 }),
-                _ => {
-                    println!("Invalid color function: {:?}", name);
-                    Err(ParseError {
-                        kind: ParseErrorKind::Custom(StyleParseError::NotImplemented),
-                        location: input.current_source_location(),
+                "oklab" | "lab" => {
+                    let ok = name.to_ascii_lowercase().starts_with("ok");
+                    input.parse_nested_block(|i| {
+                        Ok(Color::LAB {
+                            ok,
+                            lightness: NoneOr::<PercentOr<Number>>::parse(i)?,
+                            a: NoneOr::<PercentOr<Number>>::parse(i)?,
+                            b: NoneOr::<PercentOr<Number>>::parse(i)?,
+                            alpha: if !i.is_exhausted() {
+                                if let Err(_) = i.try_parse(|i| i.expect_delim('/')) {
+                                    return Err(
+                                        i.new_custom_error(StyleParseError::InvalidArgument)
+                                    );
+                                }
+                                Some(NoneOr::<Alpha>::parse(i)?)
+                            } else {
+                                None
+                            },
+                        })
                     })
                 }
+                "oklch" | "lch" => {
+                    let ok = name.to_ascii_lowercase().starts_with("ok");
+                    input.parse_nested_block(|i| {
+                        Ok(Color::LCH {
+                            ok,
+                            lightness: NoneOr::<PercentOr<Number>>::parse(i)?,
+                            chroma: NoneOr::<PercentOr<Number>>::parse(i)?,
+                            hue: NoneOr::<Either<Angle, Number>>::parse(i)?,
+                            alpha: if !i.is_exhausted() {
+                                if let Err(_) = i.try_parse(|i| i.expect_delim('/')) {
+                                    return Err(
+                                        i.new_custom_error(StyleParseError::InvalidArgument)
+                                    );
+                                }
+                                Some(NoneOr::<Alpha>::parse(i)?)
+                            } else {
+                                None
+                            },
+                        })
+                    })
+                }
+                "color" => input.parse_nested_block(|i| {
+                    Ok(Color::Color {
+                        color_space: ColorSpace::parse(i)?,
+                        c1: NoneOr::<PercentOr<Number>>::parse(i)?,
+                        c2: NoneOr::<PercentOr<Number>>::parse(i)?,
+                        c3: NoneOr::<PercentOr<Number>>::parse(i)?,
+                        alpha: if !i.is_exhausted() {
+                            if let Err(_) = i.try_parse(|i| i.expect_delim('/')) {
+                                return Err(i.new_custom_error(StyleParseError::InvalidArgument));
+                            }
+                            Some(NoneOr::<Alpha>::parse(i)?)
+                        } else {
+                            None
+                        },
+                    })
+                }),
+                "color-mix" => input.parse_nested_block(|i| {
+                    let method = i.parse_until_before(Delimiter::Comma, |i| {
+                        ColorInterpolationMethod::parse(i)
+                    })?;
+                    let _ = i.expect_comma()?;
+                    let c1 = {
+                        let result = (Color::parse(i)?, Option::<Percent>::parse(i)?);
+                        let _ = i.expect_comma()?;
+                        result
+                    };
+                    let c2 = (Color::parse(i)?, Option::<Percent>::parse(i)?);
+                    Ok(Color::ColorMix {
+                        method,
+                        color1: Box::new(c1.0),
+                        p1: c1.1,
+                        color2: Box::new(c2.0),
+                        p2: c2.1,
+                    })
+                }),
+                "light-dark" => input.parse_nested_block(|i| {
+                    Ok(Color::LightDark {
+                        light: {
+                            let result = Color::parse(i)?;
+                            let _ = i.expect_comma()?;
+                            Box::new(result)
+                        },
+                        dark: Box::new(Color::parse(i)?),
+                    })
+                }),
+                _ => Err(
+                    begin.new_custom_error(StyleParseError::ExpectedFunctions(vec![
+                        "rgb",
+                        "hsl",
+                        "hwb",
+                        "oklab",
+                        "lab",
+                        "oklch",
+                        "lch",
+                        "color",
+                        "color-mix",
+                        "light-dark",
+                    ])),
+                ),
             },
-            Ok(color) => {
-                println!("Invalid color ident: {:?}", color);
-                Err(ParseError {
-                    kind: ParseErrorKind::Custom(StyleParseError::NotImplemented),
-                    location: input.current_source_location(),
-                })
-            }
-            Err(err) => {
-                println!("[ColorError]: {:?}", err);
-                Err(ParseError {
-                    kind: ParseErrorKind::Custom(StyleParseError::NotImplemented),
-                    location: input.current_source_location(),
-                })
-            } // srgb
-              // rgb function
-              // rgba function
-              // hsl function
-              // color
-              // hwb
-              // lch
-              // oklch
-              // lab
-              // oklab
-              //
-              // #rrggbb
-              // #rrggbbaa
-              // #rgba
-              // hsla
+            _ => Err(begin.new_custom_error(StyleParseError::Expected(
+                "hex, transparent, currentColor, function colors, named colors, or system colors",
+            ))),
         }
     }
 }
@@ -395,15 +537,11 @@ impl Display for Color {
                     alpha,
                 } => {
                     let num = match alpha {
-                        Some(alpha) => {
-                            u32::from_be_bytes([*red, *green, *blue, *alpha])
-                        },
-                        None => {
-                            u32::from_be_bytes([0, *red, *green, *blue])
-                        }
+                        Some(alpha) => u32::from_be_bytes([*red, *green, *blue, *alpha]),
+                        None => u32::from_be_bytes([0, *red, *green, *blue]),
                     };
                     format!("#{:x}", num)
-                },
+                }
                 Color::RGB {
                     red,
                     green,
@@ -447,8 +585,8 @@ impl Display for Color {
                 Color::LAB {
                     ok,
                     lightness,
-                    a_axis,
-                    b_axis,
+                    a: a_axis,
+                    b: b_axis,
                     alpha,
                 } => {
                     {

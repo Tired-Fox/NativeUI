@@ -1,4 +1,4 @@
-use crate::parser::stylesheet::StyleParseError;
+use crate::parser::error::StyleParseError;
 use crate::parser::types::base::{Angle, Percent};
 use crate::parser::Parse;
 use cssparser::{ParseError, Parser, Token};
@@ -13,7 +13,7 @@ pub enum PercentOr<T: Debug> {
 impl<T: Debug + Display> Display for PercentOr<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            PercentOr::Percent(p) => write!(f, "{}%", p),
+            PercentOr::Percent(p) => write!(f, "{}", p),
             PercentOr::Or(t) => write!(f, "{}", t),
         }
     }
@@ -237,12 +237,19 @@ impl<E1: Debug + Display, E2: Debug + Display> Display for Either<E1, E2> {
 
 impl<E1: Parse + Debug, E2: Parse + Debug> Parse for Either<E1, E2> {
     fn parse<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>> {
+        input.skip_whitespace();
         let start = input.state();
+        let begin = input.current_source_location();
         match E1::parse(input) {
             Ok(e1) => return Ok(Either::Either(e1)),
             Err(_) => {
                 input.reset(&start);
-                Ok(Either::Or(E2::parse(input)?))
+                match E2::parse(input) {
+                    Ok(e2) => Ok(Either::Or(e2)),
+                    Err(_) => {
+                        Err(begin.new_custom_error(StyleParseError::ExpectedAngleOrNumber))
+                    }
+                }
             }
         }
     }

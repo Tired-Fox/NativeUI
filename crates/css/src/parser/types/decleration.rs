@@ -1,13 +1,17 @@
+use std::fmt::Formatter;
 use std::{ascii::AsciiExt, fmt::Display};
 
-use cssparser::{CowRcStr, ParseError, ParseErrorKind, Parser, Token};
+use cssparser::{CowRcStr, ParseError, ParseErrorKind, Parser};
 
 use super::{
     base::{Angle, Length},
     color::Color,
-    or::{AutoOr, Either, GlobalOr, NoneOr},
+    or::{AutoOr, GlobalOr},
 };
-use crate::parser::{stylesheet::StyleParseError, Parse};
+use crate::parser::error::{Link, StyleParseError};
+use crate::parser::types::base::Number;
+use crate::parser::types::or::PercentOr;
+use crate::parser::Parse;
 
 /// -moz-* properties
 #[derive(Debug)]
@@ -74,6 +78,16 @@ pub enum Baseline {
     Last,
 }
 
+impl Display for Baseline {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Baseline::Normal => write!(f, "normal"),
+            Baseline::First => write!(f, "first"),
+            Baseline::Last => write!(f, "last"),
+        }
+    }
+}
+
 impl Baseline {
     pub fn fallback(self) -> Align {
         match self {
@@ -84,21 +98,81 @@ impl Baseline {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum Align {
     Start,
     FlexStart,
     End,
     FlexEnd,
     Center,
+    #[default]
     Normal,
     Baseline(Baseline),
     SpaceBetween,
     SpaceAround,
     SpaceEvenly,
     Stretch,
-    Safe,
-    Unsafe,
+}
+
+impl Display for Align {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Align::Start => write!(f, "start"),
+            Align::FlexStart => write!(f, "flex-start"),
+            Align::End => write!(f, "end"),
+            Align::FlexEnd => write!(f, "flex-end"),
+            Align::Center => write!(f, "center"),
+            Align::Normal => write!(f, "normal"),
+            Align::Baseline(baseline) => write!(f, "{}", baseline),
+            Align::SpaceBetween => write!(f, "space-between"),
+            Align::SpaceAround => write!(f, "space-around"),
+            Align::SpaceEvenly => write!(f, "space-evenly"),
+            Align::Stretch => write!(f, "stretch"),
+        }
+    }
+}
+
+impl Parse for Align {
+    fn parse<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>> {
+        input.skip_whitespace();
+        let start = input.current_source_location();
+        match input.expect_ident() {
+            Ok(ident) => match ident.to_ascii_lowercase().as_str() {
+                "start" => Ok(Align::Start),
+                "flex-start" => Ok(Align::FlexStart),
+                "end" => Ok(Align::End),
+                "flex-end" => Ok(Align::FlexEnd),
+                "center" => Ok(Align::Center),
+                "normal" => Ok(Align::Normal),
+                "baseline-normal" => Ok(Align::Baseline(Baseline::Normal)),
+                "baseline-first" => Ok(Align::Baseline(Baseline::First)),
+                "baseline-last" => Ok(Align::Baseline(Baseline::Last)),
+                "space-between" => Ok(Align::SpaceBetween),
+                "space-around" => Ok(Align::SpaceAround),
+                "space-evenly" => Ok(Align::SpaceEvenly),
+                "stretch" => Ok(Align::Stretch),
+                _ => Err(start.new_custom_error(StyleParseError::ExpectedPattern(Link {
+                    title: "normal | <baseline-position> | <content-distribution> | <overflow-position>? <content-position>",
+                    url: "https://developer.mozilla.org/en-US/docs/Web/CSS/align-content#formal_syntax",
+                }))),
+            },
+            _ => Err(start.new_custom_error(StyleParseError::ExpectedKeywords(vec![
+                    "start",
+                    "flex-start",
+                    "end",
+                    "flex-end",
+                    "center",
+                    "normal",
+                    "baseline-normal",
+                    "baseline-first",
+                    "baseline-last",
+                    "space-between",
+                    "space-around",
+                    "space-evenly",
+                    "stretch",
+                ]))),
+        }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -265,6 +339,32 @@ pub enum SafeUnsafe {
     Unsafe,
 }
 
+impl Display for SafeUnsafe {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SafeUnsafe::Safe => write!(f, "safe"),
+            SafeUnsafe::Unsafe => write!(f, "unsafe"),
+        }
+    }
+}
+
+impl Parse for SafeUnsafe {
+    fn parse<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>> {
+        match input.expect_ident() {
+            Ok(value) => match value.to_ascii_lowercase().as_str() {
+                "safe" => Ok(SafeUnsafe::Safe),
+                "unsafe" => Ok(SafeUnsafe::Unsafe),
+                _ => Err(input
+                    .new_custom_error(StyleParseError::ExpectedKeywords(vec!["safe", "unsafe"]))),
+            },
+            _ => {
+                Err(input
+                    .new_custom_error(StyleParseError::ExpectedKeywords(vec!["safe", "unsafe"])))
+            }
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum Appearance {
     None,
@@ -312,71 +412,22 @@ impl FromNumber for u8 {
 }
 
 #[derive(Debug)]
-pub enum PercentOrNumber<T: FromNumber = f32> {
-    Number(T),
-    Percent(f32),
-}
-
-impl<T: FromNumber> Parse for PercentOrNumber<T> {
-    fn parse<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>> {
-        match input.next() {
-            Ok(Token::Percentage {
-                has_sign,
-                unit_value,
-                int_value,
-            }) => Ok(PercentOrNumber::Percent(*unit_value)),
-            Ok(Token::Number {
-                has_sign,
-                value,
-                int_value,
-            }) => {
-                if int_value.is_none() {
-                    return Err(ParseError {
-                        kind: ParseErrorKind::Custom(StyleParseError::UnkownSyntax),
-                        location: input.current_source_location(),
-                    });
-                }
-
-                Ok(PercentOrNumber::Number(T::from_number(*value)))
-            }
-            _ => Err(ParseError {
-                kind: ParseErrorKind::Custom(StyleParseError::UnkownSyntax),
-                location: input.current_source_location(),
-            }),
-        }
-    }
-}
-
-impl<T: FromNumber + Display> Display for PercentOrNumber<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                PercentOrNumber::Percent(val) => format!("{}%", val),
-                PercentOrNumber::Number(num) => num.to_string(),
-            }
-        )
-    }
-}
-
-#[derive(Debug)]
 pub enum FilterFunction {
     Blur(Length),
-    Brightness(PercentOrNumber),
-    Contrast(PercentOrNumber),
+    Brightness(PercentOr<Number>),
+    Contrast(PercentOr<Number>),
     DropShadow {
         x: Length,
         y: Length,
         standard_deviation: Option<Length>,
         color: Option<Color>,
     },
-    Grayscale(PercentOrNumber),
+    Grayscale(PercentOr<Number>),
     HueRotate(Angle),
-    Invert(PercentOrNumber),
-    Opacity(PercentOrNumber),
-    Saturate(PercentOrNumber),
-    Sepia(PercentOrNumber),
+    Invert(PercentOr<Number>),
+    Opacity(PercentOr<Number>),
+    Saturate(PercentOr<Number>),
+    Sepia(PercentOr<Number>),
 }
 
 #[derive(Debug)]
@@ -391,6 +442,7 @@ pub enum Visibility {
     Hidden,
 }
 
+// TODO: MOZ + WEBKIT
 #[derive(Debug)]
 pub enum Declaration {
     /// -moz-*
@@ -399,12 +451,23 @@ pub enum Declaration {
     Webkit(Webkit),
     /// accent-color
     AccentColor(GlobalOr<AutoOr<Color>>),
-    // TODO: ...
     // align-*
-    // AlignContent { safe: Option<SafeUnsafe>, value: GlobalOr<AutoOr<Align>> },
-    // AlignItems { safe: Option<SafeUnsafe>, value: GlobalOr<AutoOr<Align>> },
-    // AlignSelf { safe: Option<SafeUnsafe>, value: GlobalOr<AutoOr<Align>> },
-    // AlignTracks { safe: Option<SafeUnsafe>, value: GlobalOr<AutoOr<Align>> },
+    AlignContent {
+        safe: Option<SafeUnsafe>,
+        value: GlobalOr<AutoOr<Align>>,
+    },
+    AlignItems {
+        safe: Option<SafeUnsafe>,
+        value: GlobalOr<AutoOr<Align>>,
+    },
+    AlignSelf {
+        safe: Option<SafeUnsafe>,
+        value: GlobalOr<AutoOr<Align>>,
+    },
+    AlignTracks {
+        safe: Option<SafeUnsafe>,
+        value: GlobalOr<AutoOr<Align>>,
+    },
     // all
     // All(GlobalOr<()>),
     // animation-*
@@ -539,29 +602,84 @@ impl Declaration {
             "accent-color" => {
                 let result = GlobalOr::<AutoOr<Color>>::parse(input);
                 Ok(Self::AccentColor(result?))
-            },
+            }
             "color" => Ok(Self::Color(GlobalOr::<Color>::parse(input)?)),
+            "align-content" => Ok(Self::AlignContent {
+                safe: Option::<SafeUnsafe>::parse(input)?,
+                value: GlobalOr::<AutoOr<Align>>::parse(input)?,
+            }),
+            "align-items" => Ok(Self::AlignItems {
+                safe: Option::<SafeUnsafe>::parse(input)?,
+                value: GlobalOr::<AutoOr<Align>>::parse(input)?,
+            }),
+            "align-self" => Ok(Self::AlignSelf {
+                safe: Option::<SafeUnsafe>::parse(input)?,
+                value: GlobalOr::<AutoOr<Align>>::parse(input)?,
+            }),
+            "align-tracks" => Ok(Self::AlignTracks {
+                safe: Option::<SafeUnsafe>::parse(input)?,
+                value: GlobalOr::<AutoOr<Align>>::parse(input)?,
+            }),
             // TODO: ...
-            _ => Err(ParseError {
-                kind: ParseErrorKind::Custom(StyleParseError::UnkownProperty),
-                location: input.current_source_location(),
-            })
+            _ => Err(input.new_custom_error(StyleParseError::UnkownProperty)),
         };
 
         // TODO: Parse importance
         input.expect_exhausted()?;
         property
     }
+
+    pub fn name(&self) -> &str {
+        match self {
+            Declaration::Color(_) => "color",
+            Declaration::AccentColor(_) => "accent-color",
+            Declaration::AlignContent { .. } => "align-content",
+            Declaration::AlignItems { .. } => "align-items",
+            Declaration::AlignSelf { .. } => "align-self",
+            Declaration::AlignTracks { .. } => "align-tracks",
+            // TODO: ...
+            _ => "--cypress-error",
+        }
+    }
 }
 
 impl Display for Declaration {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let (name, value) = match self {
-            Declaration::Color(color) => ("color", color.to_string()),
-            Declaration::AccentColor(color) => ("accent-color", color.to_string()),
+        let value = match self {
+            Declaration::Color(color) => color.to_string(),
+            Declaration::AccentColor(color) => color.to_string(),
+            Declaration::AlignContent { safe, value } => {
+                if let Some(safe) = safe {
+                    format!("{} {}", safe, value)
+                } else {
+                    value.to_string()
+                }
+            }
+
+            Declaration::AlignItems { safe, value } => {
+                if let Some(safe) = safe {
+                    format!("{} {}", safe, value)
+                } else {
+                    value.to_string()
+                }
+            }
+            Declaration::AlignSelf { safe, value } => {
+                if let Some(safe) = safe {
+                    format!("{} {}", safe, value)
+                } else {
+                    value.to_string()
+                }
+            }
+            Declaration::AlignTracks { safe, value } => {
+                if let Some(safe) = safe {
+                    format!("{} {}", safe, value)
+                } else {
+                    value.to_string()
+                }
+            }
             // TODO: ...
-            _ => ("--cypress-error", String::new()),
+            _ => String::new(),
         };
-        write!(f, "{}: {};", name, value)
+        write!(f, "{}: {};", self.name(), value)
     }
 }

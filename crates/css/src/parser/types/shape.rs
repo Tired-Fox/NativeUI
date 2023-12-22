@@ -1,4 +1,4 @@
-use crate::parser::stylesheet::StyleParseError;
+use crate::parser::error::StyleParseError;
 use crate::parser::types::base::{Length, Percent};
 use crate::parser::types::border::BorderRadius;
 use crate::parser::types::or::{AutoOr, PercentOr};
@@ -67,18 +67,14 @@ impl Parse for BasicShape {
                     let mut round = None;
 
                     let _ = i.try_parse(|i| {
-                        i.expect_ident_matching("round").map_err(|_| {
-                            ParseError {
-                                kind: ParseErrorKind::Custom(StyleParseError::UnkownSyntax),
-                                location: i.current_source_location(),
-                            }
-                        });
+                        i.expect_ident_matching("round")
+                            .map_err(|_| i.new_custom_error(StyleParseError::Unkown))?;
 
                         match BorderRadius::parse(i) {
                             Ok(result) => {
                                 round = Some(result);
                                 Ok(())
-                            },
+                            }
                             Err(err) => Err(err),
                         }
                     });
@@ -99,17 +95,13 @@ impl Parse for BasicShape {
                     let mut round = None;
 
                     let _ = i.try_parse(|i| {
-                        i.expect_ident_matching("round").map_err(|_| {
-                            ParseError {
-                                kind: ParseErrorKind::Custom(StyleParseError::UnkownSyntax),
-                                location: i.current_source_location(),
-                            }
-                        });
+                        i.expect_ident_matching("round")
+                            .map_err(|_| i.new_custom_error(StyleParseError::Unkown))?;
                         match BorderRadius::parse(i) {
                             Ok(result) => {
                                 round = Some(result);
                                 Ok(())
-                            },
+                            }
                             Err(err) => Err(err),
                         }
                     });
@@ -130,17 +122,13 @@ impl Parse for BasicShape {
                     let mut round = None;
 
                     let _ = i.try_parse(|i| {
-                        i.expect_ident_matching("round").map_err(|_| {
-                            ParseError {
-                                kind: ParseErrorKind::Custom(StyleParseError::UnkownSyntax),
-                                location: i.current_source_location(),
-                            }
-                        });
+                        i.expect_ident_matching("round")
+                            .map_err(|_| i.new_custom_error(StyleParseError::Unkown))?;
                         match BorderRadius::parse(i) {
                             Ok(result) => {
                                 round = Some(result);
                                 Ok(())
-                            },
+                            }
                             Err(err) => Err(err),
                         }
                     });
@@ -153,15 +141,17 @@ impl Parse for BasicShape {
                         round,
                     })
                 }),
-                _ => Err(ParseError {
-                    kind: ParseErrorKind::Custom(StyleParseError::UnkownSyntax),
-                    location: input.current_source_location(),
-                }),
+                _ => Err(
+                    input.new_custom_error(StyleParseError::ExpectedFunctions(vec![
+                        "inset", "rect", "xywh",
+                    ])),
+                ),
             },
-            _ => Err(ParseError {
-                kind: ParseErrorKind::Custom(StyleParseError::UnkownSyntax),
-                location: input.current_source_location(),
-            })
+            _ => Err(
+                input.new_custom_error(StyleParseError::ExpectedFunctions(vec![
+                    "inset", "rect", "xywh",
+                ])),
+            ),
         }
     }
 }

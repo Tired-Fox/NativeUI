@@ -1,7 +1,9 @@
 use std::fmt::Display;
+use std::ops::Range;
 use std::{fs, path::Path};
 
 use crate::parser::at_rule::{AtRule, AtRulePrelude};
+use crate::parser::error::{Error, StyleParseError};
 use crate::parser::nested::NestedParser;
 use crate::parser::selector::SelectorList;
 use cssparser::{
@@ -21,45 +23,33 @@ pub struct QualifiedRule {
 impl Display for QualifiedRule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let declarations = if !self.declarations.is_empty() {
-            format!("    {}", self.declarations.iter().map(|v| v.to_string()).collect::<Vec<String>>().join("\n    "))
+            format!(
+                "    {}",
+                self.declarations
+                    .iter()
+                    .map(|v| v.to_string())
+                    .collect::<Vec<String>>()
+                    .join("\n    ")
+            )
         } else {
             String::new()
         };
 
         let rules = if !self.rules.is_empty() {
-            format!("    {}", self.rules.iter().map(|v| v.to_string()).collect::<Vec<String>>().join("\n    "))
+            format!(
+                "    {}",
+                self.rules
+                    .iter()
+                    .map(|v| v.to_string())
+                    .collect::<Vec<String>>()
+                    .join("\n    ")
+            )
         } else {
             String::new()
         };
 
-        write!(f, "{} {{\n{}{}\n}}",
-            self.selectors,
-            declarations,
-            rules
-        )
+        write!(f, "{} {{\n{}{}\n}}", self.selectors, declarations, rules)
     }
-}
-
-#[derive(Debug)]
-pub enum StyleParseError {
-    NotImplemented,
-    Unkown,
-    UnkownSyntax,
-    UnkownAtRule,
-    UnkownPseudoClass,
-    UnkownPseudoElement,
-    UnkownProperty,
-    EndOfStream,
-    ExpectedCombinator,
-    ExpectedIdentOrString,
-    ExpectedEqualSign,
-    DuplicateIDSelector,
-    DuplicateElementSelector,
-    InvalidPseudoSelector,
-    InvalidNthFormat,
-    InvalidColorKeyword,
-    UnexpectedCombinator,
-    ExpectedArguments,
 }
 
 #[derive(Debug)]
@@ -70,52 +60,34 @@ pub enum Rule {
 
 impl Display for Rule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", match self {
-            Rule::At(at_rule) => at_rule.to_string(),
-            Rule::Qualified(qualified_rule) => qualified_rule.to_string()
-        })
+        write!(
+            f,
+            "{}",
+            match self {
+                Rule::At(at_rule) => at_rule.to_string(),
+                Rule::Qualified(qualified_rule) => qualified_rule.to_string(),
+            }
+        )
     }
 }
 
 #[derive(Default, Debug)]
 pub struct StyleSheet {
-    rules: Vec<Box<Rule>>,
+    pub rules: Vec<Box<Rule>>,
+    pub errors: Vec<Error>,
 }
 
 impl Display for StyleSheet {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.rules.iter().map(|v| v.to_string()).collect::<Vec<String>>().join("\n\n"))
-    }
-}
-
-pub fn parse_styles<'i, 't, P>(input: &mut Parser<'i, 't>, parser: &mut P)
-where
-    P: QualifiedRuleParser<'i, QualifiedRule = SourcePosition, Error = StyleParseError>
-        + AtRuleParser<'i, AtRule = SourcePosition, Error = StyleParseError>,
-{
-    let mut iter = StyleSheetParser::new(input, parser);
-    while let Some(result) = iter.next() {
-        match result {
-            Err((error, slice)) => {
-                let location = error.location;
-                let error = match error.kind {
-                    ParseErrorKind::Custom(custom) => custom,
-                    kind => {
-                        eprintln!("{:?}", kind);
-                        StyleParseError::Unkown
-                    }
-                };
-                eprintln!(
-                    "[{}:{}]: {:?}\n\n{} │ {}\n",
-                    location.line, location.column, error, location.line, slice
-                );
-            }
-            Ok(start) => {
-                // Used to construct a sanatized out of the input
-                let end = iter.input.position().byte_index();
-                // print!("{}", &src[start.byte_index()..end])
-            }
-        }
+        write!(
+            f,
+            "{}",
+            self.rules
+                .iter()
+                .map(|v| v.to_string())
+                .collect::<Vec<String>>()
+                .join("\n\n")
+        )
     }
 }
 
@@ -125,7 +97,40 @@ impl StyleSheet {
         let mut parser = Parser::new(&mut input);
 
         let mut stylesheet = Self::default();
-        parse_styles(&mut parser, &mut stylesheet);
+        let mut errors = Vec::new();
+        {
+            let mut iter = StyleSheetParser::new(&mut parser, &mut stylesheet);
+            while let Some(result) = iter.next() {
+                match result {
+                    Err((error, slice)) => {
+                        let location = error.location;
+                        let error = match error.kind {
+                            ParseErrorKind::Custom(custom) => custom,
+                            kind => {
+                                eprintln!("{:?}", kind);
+                                StyleParseError::Unkown
+                            }
+                        };
+                        errors.push(Error {
+                            kind: error,
+                            line: location.line,
+                            column: location.column,
+                            ..Default::default()
+                        });
+                    }
+                    Ok(start) => {
+                        // Used to construct a sanatized out of the input
+                        let end = iter.input.position().byte_index();
+                        // print!("{}", &src[start.byte_index()..end])
+                    }
+                }
+            }
+        }
+        let lines = src.split("\n").collect::<Vec<&str>>();
+        for error in stylesheet.errors.iter_mut() {
+            error.set_src(lines.get(error.line as usize).unwrap_or(&""))
+        }
+        stylesheet.errors.extend(errors);
         stylesheet
     }
 
@@ -144,7 +149,6 @@ impl<'i> QualifiedRuleParser<'i> for StyleSheet {
         &mut self,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self::Prelude, ParseError<'i, Self::Error>> {
-        println!("[QualifiedRule] Prelude");
         SelectorList::parse(input, false)
     }
 
@@ -168,10 +172,12 @@ impl<'i> QualifiedRuleParser<'i> for StyleSheet {
                             StyleParseError::Unkown
                         }
                     };
-                    eprintln!(
-                        "[{}:{}]: {:?}\n\n{} │ {}\n",
-                        location.line, location.column, error, location.line, slice
-                    );
+                    self.errors.push(Error {
+                        kind: error,
+                        line: location.line,
+                        column: location.column,
+                        ..Default::default()
+                    });
                 }
             }
         }
@@ -181,6 +187,7 @@ impl<'i> QualifiedRuleParser<'i> for StyleSheet {
             rules: nested.rules,
             declarations: nested.declerations,
         })));
+        self.errors.extend(nested.errors);
         Ok(start.position())
     }
 }
@@ -204,7 +211,6 @@ impl<'i> AtRuleParser<'i> for StyleSheet {
         start: &ParserState,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self::AtRule, ParseError<'i, Self::Error>> {
-        println!("[AtRule] Block");
         // TODO: Custom at rule block parser
         todo!();
         Ok(start.position())

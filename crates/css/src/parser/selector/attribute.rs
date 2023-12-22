@@ -1,4 +1,4 @@
-use crate::parser::stylesheet::StyleParseError;
+use crate::parser::error::StyleParseError;
 use crate::parser::Parse;
 use cssparser::{ParseError, ParseErrorKind, Parser, Token};
 use std::fmt::{Display, Formatter};
@@ -69,10 +69,7 @@ impl Parse for AttributeSelector {
                     }
                     Ok(Token::QuotedString(string)) | Ok(Token::Ident(string)) => {
                         if attribute.matcher == Matcher::Exists {
-                            return Err(ParseError {
-                                kind: ParseErrorKind::Custom(StyleParseError::ExpectedCombinator),
-                                location: i.current_source_location(),
-                            });
+                            return Err(i.new_custom_error(StyleParseError::ExpectedCombinator));
                         }
                         attribute.expects = Some(string.to_string());
                     }

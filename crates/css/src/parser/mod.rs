@@ -23,7 +23,7 @@
 //! ```
 //!
 //! Goal Strict Typing and Objects
-use crate::parser::stylesheet::StyleParseError;
+use error::StyleParseError;
 use cssparser::{ParseError, Parser, ParseErrorKind};
 
 mod at_rule;
@@ -31,6 +31,7 @@ mod nested;
 pub mod selector;
 pub mod stylesheet;
 pub mod types;
+mod error;
 
 pub trait Parse
 where

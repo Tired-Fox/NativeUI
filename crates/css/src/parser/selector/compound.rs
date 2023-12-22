@@ -1,5 +1,5 @@
 use crate::parser::selector::attribute::AttributeSelector;
-use crate::parser::stylesheet::StyleParseError;
+use crate::parser::error::StyleParseError;
 use crate::parser::Parse;
 use cssparser::{CowRcStr, ParseError, ParseErrorKind, Parser, Token};
 use std::fmt::Display;
@@ -58,10 +58,7 @@ impl Parse for CompoundSelector {
             match next {
                 Ok(Token::Ident(name)) => {
                     if element.tag.is_some() {
-                        return Err(ParseError {
-                            kind: ParseErrorKind::Custom(StyleParseError::DuplicateElementSelector),
-                            location: input.current_source_location(),
-                        });
+                        return Err(input.new_custom_error(StyleParseError::DuplicateElementSelector));
                     }
                     element.tag = Some(name.to_string());
                 }
@@ -72,10 +69,7 @@ impl Parse for CompoundSelector {
                 }
                 Ok(Token::IDHash(value)) => {
                     if element.id.is_some() {
-                        return Err(ParseError {
-                            kind: ParseErrorKind::Custom(StyleParseError::DuplicateIDSelector),
-                            location: input.current_source_location(),
-                        });
+                        return Err(input.new_custom_error(StyleParseError::DuplicateIDSelector));
                     }
                     element.id = Some(value.to_string());
                 }
@@ -93,21 +87,13 @@ impl Parse for CompoundSelector {
                                 Ok(Token::Ident(name)) => Some(Box::new(PseudoElement::parse(name.clone(), input, false)?)),
                                 Ok(Token::Function(name)) => Some(Box::new(PseudoElement::parse(name.clone(), input, true)?)),
                                 _ => {
-                                    return Err(ParseError {
-                                        kind: ParseErrorKind::Custom(StyleParseError::InvalidPseudoSelector),
-                                        location: input.current_source_location()
-                                    })
+                                    return Err(input.new_custom_error(StyleParseError::InvalidPseudoSelector));
                                 }
                             };
                         }
                         _ => {
                             input.reset(&before);
-                            return Err(ParseError {
-                                kind: ParseErrorKind::Custom(
-                                    StyleParseError::InvalidPseudoSelector,
-                                ),
-                                location: input.current_source_location(),
-                            })
+                            return Err(input.new_custom_error(StyleParseError::InvalidPseudoSelector));
                         }
                     }
                 }

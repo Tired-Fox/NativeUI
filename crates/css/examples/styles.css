@@ -4,23 +4,73 @@
 div > p ~ a + input,
 #some-id[data-value~='foo' i]::before,
 div.some-class#of-pop:where(p > a, :pseudo-invalid) {
-    accent-color: activetext;
-    accent-color: currentcolor;
     accent-color: auto;
     accent-color: unset;
-    accent-color: rgb(0 0 0);
-    accent-color: rgb(0, 0, 0);
-    accent-color: rgb(0 0 0 / .40);
-    accent-color: rgb(0, 0, 0, .40);
-    accent-color: rgba(0 0 0);
-    accent-color: rgba(0, 0, 0);
-    accent-color: rgba(0 0 0 / 0.40);
-    accent-color: rgba(0, 0, 0, 0.40);
     accent-color: #f32;
-    accent-color: #f32a;
-    accent-color: #ff6b6b;
-    accent-color: #ff6b6baf;
-    /*color: inherit;*/
-    /*color: red;*/
-    /*color: transparent;*/
+
+    align-items: unsafe flex-end;
+    align-items: safe flex-end;
+    align-items: flex-end;
+}
+
+.color {
+    color: unset;
+
+    color: currentcolor;
+    color: transparent;
+
+    color: activetext;
+    color: black;
+    color: blanchedalmond;
+
+    color: rgb(0 0 0);
+    color: rgb(0, 0, 0);
+    color: rgb(0 0 0 / .40);
+    color: rgb(0, 0, 0, .40);
+    color: rgb(10%, 50%, 75%, .40);
+    color: rgba(0 0 0);
+    color: rgba(0, 0, 0);
+    color: rgba(0 0 0 / 0.40);
+    color: rgba(0, 0, 0, 0.40);
+    color: rgba(none none none / none);
+
+    color: hsl(5 5% 5%);
+    color: hsl(5, 5%, 5%);
+    color: hsl(5 5% 5% / .40);
+    color: hsl(5, 5%, 5%, .40);
+    color: hsla(5 5% 5%);
+    color: hsla(0, 5%, 5%);
+    color: hsla(0 5% 5% / 0.40);
+    color: hsla(0, 5%, 5%, 0.40);
+    color: hsla(none none none / none);
+
+    color: hwb(0 10% 20% / .5);
+    color: hwb(20turn 10% 20% / 20%);
+    color: hwb(none none none / none);
+
+    color: lab(5% 10 20%);
+    color: lab(5% 10% 20% / 20%);
+    color: lab(5 10 20 / .5);
+    color: oklab(none none none / none);
+
+    color: lch(5% 10% 20);
+    color: lch(5 10 20rad / 20%);
+    color: lch(5 10 20turn / .5);
+    color: oklch(none none none / none);
+
+    color: color(srgb .5 1 .25 / .5);
+    color: color(prophoto-rgb .5 1 .25);
+    color: color(xyz .5 1 .25);
+    color: color(rec2020 none none none / none);
+
+    color: color-mix(in srgb, #f32 25%, #3FA 50%);
+    color: color-mix(in hsl, hsl(10 100% 50%), hsl(60 100% 50%));
+    color: color-mix(in hsl longer hue, hsl(10 100% 50%), hsl(60 100% 50%));
+
+    color: light-dark(#f32, #3FA);
+
+    color: #f32;
+    color: #f32a;
+    color: #ff6b6b;
+    color: #ff6b6baf;
 }

@@ -1,16 +1,18 @@
 use crate::parser::at_rule::{AtRule, AtRulePrelude};
 use crate::parser::types::Declaration;
 use crate::parser::selector::SelectorList;
-use crate::parser::stylesheet::{QualifiedRule, Rule, StyleParseError};
+use crate::parser::stylesheet::{QualifiedRule, Rule};
 use cssparser::{
     AtRuleParser, CowRcStr, DeclarationParser, ParseError, ParseErrorKind, Parser, ParserState,
     QualifiedRuleParser, RuleBodyItemParser, RuleBodyParser,
 };
+use crate::parser::error::{Error, StyleParseError};
 
 #[derive(Debug, Default)]
 pub struct NestedParser {
     pub rules: Vec<Box<Rule>>,
     pub declerations: Vec<Declaration>,
+    pub errors: Vec<Error>,
 }
 
 impl<'i> QualifiedRuleParser<'i> for NestedParser {
@@ -22,7 +24,6 @@ impl<'i> QualifiedRuleParser<'i> for NestedParser {
         &mut self,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self::Prelude, ParseError<'i, Self::Error>> {
-        println!("[Nested::Qualified] Prelude");
         SelectorList::parse(input, false)
     }
 
@@ -32,7 +33,6 @@ impl<'i> QualifiedRuleParser<'i> for NestedParser {
         _start: &ParserState,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self::QualifiedRule, ParseError<'i, Self::Error>> {
-        println!("[Nested::Qualified] Block");
         let mut nested = NestedParser::default();
         let mut iter = RuleBodyParser::new(input, &mut nested);
         while let Some(result) = iter.next() {
@@ -47,10 +47,12 @@ impl<'i> QualifiedRuleParser<'i> for NestedParser {
                             StyleParseError::Unkown
                         }
                     };
-                    eprintln!(
-                        "[{}:{}]: {:?}\n\n{} │ {}\n",
-                        location.line, location.column, error, location.line, slice
-                    );
+                    self.errors.push(Error {
+                        kind: error,
+                        line: location.line,
+                        column: location.column,
+                        ..Default::default()
+                    });
                 }
             }
         }
@@ -59,6 +61,7 @@ impl<'i> QualifiedRuleParser<'i> for NestedParser {
             rules: nested.rules,
             declarations: nested.declerations,
         })));
+        self.errors.extend(nested.errors);
         Ok(())
     }
 }
@@ -74,7 +77,6 @@ impl<'i> AtRuleParser<'i> for NestedParser {
         input: &mut Parser<'i, 't>,
     ) -> Result<Self::Prelude, ParseError<'i, Self::Error>> {
         // TODO: Validate at-rule is valid for scope
-        println!("[Nested::AtRule] Prelude");
         AtRule::parse_prelude(name, input)
     }
 
@@ -84,7 +86,6 @@ impl<'i> AtRuleParser<'i> for NestedParser {
         start: &ParserState,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self::AtRule, ParseError<'i, Self::Error>> {
-        println!("[Nested::AtRule] Block");
         // TODO: Custom at rule block parser
         todo!();
     }
@@ -94,7 +95,6 @@ impl<'i> AtRuleParser<'i> for NestedParser {
         prelude: Self::Prelude,
         _start: &ParserState,
     ) -> Result<Self::AtRule, ()> {
-        println!("[Nested::AtRule] Without Block");
         self.rules.push(Box::new(Rule::At(AtRule {
             prelude,
             ..Default::default()
@@ -112,7 +112,6 @@ impl<'i> DeclarationParser<'i> for NestedParser {
         name: CowRcStr<'i>,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self::Declaration, ParseError<'i, Self::Error>> {
-        println!("[Nested::Declaration] Value");
         self.declerations.push(Declaration::parse(name, input)?);
         Ok(())
     }

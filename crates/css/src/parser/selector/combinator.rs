@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter};
 use cssparser::{ParseError, ParseErrorKind, Parser, Token};
 use crate::parser::Parse;
-use crate::parser::stylesheet::StyleParseError;
+use crate::parser::error::StyleParseError;
 
 #[derive(Default, Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum Combinator {
@@ -51,10 +51,7 @@ impl Parse for Combinator {
                     if whitespaced {
                         return Ok(Combinator::Descendant);
                     } else {
-                        return Err(ParseError {
-                            kind: ParseErrorKind::Custom(StyleParseError::ExpectedCombinator),
-                            location: input.current_source_location(),
-                        });
+                        return Err(input.new_custom_error(StyleParseError::ExpectedCombinator));
                     }
                 }
             }

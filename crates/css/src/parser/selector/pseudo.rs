@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::parser::selector::compound::CompoundSelector;
 use crate::parser::selector::SelectorList;
-use crate::parser::stylesheet::StyleParseError;
+use crate::parser::error::StyleParseError;
 use crate::parser::Parse;
 use cssparser::{CowRcStr, ParseError, ParseErrorKind, Parser, Token};
 
@@ -20,10 +20,7 @@ impl Parse for Direction {
             "ltr" => Ok(Direction::Ltr),
             "rtl" => Ok(Direction::Rtl),
             _ => {
-                return Err(ParseError {
-                    kind: ParseErrorKind::Custom(StyleParseError::UnkownSyntax),
-                    location: input.current_source_location(),
-                })
+                return Err(input.new_custom_error(StyleParseError::ExpectedKeywords(vec!["ltr", "rtl"])));
             }
         }
     }
@@ -78,18 +75,12 @@ fn parse_nth_step<'i, 't>(
     match next {
         Ok(Token::Dimension { value, unit, .. }) if unit.as_ref() == "n" => {
             if *value < -1. {
-                return Err(ParseError {
-                    kind: ParseErrorKind::Custom(StyleParseError::InvalidNthFormat),
-                    location: input.current_source_location(),
-                });
+                return Err(input.new_custom_error(StyleParseError::InvalidNthFormat));
             }
             Ok(*value as isize)
         }
         _ => {
-            Err(ParseError {
-                kind: ParseErrorKind::Custom(StyleParseError::InvalidNthFormat),
-                location: input.current_source_location(),
-            })
+            Err(input.new_custom_error(StyleParseError::InvalidNthFormat))
         }
     }
 }
@@ -103,27 +94,18 @@ fn parse_nth_offset<'i, 't>(
             match input.next() {
                 Ok(Token::Number { value, .. }) => {
                     if *value < 0. {
-                        return Err(ParseError {
-                            kind: ParseErrorKind::Custom(StyleParseError::InvalidNthFormat),
-                            location: input.current_source_location(),
-                        });
+                        return Err(input.new_custom_error(StyleParseError::InvalidNthFormat));
                     }
                     Ok(*value as usize)
                 }
                 _ => {
-                    return Err(ParseError {
-                        kind: ParseErrorKind::Custom(StyleParseError::InvalidNthFormat),
-                        location: input.current_source_location(),
-                    });
+                    return Err(input.new_custom_error(StyleParseError::InvalidNthFormat));
                 }
             }
         }
         Ok(Token::Number { value, .. }) => {
             if *value < 0. {
-                return Err(ParseError {
-                    kind: ParseErrorKind::Custom(StyleParseError::InvalidNthFormat),
-                    location: input.current_source_location(),
-                });
+                return Err(input.new_custom_error(StyleParseError::InvalidNthFormat));
             }
             Ok(*value as usize)
         }
@@ -420,10 +402,7 @@ where
     F: for<'tt> FnOnce(&mut Parser<'i, 'tt>) -> Result<T, ParseError<'i, StyleParseError>>,
 {
     if !function && input.expect_parenthesis_block().is_err() {
-        return Err(ParseError {
-            kind: ParseErrorKind::Custom(StyleParseError::ExpectedArguments),
-            location: input.current_source_location(),
-        });
+        return Err(input.new_custom_error(StyleParseError::ExpectedArguments));
     }
 
     input.parse_nested_block(clbk)
@@ -478,10 +457,7 @@ impl<'i, 't> PseudoClass {
                     Ok(Token::Ident(string)) | Ok(Token::QuotedString(string)) => {
                         Ok(string.to_string())
                     }
-                    _ => Err(ParseError {
-                        kind: ParseErrorKind::Custom(StyleParseError::ExpectedIdentOrString),
-                        location: i.current_source_location(),
-                    }),
+                    _ => Err(i.new_custom_error(StyleParseError::ExpectedIdentOrString)),
                 })?;
                 Ok(PseudoClass::Lang(values))
             })?,
@@ -536,10 +512,7 @@ impl<'i, 't> PseudoClass {
                 Ok(PseudoClass::Where(SelectorList::parse(i, true)?))
             })?,
             _ => {
-                return Err(ParseError {
-                    kind: ParseErrorKind::Custom(StyleParseError::UnkownPseudoClass),
-                    location: input.current_source_location(),
-                })
+                return Err(input.new_custom_error(StyleParseError::UnkownPseudoClass));
             }
         })
     }
@@ -582,10 +555,7 @@ impl<'i, 't> PseudoElement {
             "viewtransitionnew" => PseudoElement::ViewTransitionNew,
             "viewtransitionold" => PseudoElement::ViewTransitionOld,
             _ => {
-                return Err(ParseError {
-                    kind: ParseErrorKind::Custom(StyleParseError::UnkownPseudoElement),
-                    location: input.current_source_location(),
-                })
+                return Err(input.new_custom_error(StyleParseError::UnkownPseudoElement))
             }
         })
     }

@@ -1,4 +1,4 @@
-use crate::parser::stylesheet::StyleParseError;
+use crate::parser::error::StyleParseError;
 use crate::parser::types::base::Length;
 use crate::parser::types::or::{GlobalOr, PercentOr};
 use crate::parser::Parse;
@@ -13,10 +13,7 @@ pub struct Radius {
 
 impl Parse for Radius {
     fn parse<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>> {
-        Err(ParseError {
-            kind: ParseErrorKind::Custom(StyleParseError::UnkownSyntax),
-            location: input.current_source_location(),
-        })
+        Err(input.new_custom_error(StyleParseError::UnkownSyntax))
     }
 }
 
@@ -82,24 +79,15 @@ impl Parse for BorderRadius {
                         Err(_) => {
                             break;
                         },
-                        _ => return Err(ParseError {
-                            kind: ParseErrorKind::Custom(StyleParseError::UnkownSyntax),
-                            location: input.current_source_location(),
-                        })
+                        _ => return Err(input.new_custom_error(StyleParseError::ExpectedLengthOrPercent))
                     }
                 }
             }
-            _ => return Err(ParseError {
-                kind: ParseErrorKind::Custom(StyleParseError::UnkownSyntax),
-                location: input.current_source_location(),
-            })
+            _ => return Err(input.new_custom_error(StyleParseError::ExpectedLengthOrPercent))
         }
 
         if first.len() == 0 || first.len() > 4 || second.len() > 4 {
-            return Err(ParseError {
-                kind: ParseErrorKind::Custom(StyleParseError::UnkownSyntax),
-                location: input.current_source_location(),
-            })
+            return Err(input.new_custom_error(StyleParseError::RangeAllowedItems{min: 1, max: 4}));
         }
 
         let first = spread(first);

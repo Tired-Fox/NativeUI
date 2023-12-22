@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::parser::stylesheet::StyleParseError;
+use crate::parser::error::StyleParseError;
 use crate::parser::Parse;
 use cssparser::{CowRcStr, ParseError, ParseErrorKind, SourcePosition};
 
