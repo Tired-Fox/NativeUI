@@ -8,6 +8,8 @@ edition = "2021"
 [dependencies]
 cssparser = { version = "0.33.0", features = ["serde"] }
 encoding_rs = "0.8.33"
+lightningcss = "1.0.0-alpha.51"
+ustr = "0.10.0"
 
 [lib]
 doctest = false

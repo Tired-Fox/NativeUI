@@ -2,8 +2,8 @@ extern crate cypress_sys;
 
 use cypress_sys::event::{
     close,
-    keyboard::{Key, KeyboardEvent, VirtualKey},
-    quit, run, Event, InputEvent,
+    keyboard::{Key, KeyboardEvent},
+    quit, run, Event,
 };
 use cypress_sys::modal::{Button, Buttons, Dialog};
 use cypress_sys::style::{Background, Theme};
@@ -19,8 +19,8 @@ fn main() {
         .unwrap();
 
     run(|id, event| match event {
-        Event::Input(InputEvent::Keyboard(KeyboardEvent::KeyDown(key))) => match key {
-            Key::Virtual(VirtualKey::Escape) => {
+        Event::Keyboard(KeyboardEvent::KeyDown(key)) => match key {
+            Key::Escape => {
                 close(id);
             }
             _ => {}

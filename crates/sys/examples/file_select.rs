@@ -2,8 +2,8 @@ extern crate cypress_sys;
 
 use cypress_sys::{
     event::{
-        keyboard::{Key, KeyboardEvent, VirtualKey},
-        run, Event, InputEvent,
+        keyboard::{Key, KeyboardEvent},
+        run, Event,
     },
     modal::Dialog,
     prelude::{WindowBuilder, WindowContext},
@@ -15,8 +15,8 @@ fn main() {
 
     // Run the Program, when the window opens `Escape` can be pressed to open a file select dialog
     run(|id, event| match event {
-        Event::Input(InputEvent::Keyboard(KeyboardEvent::KeyDown(key))) => match key {
-            Key::Virtual(VirtualKey::Escape) => {
+        Event::Keyboard(KeyboardEvent::KeyDown(key)) => match key {
+            Key::Escape => {
                 match Dialog::file()
                     .title("Select File(s)")
                     .multiple()

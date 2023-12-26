@@ -1,8 +1,9 @@
 use std::fmt::Display;
 
+use crate::interned;
+use crate::parser::error::StyleParseError;
 use crate::parser::selector::compound::CompoundSelector;
 use crate::parser::selector::SelectorList;
-use crate::parser::error::StyleParseError;
 use crate::parser::Parse;
 use cssparser::{CowRcStr, ParseError, ParseErrorKind, Parser, Token};
 
@@ -20,7 +21,9 @@ impl Parse for Direction {
             "ltr" => Ok(Direction::Ltr),
             "rtl" => Ok(Direction::Rtl),
             _ => {
-                return Err(input.new_custom_error(StyleParseError::ExpectedKeywords(vec!["ltr", "rtl"])));
+                return Err(
+                    input.new_custom_error(StyleParseError::ExpectedKeywords(vec!["ltr", "rtl"]))
+                );
             }
         }
     }
@@ -79,9 +82,7 @@ fn parse_nth_step<'i, 't>(
             }
             Ok(*value as isize)
         }
-        _ => {
-            Err(input.new_custom_error(StyleParseError::InvalidNthFormat))
-        }
+        _ => Err(input.new_custom_error(StyleParseError::InvalidNthFormat)),
     }
 }
 
@@ -90,19 +91,17 @@ fn parse_nth_offset<'i, 't>(
 ) -> Result<usize, ParseError<'i, StyleParseError>> {
     let before = input.state();
     match input.next() {
-        Ok(Token::Delim('+')) => {
-            match input.next() {
-                Ok(Token::Number { value, .. }) => {
-                    if *value < 0. {
-                        return Err(input.new_custom_error(StyleParseError::InvalidNthFormat));
-                    }
-                    Ok(*value as usize)
-                }
-                _ => {
+        Ok(Token::Delim('+')) => match input.next() {
+            Ok(Token::Number { value, .. }) => {
+                if *value < 0. {
                     return Err(input.new_custom_error(StyleParseError::InvalidNthFormat));
                 }
+                Ok(*value as usize)
             }
-        }
+            _ => {
+                return Err(input.new_custom_error(StyleParseError::InvalidNthFormat));
+            }
+        },
         Ok(Token::Number { value, .. }) => {
             if *value < 0. {
                 return Err(input.new_custom_error(StyleParseError::InvalidNthFormat));
@@ -213,6 +212,7 @@ pub enum PseudoClass {
     Indeterminate,
     Invalid,
     Is(SelectorList),
+    // TODO: Maybe intern the langauges
     Lang(Vec<String>),
     LastChild,
     LastOfType,
@@ -345,9 +345,9 @@ pub enum PseudoElement {
     FirstLetter,
     FirstLine,
     GrammerError,
-    Highlight(String),
+    Highlight(&'static str),
     Marker,
-    Part(String),
+    Part(&'static str),
     Placeholder,
     Selection,
     Slotted(CompoundSelector),
@@ -401,6 +401,7 @@ fn parse_arguments<'i, 't, F, T>(
 where
     F: for<'tt> FnOnce(&mut Parser<'i, 'tt>) -> Result<T, ParseError<'i, StyleParseError>>,
 {
+    println!("{}:", function);
     if !function && input.expect_parenthesis_block().is_err() {
         return Err(input.new_custom_error(StyleParseError::ExpectedArguments));
     }
@@ -408,12 +409,20 @@ where
     input.parse_nested_block(clbk)
 }
 
-impl<'i, 't> PseudoClass {
-    pub fn parse(
-        name: CowRcStr<'i>,
-        input: &mut Parser<'i, 't>,
-        function: bool,
-    ) -> Result<Self, ParseError<'i, StyleParseError>> {
+impl Parse for PseudoClass {
+    fn parse<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>> {
+        input.skip_whitespace();
+        let start = input.state();
+        let (name, function) = match input.next() {
+            Ok(Token::Ident(value)) => (value, false),
+            Ok(Token::Function(value)) => (value, true),
+            _ => {
+                return Err(start
+                    .source_location()
+                    .new_custom_error(StyleParseError::InvalidPseudoSelector));
+            }
+        };
+
         Ok(match name.as_ref() {
             "active" => PseudoClass::Active,
             "any-link" => PseudoClass::AnyLink,
@@ -518,12 +527,18 @@ impl<'i, 't> PseudoClass {
     }
 }
 
-impl<'i, 't> PseudoElement {
-    pub fn parse(
-        name: CowRcStr<'i>,
-        input: &mut Parser<'i, 't>,
-        function: bool,
-    ) -> Result<Self, ParseError<'i, StyleParseError>> {
+impl Parse for PseudoElement {
+    fn parse<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>> {
+        let start = input.state();
+        let (name, function) = match input.next() {
+            Ok(Token::Ident(value)) => (value, false),
+            Ok(Token::Function(value)) => (value, true),
+            _ => {
+                return Err(start
+                    .source_location()
+                    .new_custom_error(StyleParseError::InvalidPseudoSelector));
+            }
+        };
         Ok(match name.as_ref() {
             "after" => PseudoElement::After,
             "backdrop" => PseudoElement::Backdrop,
@@ -535,12 +550,13 @@ impl<'i, 't> PseudoElement {
             "firstline" => PseudoElement::FirstLine,
             "grammererror" => PseudoElement::GrammerError,
             "highlight" => parse_arguments(input, function, |i| {
-                Ok(PseudoElement::Highlight(i.expect_ident()?.to_string()))
+                Ok(PseudoElement::Highlight(interned!(i
+                    .expect_ident()?
+                    .as_ref())))
             })?,
             "marker" => PseudoElement::Marker,
             "part" => parse_arguments(input, function, |i| {
-                let value = i.expect_ident()?;
-                Ok(PseudoElement::Part(value.to_string()))
+                Ok(PseudoElement::Part(interned!(i.expect_ident()?.as_ref())))
             })?,
             "placeholder" => PseudoElement::Placeholder,
             "selection" => PseudoElement::Selection,
@@ -554,9 +570,7 @@ impl<'i, 't> PseudoElement {
             "viewtransitionimagepair" => PseudoElement::ViewTransitionImagePair,
             "viewtransitionnew" => PseudoElement::ViewTransitionNew,
             "viewtransitionold" => PseudoElement::ViewTransitionOld,
-            _ => {
-                return Err(input.new_custom_error(StyleParseError::UnkownPseudoElement))
-            }
+            _ => return Err(input.new_custom_error(StyleParseError::UnkownPseudoElement)),
         })
     }
 }
@@ -565,6 +579,7 @@ impl<'i, 't> PseudoElement {
 mod test {
     use cssparser::{Parser, ParserInput};
 
+    use crate::parser::selector::compound::Selector;
     use crate::parser::{
         selector::{CompoundSelector, Nth, Parity},
         Parse,
@@ -622,10 +637,7 @@ mod test {
                 == Nth::Functional {
                     step: 2,
                     offset: 0,
-                    of: Some(CompoundSelector {
-                        tag: Some("p".into()),
-                        ..Default::default()
-                    })
+                    of: Some(CompoundSelector(vec![Selector::Tag("p"),])),
                 }
         );
     }

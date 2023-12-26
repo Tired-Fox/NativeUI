@@ -14,6 +14,8 @@ pub enum StyleParseError {
     InvalidHexFormat,
     InvalidArgument,
     ExpectedZero,
+    InvalidSelector(&'static str),
+    ExpectedSelector,
     Expected(&'static str),
     RangeAllowedItems{min: usize, max: usize},
     ExpectedKeyword(&'static str),

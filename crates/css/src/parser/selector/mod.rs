@@ -1,17 +1,27 @@
+use std::{cmp::max, fmt::{Debug, Display, Formatter}};
+
+use cssparser::{Delimiter, ParseError, Parser, ParserInput, Token};
+
+pub use attribute::{AttributeSelector, Matcher};
+pub use compound::CompoundSelector;
+pub use pseudo::{Direction, Nth, Parity, PseudoClass, PseudoElement};
+
+use crate::parser::error::StyleParseError;
+use crate::parser::Parse;
+use crate::parser::selector::combinator::Combinator;
+use crate::parser::selector::compound::Selector;
+
 mod attribute;
 mod combinator;
 mod compound;
 mod pseudo;
 
-use crate::parser::selector::combinator::Combinator;
-use crate::parser::error::StyleParseError;
-use crate::parser::Parse;
-use cssparser::{Delimiter, ParseError, ParseErrorKind, Parser, Token, ParserInput};
-use std::{fmt::{Debug, Display, Formatter}, slice::Iter, vec::IntoIter, iter::StepBy, cmp::{min, max}};
-
-pub use attribute::{AttributeSelector, Matcher};
-pub use compound::CompoundSelector;
-pub use pseudo::{Direction, Nth, Parity, PseudoClass, PseudoElement};
+#[macro_export]
+macro_rules! interned {
+    ($value: expr) => {
+        ustr::Ustr::from($value).as_str()
+    };
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ComplexSelector {
@@ -189,11 +199,11 @@ impl<'i, 't> SelectorList {
     }
 }
 
-fn cmp_exists<T: PartialEq>(exists: Option<T>, other: Option<T>) -> bool {
-    if exists.is_some() {
+fn cmp_exists<T: PartialEq>(exists: Option<T>, other: T) -> bool {
+    if let Some(exists) = exists {
         return exists == other
     }
-    true
+    false
 }
 
 pub trait SelectorCompare {
@@ -210,20 +220,33 @@ pub trait SelectorCompare {
 
     fn matches(&self, other: &CompoundSelector) -> bool {
         let uclasses = self.get_classes();
-        cmp_exists(other.tag.as_deref(), self.get_tag())
-            && cmp_exists(other.id.as_deref(), self.get_id())
-            && other.classes.iter().all(|c| uclasses.contains(&c.as_ref()))
-            && other.attributes.iter().all(
-                |AttributeSelector {
-                     name,
-                     matcher,
-                     expects,
-                     insensitive,
-                 }| {
-                    let attr = self.get_attribute(name.as_ref());
-                    matcher.matches(expects.as_ref(), attr, *insensitive)
+
+        for selector in other.0.iter() {
+            match selector {
+                Selector::Id(id) => {
+                    if !cmp_exists(self.get_id(), id) {
+                        return false;
+                    }
                 },
-            )
+                Selector::Class(class) => {
+                    if !uclasses.contains(class) {
+                        return false;
+                    }
+                },
+                Selector::Attribute(AttributeSelector { name, matcher, expects, insensitive}) => {
+                    if !matcher.matches(expects.as_ref(), self.get_attribute(name.as_ref()), *insensitive) {
+                        return false;
+                    }
+                },
+                Selector::Tag(tag) => {
+                    if !cmp_exists(self.get_tag(), tag) {
+                        return false;
+                    }
+                },
+                _ => {}
+            }
+        }
+        true
     }
 }
 
@@ -255,19 +278,20 @@ pub fn get_nth<'i, N: SelectorCompare, T: IntoIterator<Item = &'i N>>(source: T,
 mod test {
     use std::collections::HashMap;
 
-    use cssparser::{ParserInput, Parser};
+    use cssparser::{Parser, ParserInput};
 
-    use crate::parser::{selector::{ComplexSelector, combinator::Combinator, CompoundSelector, SelectorList}, Parse};
+    use crate::parser::{Parse, selector::{combinator::Combinator, ComplexSelector, CompoundSelector, SelectorList}};
+    use crate::parser::selector::compound::Selector;
 
-    use super::{RelativeSelector, get_nth, SelectorCompare, Nth, Parity};
+    use super::{get_nth, Nth, Parity, RelativeSelector, SelectorCompare};
 
     #[test]
     fn relative_from_string() {
         let expected = RelativeSelector { parts: vec![
             ComplexSelector::Combinator(Combinator::Descendant),
-            ComplexSelector::Compound(CompoundSelector { tag: Some("p".into()), ..Default::default() }),
+            ComplexSelector::Compound(CompoundSelector(vec![Selector::Tag("p")])),
             ComplexSelector::Combinator(Combinator::Child),
-            ComplexSelector::Compound(CompoundSelector { tag: Some("a".into()), ..Default::default() }),
+            ComplexSelector::Compound(CompoundSelector(vec![Selector::Tag("a")])),
         ] };
 
         let slice = RelativeSelector::from("p > a");
@@ -282,9 +306,9 @@ mod test {
     fn parse_relative_selector() {
         let expected = RelativeSelector { parts: vec![
             ComplexSelector::Combinator(Combinator::Descendant),
-            ComplexSelector::Compound(CompoundSelector { tag: Some("p".into()), ..Default::default() }),
+            ComplexSelector::Compound(CompoundSelector(vec![Selector::Tag("p")])),
             ComplexSelector::Combinator(Combinator::Child),
-            ComplexSelector::Compound(CompoundSelector { tag: Some("a".into()), ..Default::default() }),
+            ComplexSelector::Compound(CompoundSelector(vec![Selector::Tag("a")])),
         ] };
 
         let src = "p > a";
@@ -299,9 +323,9 @@ mod test {
     fn parse_forgiving_selector_list() {
         let expected = RelativeSelector { parts: vec![
             ComplexSelector::Combinator(Combinator::Descendant),
-            ComplexSelector::Compound(CompoundSelector { tag: Some("p".into()), ..Default::default() }),
+            ComplexSelector::Compound(CompoundSelector(vec![Selector::Tag("p")])),
             ComplexSelector::Combinator(Combinator::Child),
-            ComplexSelector::Compound(CompoundSelector { tag: Some("a".into()), ..Default::default() }),
+            ComplexSelector::Compound(CompoundSelector(vec![Selector::Tag("a")])),
         ] };
 
         let src = "p > a , :pseudo-invalid";
@@ -378,8 +402,8 @@ mod test {
         let odd = Nth::Parity(Parity::Odd);
         let even = Nth::Parity(Parity::Even);
         let custom = Nth::Functional { step: 3, offset: 2, of: None };
-        let custom_of_div = Nth::Functional { step: 2, offset: 1, of: Some(CompoundSelector { tag: Some("div".into()), ..Default::default() }) };
-        let first_three = Nth::Functional { step: -1, offset: 3, of: Some(CompoundSelector { tag: Some("div".into()), ..Default::default() }) };
+        let custom_of_div = Nth::Functional { step: 2, offset: 1, of: Some(CompoundSelector(vec![Selector::Tag("div".into())])) };
+        let first_three = Nth::Functional { step: -1, offset: 3, of: Some(CompoundSelector(vec![Selector::Tag("div".into())])) };
 
         let odds = get_nth(&source, &odd);
         assert!(odds.len() == 5);

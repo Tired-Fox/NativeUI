@@ -23,8 +23,9 @@
 //! ```
 //!
 //! Goal Strict Typing and Objects
+use cssparser::{ParseError, Parser};
+
 use error::StyleParseError;
-use cssparser::{ParseError, Parser, ParseErrorKind};
 
 mod at_rule;
 mod nested;

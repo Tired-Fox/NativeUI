@@ -1,5 +1,8 @@
+use std::{cell::RefCell, sync::{Arc, RwLockWriteGuard}};
+
 use keyboard::KeyboardEvent;
 use mouse::MouseEvent;
+use crate::event::mouse::MouseEventType;
 
 pub mod keyboard;
 pub mod mouse;
@@ -21,19 +24,6 @@ impl IntoEventResult for bool {
 }
 
 #[derive(Debug, Clone)]
-pub enum InputEvent {
-    // Bit 30 == 1 when repeating key / held down
-    Keyboard(KeyboardEvent),
-    Mouse(MouseEvent),
-}
-
-impl InputEvent {
-    pub fn message(m: u32) -> bool {
-        keyboard::KeyboardEvent::message(m) || mouse::MouseEvent::message(m)
-    }
-}
-
-#[derive(Debug, Clone)]
 pub struct PaintEvent {
     pub handle: isize,
 }
@@ -42,30 +32,8 @@ pub struct PaintEvent {
 pub enum Event {
     Close,
     Repaint,
-    Input(InputEvent),
-}
-
-impl Event {
-    pub fn keyboard(&self) -> Option<&KeyboardEvent> {
-        match self {
-            Event::Input(InputEvent::Keyboard(ke)) => Some(ke),
-            _ => None,
-        }
-    }
-
-    pub fn input(&self) -> Option<&InputEvent> {
-        match self {
-            Event::Input(ie) => Some(ie),
-            _ => None,
-        }
-    }
-
-    pub fn mouse(&self) -> Option<&MouseEvent> {
-        match self {
-            Event::Input(InputEvent::Mouse(me)) => Some(me),
-            _ => None,
-        }
-    }
+    Keyboard(KeyboardEvent),
+    Mouse(MouseEvent),
 }
 
 pub trait IntoEvent {
@@ -91,7 +59,21 @@ pub fn quit(code: i32) {
     std::process::exit(code);
 }
 
-pub fn run<R: IntoEventResult, F: Fn(isize, Event) -> R + 'static + Sync + Send>(callback: F) {
+pub fn run<R, F>(callback: F) 
+where
+    R: IntoEventResult,
+    F: Fn(isize, Event, ()) -> R + 'static + Sync + Send,
+{
     #[cfg(target_os = "windows")]
-    crate::windows::event::run(callback);
+    crate::windows::event::run((), callback);
+}
+
+pub fn run_with_state<R, F, T>(state: T, callback: F) 
+where
+    R: IntoEventResult,
+    F: Fn(isize, Event, T) -> R + 'static + Sync + Send,
+    T: Clone + Send + Sync + 'static
+{
+    #[cfg(target_os = "windows")]
+    crate::windows::event::run(state, callback);
 }

@@ -7,12 +7,12 @@ use windows::Win32::Graphics::Gdi::{CreateSolidBrush, FillRect, HDC};
 use windows::Win32::UI::WindowsAndMessaging::{
     DefWindowProcW, DestroyWindow, DispatchMessageW, GetClientRect, GetMessageW, GetWindowLongPtrW,
     PostQuitMessage, SetWindowLongPtrW, CREATESTRUCTW, GWLP_USERDATA, MSG, WM_CLOSE, WM_CREATE,
-    WM_DESTROY, WM_ERASEBKGND, WM_PAINT,
+    WM_DESTROY, WM_ERASEBKGND, WM_PAINT, WM_CHAR, TranslateMessage,
 };
 
 use crate::event::keyboard::KeyboardEvent;
 use crate::event::mouse::MouseEvent;
-use crate::event::{keyboard, mouse, Event, InputEvent, IntoEventResult};
+use crate::event::{keyboard, mouse, Event, IntoEventResult};
 use crate::style::{Background, Theme};
 use crate::window::WindowOptions;
 use crate::windows::{is_dark_mode, swap_rb};
@@ -41,42 +41,51 @@ thread_local! {
     static HANDLER: RefCell<Handler> = RefCell::new(Handler::default());
 }
 
-/// Converts (u32, usize, isize) to InputEvent
-/// Message
-/// wparam
-/// lparam
-impl From<(u32, WPARAM, LPARAM)> for InputEvent {
+/// Converts (u32, usize, isize) to Event
+impl From<(u32, WPARAM, LPARAM)> for Event {
     fn from(v: (u32, WPARAM, LPARAM)) -> Self {
         match v.0 {
-            _ if keyboard::KeyboardEvent::message(v.0) => {
-                InputEvent::Keyboard(KeyboardEvent::from(v))
-            }
-            _ if mouse::MouseEvent::message(v.0) => InputEvent::Mouse(MouseEvent::from(v)),
-            _ => panic!("Unknown keyboard event message: {}", v.0),
+            _ if keyboard::KeyboardEvent::message(v.0) => Event::Keyboard(KeyboardEvent::from(v)),
+            _ if mouse::MouseEvent::message(v.0) => Event::Mouse(MouseEvent::from(v)),
+            _ => panic!("Unknown event message: {}", v.0),
         }
     }
 }
 
-pub fn run<R: IntoEventResult, F: (Fn(isize, Event) -> R) + 'static + Sync + Send>(callback: F) {
+fn input_message(message: u32) -> bool {
+    KeyboardEvent::message(message) || MouseEvent::message(message)
+}
+
+pub fn run<R, F, T>(state: T, callback: F)
+where
+    R: IntoEventResult,
+    F: (Fn(isize, Event, T) -> R) + 'static + Sync + Send,
+    T: Clone + Send + Sync + 'static,
+{
     let mut message = MSG::default();
-    HANDLER.with(|handler| {
+    let state = state;
+
+    HANDLER.with(move |handler| {
         handler.borrow_mut().set_handler(
             move |hwnd: HWND, message: u32, wparam: WPARAM, lparam: LPARAM| match message {
-                _ if InputEvent::message(message) => {
+                _ if input_message(message) => {
+                    unsafe { DefWindowProcW(hwnd, message, wparam, lparam) };
                     callback(
                         hwnd.0,
-                        Event::Input(InputEvent::from((message, wparam, lparam))),
+                        Event::from((message, wparam, lparam)),
+                        state.clone(),
                     );
                 }
                 WM_CLOSE => {
-                    let result = callback(hwnd.0, Event::Close).into_event_result();
+                    let result =
+                        { callback(hwnd.0, Event::Close, state.clone()).into_event_result() };
                     if result {
                         let _ = unsafe { DestroyWindow(hwnd) };
                     }
                 }
                 WM_PAINT => {
                     unsafe { DefWindowProcW(hwnd, message, wparam, lparam) };
-                    callback(hwnd.0, Event::Repaint);
+                    callback(hwnd.0, Event::Repaint, state.clone());
                 }
                 _ => {}
             },
@@ -84,7 +93,9 @@ pub fn run<R: IntoEventResult, F: (Fn(isize, Event) -> R) + 'static + Sync + Sen
     });
 
     while unsafe { GetMessageW(&mut message, None, 0, 0) }.into() {
-        unsafe { DispatchMessageW(&message) };
+        unsafe { 
+            DispatchMessageW(&message) 
+        };
     }
 }
 

@@ -1,7 +1,9 @@
 use std::fmt::{Display, Formatter};
-use cssparser::{ParseError, ParseErrorKind, Parser, Token};
-use crate::parser::Parse;
+
+use cssparser::{ParseError, Parser, Token};
+
 use crate::parser::error::StyleParseError;
+use crate::parser::Parse;
 
 #[derive(Default, Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum Combinator {
@@ -61,7 +63,7 @@ impl Parse for Combinator {
 
 #[cfg(test)]
 mod test {
-    use cssparser::{ParserInput, Parser};
+    use cssparser::{Parser, ParserInput};
 
     use crate::parser::Parse;
 

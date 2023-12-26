@@ -24,7 +24,7 @@ impl Display for QualifiedRule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let declarations = if !self.declarations.is_empty() {
             format!(
-                "    {}",
+                "\n    {}",
                 self.declarations
                     .iter()
                     .map(|v| v.to_string())
@@ -37,7 +37,7 @@ impl Display for QualifiedRule {
 
         let rules = if !self.rules.is_empty() {
             format!(
-                "    {}",
+                "\n    {}",
                 self.rules
                     .iter()
                     .map(|v| v.to_string())
@@ -48,7 +48,7 @@ impl Display for QualifiedRule {
             String::new()
         };
 
-        write!(f, "{} {{\n{}{}\n}}", self.selectors, declarations, rules)
+        write!(f, "{} {{{}{}\n}}", self.selectors, declarations, rules)
     }
 }
 

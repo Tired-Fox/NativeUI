@@ -1,11 +1,14 @@
+use std::fmt::{Display, Formatter};
+
+use cssparser::{ParseError, Parser, Token};
+use crate::interned;
+
 use crate::parser::error::StyleParseError;
 use crate::parser::Parse;
-use cssparser::{ParseError, ParseErrorKind, Parser, Token};
-use std::fmt::{Display, Formatter};
 
 #[derive(Default, Debug, PartialEq, Clone)]
 pub struct AttributeSelector {
-    pub name: String,
+    pub name: &'static str,
     pub expects: Option<String>,
     pub matcher: Matcher,
     pub insensitive: bool,
@@ -38,7 +41,7 @@ impl Parse for AttributeSelector {
     fn parse<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, StyleParseError>> {
         input.parse_nested_block(|i| {
             let mut attribute = AttributeSelector::default();
-            attribute.name = i.expect_ident()?.to_string();
+            attribute.name = interned!(i.expect_ident()?.as_ref());
 
             loop {
                 let next = i.next();
@@ -163,8 +166,8 @@ mod test {
     use cssparser::{Parser, ParserInput};
 
     use crate::parser::{
-        selector::{AttributeSelector, Matcher},
         Parse,
+        selector::{AttributeSelector, Matcher},
     };
 
     #[test]

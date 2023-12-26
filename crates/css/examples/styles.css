@@ -13,6 +13,12 @@ div.some-class#of-pop:where(p > a, :pseudo-invalid) {
     align-items: flex-end;
 }
 
+.ol {
+    p&.black[data-value] {
+        color: black;
+    }
+}
+
 .color {
     color: unset;
 
