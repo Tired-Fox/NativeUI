@@ -6,6 +6,8 @@
 
 # NativeUI 
 
+This project is now archived as it is now being developed under [Story Tree](https://github.com/StoryTreeGames/native)
+
 <!-- Header Badges -->
 
 <div align="center">
