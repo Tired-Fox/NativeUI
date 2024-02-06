@@ -4,9 +4,10 @@
 
 </div>
 
-# NativeUI 
 
-This project is now archived as it is now being developed under [Story Tree](https://github.com/StoryTreeGames/native)
+## :warning: This project is now archived as it is now being developed under [Story Tree](https://github.com/StoryTreeGames/native) :warning:
+
+# NativeUI 
 
 <!-- Header Badges -->
 
